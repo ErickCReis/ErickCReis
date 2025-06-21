@@ -1,0 +1,22 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.0.4/schema.json",
+	"root": false,
+	"extends": "//",
+	"overrides": [
+		{
+			"includes": ["**/*.astro"],
+			"linter": {
+				"rules": {
+					"style": {
+						"useConst": "off",
+						"useImportType": "off"
+					},
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					}
+				}
+			}
+		}
+	]
+}
