@@ -1,5 +1,5 @@
 {
-	"[javascript][typescript][typescriptreact][json][jsonc][yaml][astro]": {
-		"editor.defaultFormatter": "biomejs.biome"
-	}
+  "[javascript][typescript][typescriptreact][json][jsonc][yaml][astro]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  }
 }
