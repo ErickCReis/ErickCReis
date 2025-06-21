@@ -9,17 +9,11 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["./src/*"]
-          },
+    },
     "outDir": "./dist",
-    "types": [
-      "./worker-configuration",
-      "node"
-    ],
+    "types": ["@cloudflare/workers-types", "./env.d.ts"],
     "composite": true,
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx"
-  },
-  "tsc-alias": {
-    "resolveFullPaths": true
   }
 }

@@ -1,8 +1,8 @@
 import type { Context as HonoContext } from "hono";
-import { auth } from "./auth";
+import { auth } from "@/lib/auth";
 
 export type CreateContextOptions = {
-  context: HonoContext;
+  context: HonoContext<{ Bindings: Env }>;
 };
 
 export async function createContext({ context }: CreateContextOptions) {
@@ -11,8 +11,8 @@ export async function createContext({ context }: CreateContextOptions) {
   });
   return {
     session,
+    db: context.env.DB,
   };
 }
-
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
