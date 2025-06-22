@@ -1,15 +1,23 @@
 {
-  "name": "server",
+  "name": "@ErickCReis/server",
+  "version": "0.0.1",
   "main": "src/index.ts",
   "type": "module",
+  "exports": {
+    "./router": {
+      "types": "./dist/src/routers/index.d.ts",
+      "default": "./src/routers/index.ts"
+    }
+  },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "build": "tsc",
     "dev": "wrangler dev --port=3000",
     "deploy": "bun run alchemy.run.ts",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:push": "bun run --bun drizzle-kit push",
+    "db:studio": "bun run --bun drizzle-kit studio",
+    "db:generate": "bun run --bun drizzle-kit generate",
+    "db:migrate": "bun run --bun drizzle-kit migrate"
   },
   "dependencies": {
     "@orpc/client": "^1.5.0",

@@ -15,7 +15,7 @@ export const worker = await Worker("erickcreis-server", {
     DB: db,
     BETTER_AUTH_SECRET: alchemy.secret(process.env.BETTER_AUTH_SECRET).name,
     BETTER_AUTH_URL: "http://localhost:3000",
-    CORS_ORIGIN: "http://localhost:3001",
+    CORS_ORIGIN: "http://localhost:4321",
   },
 });
 

@@ -2,6 +2,3 @@ node_modules
 .alchemy
 .wrangler
 wrangler.jsonc
-
-.env*
-!.env.example

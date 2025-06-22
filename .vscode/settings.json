@@ -1,5 +1,11 @@
 {
-  "[javascript][typescript][typescriptreact][json][jsonc][yaml][astro]": {
-    "editor.defaultFormatter": "biomejs.biome"
+  "[javascript][typescript][typescriptreact][json][jsonc][yaml]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit"
+    }
+  },
+  "[astro]": {
+    "editor.defaultFormatter": "astro-build.astro-vscode"
   }
 }
