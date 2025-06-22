@@ -28,6 +28,10 @@ import Main from "@/layouts/main.astro";
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
 
-        authClient.signIn.email({ email, password, callbackURL: "/" });
+        authClient.signIn.email({
+            email,
+            password,
+            callbackURL: "/ErickCReis/",
+        });
     });
 </script>

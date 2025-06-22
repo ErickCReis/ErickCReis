@@ -10,7 +10,6 @@
     }
   },
   "scripts": {
-    "check-types": "tsc --noEmit",
     "build": "tsc",
     "dev": "wrangler dev --port=3000",
     "deploy": "bun run alchemy.run.ts",
