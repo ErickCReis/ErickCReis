@@ -36,8 +36,11 @@ app.use("/rpc/*", async (c, next) => {
   await next();
 });
 
-app.get("/", (c) => {
-  return c.text("OK");
+app.get("/cursor-position", (c) => {
+  const id = c.env.CURSOR_POSITION.idFromName(new URL(c.req.raw.url).pathname);
+  return c.env.CURSOR_POSITION.get(id).fetch(c.req.raw);
 });
 
 export default app;
+
+export { CursorPosition } from "./cursor-position-do";

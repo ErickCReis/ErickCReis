@@ -9,16 +9,23 @@ import "@/styles/global.css";
 		<Button>Tailwind Button in Astro!</Button>
 		<p id="health-check">Health Check: loading...</p>
 		<p id="user">User: loading...</p>
+		<pre id="user-json"></pre>
 	</div>
 </Main>
 
 <script>
+	import { authClient } from "@/lib/auth-client";
 	import { client } from "@/lib/orpc";
 
 	const healthCheck = document.getElementById("health-check")!;
-	client.healthCheck().then((response) => {
-		healthCheck.textContent = `Health Check: ${response}`;
-	});
+	client
+		.healthCheck()
+		.then((response) => {
+			healthCheck.textContent = `Health Check: ${response}`;
+		})
+		.catch((error) => {
+			healthCheck.textContent = `Health Check: ${error}`;
+		});
 
 	const user = document.getElementById("user")!;
 	client
@@ -28,5 +35,15 @@ import "@/styles/global.css";
 		})
 		.catch((error) => {
 			user.textContent = `User: ${error}`;
+		});
+
+	const userJson = document.getElementById("user-json")!;
+	authClient
+		.getSession()
+		.then((session) => {
+			userJson.textContent = JSON.stringify(session, null, 2);
+		})
+		.catch((error) => {
+			userJson.textContent = `User: ${error}`;
 		});
 </script>
