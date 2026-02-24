@@ -162,7 +162,7 @@ export const app = new Elysia()
         const send = () => {
           try {
             const data = JSON.stringify(latestStats);
-            controller.enqueue(`data: ${data}\n\n`);
+            controller.enqueue(data);
           } catch {
             if (interval) {
               clearInterval(interval);
