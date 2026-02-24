@@ -1,4 +1,5 @@
-import { app, startStatsSampler } from "./app";
+import { app } from "./app";
+import { startStatsSampler } from "./stats";
 
 const port = Number(process.env.PORT ?? "3000");
 

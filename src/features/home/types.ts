@@ -1,4 +1,4 @@
-import type { CursorPayload } from "@/lib/eden";
+import type { CursorPayload } from "@/lib/api";
 
 export type ServerStats = {
   timestamp: string;

@@ -1,11 +1,4 @@
-jsx = "react-jsx"
 preload = ["./bunPreload.ts"]
 
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
-
-[test]
-coverage = true
-coverageSkipTestFiles = true
-coverageReporter = ["text", "lcov"]
-coverageDir = "coverage"

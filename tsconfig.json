@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*", "build.ts", "bunPreload.ts", "content-sync.ts", "content.config.ts"],
+  "include": ["src/**/*", "build.ts", "bunPreload.ts", "content.config.ts", ".content/**/*"],
   "exclude": ["dist", "node_modules"],
   "compilerOptions": {
     "baseUrl": ".",

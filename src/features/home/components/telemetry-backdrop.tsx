@@ -1,15 +1,25 @@
-import { clamp, createFloatingMotion, type FloatingMotion, getFloatingBounds } from "@/features/home/lib/motion";
-import type { TelemetryPanel } from "@/features/home/types";
+import {
+  clamp,
+  createFloatingMotion,
+  type FloatingMotion,
+  getFloatingBounds,
+} from "@/features/home/lib/motion";
 import { cn } from "@/lib/utils";
 import { Line, LineChart, ResponsiveContainer } from "recharts";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, use, useEffect, useMemo, useRef, useState } from "react";
+import { getServerStatsHistory } from "@/lib/api";
+import { useServerPulse } from "@/features/home/hooks/use-server-pulse";
 
 type TelemetryBackdropProps = {
-  panels: TelemetryPanel[];
   onStatsHoverChange?: (isHovering: boolean) => void;
 };
 
-export function TelemetryBackdrop({ panels, onStatsHoverChange }: TelemetryBackdropProps) {
+const serverStatsPromise = getServerStatsHistory();
+
+export function TelemetryBackdrop({ onStatsHoverChange }: TelemetryBackdropProps) {
+  const history = use(serverStatsPromise);
+  const { panels } = useServerPulse(history);
+
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const panelIdsKey = useMemo(() => panels.map((panel) => panel.id).join("|"), [panels]);
   const stablePanelIds = useMemo(() => panelIdsKey.split("|").filter(Boolean), [panelIdsKey]);
@@ -27,26 +37,29 @@ export function TelemetryBackdrop({ panels, onStatsHoverChange }: TelemetryBackd
   useEffect(() => {
     const bounds = getFloatingBounds(window.innerWidth, window.innerHeight);
 
-    motionByIdRef.current = stablePanelIds.reduce<Record<string, FloatingMotion>>((next, panelId) => {
-      const previous = motionByIdRef.current[panelId];
-      if (previous) {
-        next[panelId] = {
-          ...previous,
-          x: clamp(previous.x, bounds.minX, bounds.maxX),
-          y: clamp(previous.y, bounds.minY, bounds.maxY),
-        };
-      } else {
-        next[panelId] = createFloatingMotion(bounds);
-      }
+    motionByIdRef.current = stablePanelIds.reduce<Record<string, FloatingMotion>>(
+      (next, panelId) => {
+        const previous = motionByIdRef.current[panelId];
+        if (previous) {
+          next[panelId] = {
+            ...previous,
+            x: clamp(previous.x, bounds.minX, bounds.maxX),
+            y: clamp(previous.y, bounds.minY, bounds.maxY),
+          };
+        } else {
+          next[panelId] = createFloatingMotion(bounds);
+        }
 
-      const panelElement = panelRefs.current[panelId];
-      if (panelElement) {
-        panelElement.style.left = `${next[panelId].x}px`;
-        panelElement.style.top = `${next[panelId].y}px`;
-      }
+        const panelElement = panelRefs.current[panelId];
+        if (panelElement) {
+          panelElement.style.left = `${next[panelId].x}px`;
+          panelElement.style.top = `${next[panelId].y}px`;
+        }
 
-      return next;
-    }, {});
+        return next;
+      },
+      {},
+    );
 
     const nextHovered: Record<string, boolean> = {};
     for (const panelId of stablePanelIds) {
@@ -259,7 +272,10 @@ export function TelemetryBackdrop({ panels, onStatsHoverChange }: TelemetryBackd
                 </p>
                 <div className="mt-2 h-12 w-full opacity-75">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={panel.points} margin={{ top: 4, right: 2, left: 2, bottom: 2 }}>
+                    <LineChart
+                      data={panel.points}
+                      margin={{ top: 4, right: 2, left: 2, bottom: 2 }}
+                    >
                       <Line
                         dataKey="value"
                         type="monotone"
@@ -354,7 +370,9 @@ export function TelemetryBackdrop({ panels, onStatsHoverChange }: TelemetryBackd
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{activeMobilePanel.hint}</p>
+          <p className="mt-1 text-[0.59rem] leading-snug text-slate-300/56">
+            {activeMobilePanel.hint}
+          </p>
           <dl className="mt-2 flex flex-col gap-1">
             {activeMobilePanel.details.map((detail) => (
               <div

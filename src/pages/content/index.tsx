@@ -1,5 +1,6 @@
-import { ContentPage } from "@/features/content";
+import { ContentPage } from "@/features/content/content-page";
 import { createRoot } from "react-dom/client";
+
 import "../site.css";
 
 const app = document.getElementById("app");

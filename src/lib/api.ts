@@ -8,29 +8,9 @@ export type CursorPayload = {
   color?: string;
 };
 
-const baseUrl = typeof window === "undefined" ? "http://localhost:3000" : window.location.origin;
-const client = treaty<App>(baseUrl);
-type StatsStreamEvent = {
-  event?: string;
-  data: ServerStatsPayload;
-};
+const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
 
-export type ServerStatsPayload = {
-  timestamp: string;
-  uptimeSeconds: number;
-  memoryRssMb: number;
-  memoryHeapUsedMb: number;
-  memoryHeapTotalMb: number;
-  systemMemoryTotalMb: number;
-  systemMemoryFreeMb: number;
-  systemMemoryUsedPercent: number;
-  cpuCount: number;
-  cpuUsagePercent: number;
-  loadAverage: [number, number, number];
-  pendingRequests: number;
-  pendingWebSockets: number;
-  cursorSubscribers: number;
-};
+const client = treaty<App>(baseUrl);
 
 let socket: ReturnType<typeof client.api.live.subscribe> | null = null;
 const listeners = new Set<(payload: CursorPayload) => void>();
@@ -95,24 +75,20 @@ export function publishCursor(payload: CursorPayload) {
   getSocket().send(payload);
 }
 
+type ServerStatsPayload = Awaited<
+  ReturnType<NonNullable<Awaited<ReturnType<typeof client.api.stats.stream.get>>["data"]>["next"]>
+>["value"]["data"];
+
 export async function subscribeServerStats(
   onPayload: (payload: ServerStatsPayload) => void,
   signal?: AbortSignal,
 ) {
-  const options = signal
-    ? {
-        fetch: {
-          signal,
-        },
-      }
-    : undefined;
-  const { data, error } = await client.api.stats.stream.get(options);
-
+  const { data, error } = await client.api.stats.stream.get({ fetch: { signal } });
   if (error || !data) {
     throw new Error("Failed to subscribe to server stats stream");
   }
 
-  for await (const chunk of data as unknown as AsyncIterable<StatsStreamEvent>) {
+  for await (const chunk of data) {
     if (chunk.event !== "stats") {
       continue;
     }
@@ -121,14 +97,20 @@ export async function subscribeServerStats(
   }
 }
 
+export async function getServerStatsHistory() {
+  const { data, error } = await client.api.stats.history.get();
+  if (error || !data) {
+    throw new Error("Failed to fetch server stats history");
+  }
+
+  return data;
+}
+
 export async function getBlogPosts() {
   const { data, error } = await client.api.blog.get();
-
   if (error || !data) {
     throw new Error("Failed to fetch blog posts");
   }
 
   return data;
 }
-
-export type BlogPost = Awaited<ReturnType<typeof getBlogPosts>>[number];

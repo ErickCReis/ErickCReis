@@ -1,12 +1,11 @@
+import { Suspense, useState } from "react";
+
 import { ContentHeader } from "@/features/content/components/content-header";
 import { PostList } from "@/features/content/components/post-list";
-import { useBlogPosts } from "@/features/content/hooks/use-blog-posts";
 import { TelemetryBackdrop } from "@/features/home/components/telemetry-backdrop";
 import { useServerPulse } from "@/features/home/hooks/use-server-pulse";
-import { useState } from "react";
 
 export function ContentPage() {
-  const posts = useBlogPosts();
   const { panels } = useServerPulse([]);
   const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = useState(true);
 
@@ -22,7 +21,9 @@ export function ContentPage() {
               setIsStatsBackdropEnabled((previous) => !previous);
             }}
           />
-          <PostList posts={posts} />
+          <Suspense fallback={null}>
+            <PostList />
+          </Suspense>
         </section>
       </main>
     </>

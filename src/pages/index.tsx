@@ -1,4 +1,9 @@
-import { mountHomePage } from "@/features/home";
+import { HomePage } from "@/features/home/home-page";
+import { createRoot } from "react-dom/client";
+
 import "./site.css";
 
-mountHomePage();
+const app = document.getElementById("app");
+if (app) {
+  createRoot(app).render(<HomePage />);
+}

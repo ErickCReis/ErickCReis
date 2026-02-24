@@ -1,10 +1,6 @@
-import type { BlogPost } from "@/lib/eden";
+import { getBlogPosts } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
-
-type PostListProps = {
-  posts: BlogPost[];
-};
+import { use, useEffect, useRef, useState } from "react";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
@@ -21,7 +17,10 @@ function formatPublishedDate(value: string) {
   return dateFormatter.format(date);
 }
 
-export function PostList({ posts }: PostListProps) {
+const getBlogPostsPromise = getBlogPosts();
+
+export function PostList() {
+  const posts = use(getBlogPostsPromise);
   const [openSlug, setOpenSlug] = useState<string | null>(posts[0]?.slug ?? null);
   const hasAutoOpenedRef = useRef(false);
 
@@ -57,7 +56,9 @@ export function PostList({ posts }: PostListProps) {
                 }}
                 className="flex w-full items-center justify-between gap-4 text-left"
               >
-                <span className="font-serif text-2xl leading-tight tracking-wide text-foreground">{post.title}</span>
+                <span className="font-serif text-2xl leading-tight tracking-wide text-foreground">
+                  {post.title}
+                </span>
                 <span
                   className={cn(
                     "font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase transition-colors",
@@ -76,7 +77,9 @@ export function PostList({ posts }: PostListProps) {
               )}
             >
               <div className="overflow-hidden">
-                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">{post.description}</p>
+                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                  {post.description}
+                </p>
                 <p className="mt-3 font-mono text-[0.62rem] tracking-[0.12em] text-muted-foreground uppercase">
                   {formatPublishedDate(post.date)}
                 </p>

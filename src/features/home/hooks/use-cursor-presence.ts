@@ -1,6 +1,6 @@
 import { pickColor } from "@/features/home/lib/cursor";
 import type { CursorState } from "@/features/home/types";
-import { publishCursor, subscribeCursor, type CursorPayload } from "@/lib/eden";
+import { publishCursor, subscribeCursor, type CursorPayload } from "@/lib/api";
 import { useEffect, useRef, useState } from "react";
 
 export function useCursorPresence() {
