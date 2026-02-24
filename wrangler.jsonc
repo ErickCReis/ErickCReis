@@ -1,0 +1,27 @@
+{
+  "name": "erickcreis-website-erickreis",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-01-20",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CURSOR_POSITION",
+        "class_name": "CursorPositionDO",
+        "script_name": "erickcreis-website-erickreis"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "CursorPositionDO"
+      ],
+      "new_classes": []
+    }
+  ]
+}
