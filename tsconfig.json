@@ -1,14 +1,20 @@
 {
-  "extends": "astro/tsconfigs/strict",
-  "include": [".astro/types.d.ts", "src/**/*"],
-  "exclude": ["dist"],
+  "include": ["src/**/*", "build.ts", "bunPreload.ts", "content-sync.ts", "content.config.ts"],
+  "exclude": ["dist", "node_modules"],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "content/*": ["./.content/*"]
     },
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "strict": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "types": ["astro/client", "bun"]
+    "jsxFactory": "h",
+    "types": ["bun"]
   }
 }

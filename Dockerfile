@@ -14,13 +14,8 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
-
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/src ./src
-COPY --from=build /app/tsconfig.json ./tsconfig.json
 
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+CMD ["bun", "--cwd", "./dist", "index.js"]
