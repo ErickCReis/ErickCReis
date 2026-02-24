@@ -10,6 +10,28 @@ export type CursorPayload = {
 
 const baseUrl = typeof window === "undefined" ? "http://localhost:3000" : window.location.origin;
 const client = treaty<App>(baseUrl);
+type StatsStreamEvent = {
+  event?: string;
+  data: ServerStatsPayload;
+};
+
+export type ServerStatsPayload = {
+  timestamp: string;
+  uptimeSeconds: number;
+  memoryRssMb: number;
+  memoryHeapUsedMb: number;
+  memoryHeapTotalMb: number;
+  systemMemoryTotalMb: number;
+  systemMemoryFreeMb: number;
+  systemMemoryUsedPercent: number;
+  cpuCount: number;
+  cpuUsagePercent: number;
+  loadAverage: [number, number, number];
+  pendingRequests: number;
+  pendingWebSockets: number;
+  cursorSubscribers: number;
+};
+
 let socket: ReturnType<typeof client.api.live.subscribe> | null = null;
 const listeners = new Set<(payload: CursorPayload) => void>();
 let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -71,6 +93,32 @@ export function subscribeCursor(onPayload: (payload: CursorPayload) => void) {
 
 export function publishCursor(payload: CursorPayload) {
   getSocket().send(payload);
+}
+
+export async function subscribeServerStats(
+  onPayload: (payload: ServerStatsPayload) => void,
+  signal?: AbortSignal,
+) {
+  const options = signal
+    ? {
+        fetch: {
+          signal,
+        },
+      }
+    : undefined;
+  const { data, error } = await client.api.stats.stream.get(options);
+
+  if (error || !data) {
+    throw new Error("Failed to subscribe to server stats stream");
+  }
+
+  for await (const chunk of data as unknown as AsyncIterable<StatsStreamEvent>) {
+    if (chunk.event !== "stats") {
+      continue;
+    }
+
+    onPayload(chunk.data);
+  }
 }
 
 export async function getBlogPosts() {

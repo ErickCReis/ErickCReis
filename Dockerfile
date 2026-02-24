@@ -13,6 +13,7 @@ FROM debian:bookworm-slim AS runtime
 WORKDIR /app/dist
 
 ENV NODE_ENV=production
+ENV PORT=3000
 
 COPY --from=build /app/dist/server ./server
 COPY --from=build /app/dist/pages ./pages

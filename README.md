@@ -12,7 +12,7 @@ Bun fullstack app with Bun routes, React frontend, Elysia/Eden websockets, Tailw
 - Bun bundler frontend entry (`src/pages/index.html`)
 - Elysia websocket endpoint (`/api/live`) + Eden Treaty client
 - Blog collection powered by [fuma-content](https://content.fuma-nama.dev/docs/bun) (`content/blog/*.mdx`)
-- Docker Compose deployment for VPS
+- Docker Compose production build/runtime
 
 ## Local Development
 
@@ -36,7 +36,7 @@ Run tests (Bun test runner with coverage enabled in `bunfig.toml`):
 bun run test
 ```
 
-## Production Run (without Docker)
+## Production Run
 
 Build the bundled server + frontend + executable:
 
@@ -57,9 +57,9 @@ Server binds to `0.0.0.0:${PORT:-3000}` and serves:
 - `/api/blog` (blog metadata from MDX collection)
 - frontend from Bun bundling
 
-## VPS Deployment with Docker Compose
+## Docker Production
 
-Build and start:
+Build and run the production image:
 
 ```bash
 docker compose up --build -d
@@ -69,16 +69,4 @@ Check health:
 
 ```bash
 curl http://localhost:3000/health
-```
-
-View logs:
-
-```bash
-docker compose logs -f app
-```
-
-Stop:
-
-```bash
-docker compose down
 ```

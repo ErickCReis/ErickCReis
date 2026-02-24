@@ -29,4 +29,25 @@ describe("server routes", () => {
     expect(typeof payload.pendingWebSockets).toBe("number");
     expect(typeof payload.cursorSubscribers).toBe("number");
   });
+
+  test("GET /api/stats/stream returns SSE payloads", async () => {
+    const response = await app.handle(new Request("http://localhost/api/stats/stream"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+
+    const reader = response.body?.getReader();
+    expect(reader).toBeTruthy();
+
+    const firstChunk = (await reader!.read()) as ReadableStreamReadResult<Uint8Array>;
+    const text =
+      typeof firstChunk.value === "string"
+        ? firstChunk.value
+        : new TextDecoder().decode(firstChunk.value);
+    expect(firstChunk.done).toBe(false);
+    expect(text).toContain("event: stats");
+    expect(text).toContain("data: ");
+
+    await reader?.cancel();
+  });
 });

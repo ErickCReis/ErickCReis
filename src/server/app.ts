@@ -1,16 +1,35 @@
 import os from "node:os";
 import { existsSync } from "node:fs";
+import path from "node:path";
 import { staticPlugin } from "@elysiajs/static";
-import { Elysia, t } from "elysia";
+import { Elysia, sse, t } from "elysia";
 import { blog } from "content/blog";
 
-const pageAssets = existsSync("./src/pages") ? "src/pages" : "pages";
+const isDevelopmentPages = existsSync("./src/pages");
+const pageAssets = isDevelopmentPages ? "src/pages" : "pages";
+const pageHtml = (relativePath: string) => Bun.file(path.resolve(pageAssets, relativePath));
 
 const cursorPayloadSchema = t.Object({
   id: t.String(),
   x: t.Number(),
   y: t.Number(),
   color: t.Optional(t.String()),
+});
+const serverStatsSchema = t.Object({
+  timestamp: t.String(),
+  uptimeSeconds: t.Number(),
+  memoryRssMb: t.Number(),
+  memoryHeapUsedMb: t.Number(),
+  memoryHeapTotalMb: t.Number(),
+  systemMemoryTotalMb: t.Number(),
+  systemMemoryFreeMb: t.Number(),
+  systemMemoryUsedPercent: t.Number(),
+  cpuCount: t.Number(),
+  cpuUsagePercent: t.Number(),
+  loadAverage: t.Tuple([t.Number(), t.Number(), t.Number()]),
+  pendingRequests: t.Number(),
+  pendingWebSockets: t.Number(),
+  cursorSubscribers: t.Number(),
 });
 
 type ServerStats = {
@@ -74,7 +93,7 @@ function getCpuUsagePercent() {
   return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
 }
 
-function sampleServerStats(server: Bun.Server): ServerStats {
+function sampleServerStats(server: Bun.Server<any>): ServerStats {
   const memory = process.memoryUsage();
   const toMb = (value: number) => Number((value / 1024 / 1024).toFixed(2));
   const systemMemoryTotalMb = toMb(os.totalmem());
@@ -101,7 +120,7 @@ function sampleServerStats(server: Bun.Server): ServerStats {
   };
 }
 
-function recordServerStatsSample(server: Bun.Server) {
+function recordServerStatsSample(server: Bun.Server<any>) {
   const nextSample = sampleServerStats(server);
   latestStats = nextSample;
   statsHistory.push(nextSample);
@@ -111,7 +130,7 @@ function recordServerStatsSample(server: Bun.Server) {
   }
 }
 
-export function startStatsSampler(server: Bun.Server) {
+export function startStatsSampler(server: Bun.Server<any>) {
   if (statsInterval) {
     return;
   }
@@ -122,12 +141,12 @@ export function startStatsSampler(server: Bun.Server) {
   }, STATS_SAMPLE_INTERVAL_MS);
 }
 
-export const app = new Elysia()
+const appBuilder = new Elysia()
   .use(
     await staticPlugin({
       assets: pageAssets,
       prefix: "/",
-      indexHTML: true,
+      indexHTML: isDevelopmentPages,
     }),
   )
   .get("/health", () => "ok")
@@ -142,43 +161,31 @@ export const app = new Elysia()
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
   })
-  .get("/api/stats", () => latestStats)
+  .get("/api/stats", () => latestStats, {
+    response: serverStatsSchema,
+  })
   .get("/api/stats/bootstrap", ({ set }) => {
     set.headers["cache-control"] = "no-store";
 
     return {
       history: statsHistory,
     };
+  }, {
+    response: t.Object({
+      history: t.Array(serverStatsSchema),
+    }),
   })
-  .get("/api/stats/stream", ({ set }) => {
-    set.headers["content-type"] = "text/event-stream";
-    set.headers["cache-control"] = "no-cache";
-    set.headers.connection = "keep-alive";
+  .get("/api/stats/stream", async function* ({ set }) {
+    set.headers["cache-control"] = "no-store";
 
-    let interval: ReturnType<typeof setInterval> | undefined;
+    while (true) {
+      yield sse({
+        event: "stats",
+        data: latestStats,
+      });
 
-    return new ReadableStream({
-      start(controller) {
-        const send = () => {
-          try {
-            const data = JSON.stringify(latestStats);
-            controller.enqueue(data);
-          } catch {
-            if (interval) {
-              clearInterval(interval);
-            }
-          }
-        };
-
-        send();
-        interval = setInterval(send, STATS_SAMPLE_INTERVAL_MS);
-      },
-      cancel() {
-        if (interval) {
-          clearInterval(interval);
-        }
-      },
-    });
+      await Bun.sleep(STATS_SAMPLE_INTERVAL_MS);
+    }
   })
   .ws("/api/live", {
     body: cursorPayloadSchema,
@@ -193,5 +200,14 @@ export const app = new Elysia()
       ws.unsubscribe("cursors");
     },
   });
+
+if (!isDevelopmentPages) {
+  appBuilder
+    .get("/", () => pageHtml("index.html"))
+    .get("/content", () => pageHtml("content/index.html"))
+    .get("/content/index.html", ({ redirect }) => redirect("/content"));
+}
+
+export const app = appBuilder;
 
 export type App = typeof app;

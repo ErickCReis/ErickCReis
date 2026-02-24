@@ -43,7 +43,42 @@ if (!result.success) {
 }
 
 await $`rm -rf ./dist/pages`;
-await $`cp -R ./src/pages ./dist/pages`;
+
+const rootFrontendBuildResult = await Bun.build({
+  entrypoints: ["./src/pages/index.html"],
+  outdir: "./dist/pages",
+  target: "browser",
+  format: "esm",
+  minify: true,
+  sourcemap: "none",
+  plugins: [tailwindPlugin],
+});
+
+if (!rootFrontendBuildResult.success) {
+  for (const log of rootFrontendBuildResult.logs) {
+    console.error(log);
+  }
+
+  process.exit(1);
+}
+
+const contentFrontendBuildResult = await Bun.build({
+  entrypoints: ["./src/pages/content/index.html"],
+  outdir: "./dist/pages/content",
+  target: "browser",
+  format: "esm",
+  minify: true,
+  sourcemap: "none",
+  plugins: [tailwindPlugin],
+});
+
+if (!contentFrontendBuildResult.success) {
+  for (const log of contentFrontendBuildResult.logs) {
+    console.error(log);
+  }
+
+  process.exit(1);
+}
 
 const executableBuildResult = await Bun.build({
   entrypoints: ["./dist/index.js"],
