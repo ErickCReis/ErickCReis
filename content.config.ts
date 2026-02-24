@@ -7,7 +7,7 @@ export default defineConfig({
     blog: mdxCollection({
       dir: "content/blog",
       options: {
-        jsxImportSource: "solid-js/h",
+        jsxImportSource: "react",
       },
       frontmatter: z.object({
         title: z.string(),

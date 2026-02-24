@@ -5,6 +5,7 @@ export type CursorPayload = {
   id: string;
   x: number;
   y: number;
+  color?: string;
 };
 
 const baseUrl = typeof window === "undefined" ? "http://localhost:3000" : window.location.origin;

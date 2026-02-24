@@ -12,9 +12,7 @@
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
     "strict": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
-    "jsxFactory": "h",
+    "jsx": "react-jsx",
     "types": ["bun"]
   }
 }

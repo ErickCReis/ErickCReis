@@ -1,0 +1,244 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&family=STIX+Two+Text:opsz,wght@8..60,400;8..60,500&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "STIX Two Text", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    --background: 211 40% 6%;
+    --foreground: 210 45% 95%;
+    --card: 214 28% 10%;
+    --card-foreground: 210 62% 96%;
+    --primary: 192 97% 74%;
+    --primary-foreground: 220 38% 9%;
+    --secondary: 221 24% 17%;
+    --secondary-foreground: 210 60% 90%;
+    --muted: 220 24% 15%;
+    --muted-foreground: 216 20% 70%;
+    --accent: 34 100% 74%;
+    --accent-foreground: 220 36% 9%;
+    --border: 218 23% 23%;
+    --input: 218 23% 23%;
+    --ring: 192 97% 74%;
+    --radius: 0.9rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #app {
+    @apply min-h-screen;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgb(72 99 145 / 30%), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgb(112 180 171 / 20%), transparent 46%),
+      linear-gradient(180deg, rgb(7 12 22 / 92%), rgb(7 11 19 / 98%));
+  }
+}
+
+@layer components {
+  .telemetry-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .telemetry-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, rgb(146 173 221 / 5%) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(146 173 221 / 5%) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(circle at center, black 20%, transparent 85%);
+  }
+
+  .telemetry-glow {
+    position: absolute;
+    width: min(45vw, 520px);
+    height: min(45vw, 520px);
+    border-radius: 999px;
+    filter: blur(68px);
+    opacity: 0.2;
+  }
+
+  .telemetry-glow-left {
+    top: -12%;
+    left: -8%;
+    background: radial-gradient(circle, rgb(108 197 244 / 42%), transparent 72%);
+  }
+
+  .telemetry-glow-right {
+    right: -12%;
+    bottom: -20%;
+    background: radial-gradient(circle, rgb(255 196 136 / 34%), transparent 70%);
+  }
+
+  .telemetry-panels {
+    position: absolute;
+    inset: 8vh 4vw 9vh;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    gap: 0.95rem;
+    align-content: start;
+    opacity: 0.58;
+  }
+
+  .telemetry-panel {
+    --panel-primary: rgb(140 225 255);
+    --panel-secondary: rgb(174 189 255);
+    position: relative;
+    min-width: 0;
+    border: 1px solid rgb(152 178 224 / 12%);
+    border-radius: 0.85rem;
+    padding: 0.72rem 0.78rem;
+    background: linear-gradient(160deg, rgb(12 19 33 / 34%), rgb(11 17 27 / 14%));
+    backdrop-filter: blur(2px);
+    animation: panel-enter 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .telemetry-panel-tag {
+    display: inline-block;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: rgb(190 203 231 / 62%);
+  }
+
+  .telemetry-graph {
+    width: 100%;
+    height: 2.7rem;
+  }
+
+  .telemetry-baseline {
+    stroke: rgb(160 180 216 / 23%);
+  }
+
+  .telemetry-line {
+    vector-effect: non-scaling-stroke;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .telemetry-line-primary {
+    stroke: var(--panel-primary);
+    filter: drop-shadow(0 0 3px color-mix(in oklab, var(--panel-primary), transparent 72%));
+  }
+
+  .telemetry-line-secondary {
+    stroke: var(--panel-secondary);
+    opacity: 0.5;
+    stroke-dasharray: 3 2;
+  }
+
+  .signal-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .signal-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(130deg, rgb(152 232 255 / 4%), transparent 60%);
+  }
+
+  .reveal-up {
+    animation: reveal-up 720ms cubic-bezier(0.18, 0.82, 0.25, 1) both;
+  }
+}
+
+@layer utilities {
+  @keyframes panel-enter {
+    0% {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes reveal-up {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (width <= 900px) {
+    .telemetry-panels {
+      grid-template-columns: 1fr;
+      inset: 6vh 4vw 20vh;
+      overflow: hidden;
+    }
+
+    .telemetry-panel {
+      min-height: 4rem;
+    }
+
+    .telemetry-panel-5,
+    .telemetry-panel-6 {
+      display: none;
+    }
+  }
+
+  @media (width <= 1200px) and (width > 900px) {
+    .telemetry-panels {
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      inset: 8vh 4vw 9vh;
+    }
+
+    .telemetry-panel-6 {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .telemetry-panel,
+    .reveal-up {
+      animation: none;
+    }
+  }
+}

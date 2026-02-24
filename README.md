@@ -1,15 +1,15 @@
 # ErickCReis Website
 
-Bun fullstack app with Bun routes, Solid frontend, Elysia/Eden websockets, Tailwind CSS, and shadcn-style UI primitives.
+Bun fullstack app with Bun routes, React frontend, Elysia/Eden websockets, Tailwind CSS, and shadcn-style UI primitives.
 
 ## Stack
 
 - Bun runtime and package manager
-- `@dschz/bun-plugin-solid` for Solid JSX/TSX transforms
+- React 18 + React DOM client rendering
 - `bun-plugin-tailwind` + Tailwind CSS v4 for styling
 - shadcn-style component layer (`src/components/ui/*`) with `class-variance-authority`
-- Bun fullstack server (`src/server/index.ts`) using `Bun.serve`
-- Bun bundler frontend entry (`src/server/index.html`)
+- Elysia server (`src/server/index.ts`) running on Bun
+- Bun bundler frontend entry (`src/pages/index.html`)
 - Elysia websocket endpoint (`/api/live`) + Eden Treaty client
 - Blog collection powered by [fuma-content](https://content.fuma-nama.dev/docs/bun) (`content/blog/*.mdx`)
 - Docker Compose deployment for VPS
@@ -22,7 +22,7 @@ Install dependencies:
 bun install
 ```
 
-Runtime Solid transforms are loaded from `bunfig.toml` via `bunPreload.ts`.
+JSX is configured for React in `bunfig.toml`.
 
 Run frontend and backend together:
 
@@ -30,17 +30,21 @@ Run frontend and backend together:
 bun run dev
 ```
 
-UI tokens and globals live in `src/server/styles.css`. The project includes a `components.json` shadcn config and Solid-compatible UI components under `src/components/ui`.
+Run tests (Bun test runner with coverage enabled in `bunfig.toml`):
+
+```bash
+bun run test
+```
 
 ## Production Run (without Docker)
 
-Build the bundled server + frontend:
+Build the bundled server + frontend + executable:
 
 ```bash
 bun run build
 ```
 
-Start the production bundle:
+Start the production executable:
 
 ```bash
 bun run start
@@ -51,7 +55,7 @@ Server binds to `0.0.0.0:${PORT:-3000}` and serves:
 - `/health` (healthcheck)
 - `/api/live` (Elysia websocket endpoint)
 - `/api/blog` (blog metadata from MDX collection)
-- frontend from Bun fullstack bundling
+- frontend from Bun bundling
 
 ## VPS Deployment with Docker Compose
 

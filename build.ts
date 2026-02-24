@@ -1,4 +1,4 @@
-import { SolidPlugin } from "@dschz/bun-plugin-solid";
+import { $ } from "bun";
 import tailwindPlugin from "bun-plugin-tailwind";
 import { createContent } from "fuma-content/bun";
 import path from "node:path";
@@ -31,19 +31,31 @@ const result = await Bun.build({
   format: "esm",
   minify: true,
   sourcemap: "none",
-  plugins: [
-    mdxQueryResolvePlugin,
-    content.createBunPlugin(),
-    tailwindPlugin,
-    SolidPlugin({
-      generate: "dom",
-      sourceMaps: false,
-    }),
-  ],
+  plugins: [mdxQueryResolvePlugin, content.createBunPlugin(), tailwindPlugin],
 });
 
 if (!result.success) {
   for (const log of result.logs) {
+    console.error(log);
+  }
+
+  process.exit(1);
+}
+
+await $`rm -rf ./dist/pages`;
+await $`cp -R ./src/pages ./dist/pages`;
+
+const executableBuildResult = await Bun.build({
+  entrypoints: ["./dist/index.js"],
+  compile: {
+    outfile: "./dist/server",
+  },
+  minify: true,
+  sourcemap: "none",
+});
+
+if (!executableBuildResult.success) {
+  for (const log of executableBuildResult.logs) {
     console.error(log);
   }
 

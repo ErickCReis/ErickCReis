@@ -1,40 +1,26 @@
 import { cn } from "@/lib/utils";
-import type { JSX } from "solid-js";
-import { splitProps } from "solid-js";
+import type { HTMLAttributes } from "react";
 
-export function Card(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return (
-    <div
-      class={cn("rounded-xl border bg-card text-card-foreground shadow-sm", local.class)}
-      {...others}
-    />
-  );
+export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("rounded-xl border bg-card text-card-foreground shadow-sm", className)} {...props} />;
 }
 
-export function CardHeader(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return <div class={cn("flex flex-col space-y-1.5 p-6", local.class)} {...others} />;
+export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex flex-col space-y-1.5 p-6", className)} {...props} />;
 }
 
-export function CardTitle(props: JSX.HTMLAttributes<HTMLHeadingElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return (
-    <h2 class={cn("text-2xl font-semibold leading-none tracking-tight", local.class)} {...others} />
-  );
+export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+  return <h2 className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />;
 }
 
-export function CardDescription(props: JSX.HTMLAttributes<HTMLParagraphElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return <p class={cn("text-sm text-muted-foreground", local.class)} {...others} />;
+export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
-export function CardContent(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return <div class={cn("p-6 pt-0", local.class)} {...others} />;
+export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("p-6 pt-0", className)} {...props} />;
 }
 
-export function CardFooter(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, others] = splitProps(props, ["class"]);
-  return <div class={cn("flex items-center p-6 pt-0", local.class)} {...others} />;
+export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex items-center p-6 pt-0", className)} {...props} />;
 }
