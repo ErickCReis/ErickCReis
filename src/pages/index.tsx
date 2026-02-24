@@ -351,6 +351,10 @@ function formatSigned(value: number, decimals: number, suffix = "") {
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
 }
 
+function formatCursorPosition(x: number, y: number) {
+  return `x:${Math.round(x)} y:${Math.round(y)}`;
+}
+
 function useServerPulse(initialHistory: ServerStats[]) {
   const [series, setSeries] = useState<MetricSeries>(() => createSeriesFromHistory(initialHistory));
 
@@ -634,7 +638,13 @@ function useCursorPresence() {
   };
 }
 
-function TelemetryBackdrop({ panels }: { panels: TelemetryPanel[] }) {
+function TelemetryBackdrop({
+  panels,
+  onStatsHoverChange,
+}: {
+  panels: TelemetryPanel[];
+  onStatsHoverChange?: (isHovering: boolean) => void;
+}) {
   const [activePanelId, setActivePanelId] = useState<string | null>(null);
   const panelIdsKey = useMemo(() => panels.map((panel) => panel.id).join("|"), [panels]);
   const stablePanelIds = useMemo(() => panelIdsKey.split("|").filter(Boolean), [panelIdsKey]);
@@ -681,7 +691,8 @@ function TelemetryBackdrop({ panels }: { panels: TelemetryPanel[] }) {
     }
 
     hoveredPanelIdsRef.current = nextHovered;
-  }, [stablePanelIds]);
+    onStatsHoverChange?.(Object.values(nextHovered).some(Boolean));
+  }, [onStatsHoverChange, stablePanelIds]);
 
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -801,6 +812,7 @@ function TelemetryBackdrop({ panels }: { panels: TelemetryPanel[] }) {
     }
 
     hoveredPanelIdsRef.current[panelId] = true;
+    onStatsHoverChange?.(true);
   };
 
   const onPanelHoverEnd = (panelId: string) => {
@@ -809,7 +821,14 @@ function TelemetryBackdrop({ panels }: { panels: TelemetryPanel[] }) {
     }
 
     hoveredPanelIdsRef.current[panelId] = false;
+    onStatsHoverChange?.(Object.values(hoveredPanelIdsRef.current).some(Boolean));
   };
+
+  useEffect(() => {
+    return () => {
+      onStatsHoverChange?.(false);
+    };
+  }, [onStatsHoverChange]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-30 overflow-hidden" aria-hidden="true">
@@ -991,10 +1010,11 @@ function TelemetryBackdrop({ panels }: { panels: TelemetryPanel[] }) {
 function HomePage({ initialHistory }: { initialHistory: ServerStats[] }) {
   const { panels } = useServerPulse(initialHistory);
   const { selfId, cursors } = useCursorPresence();
+  const [isStatsHovered, setIsStatsHovered] = useState(false);
 
   return (
     <>
-      <TelemetryBackdrop panels={panels} />
+      <TelemetryBackdrop panels={panels} onStatsHoverChange={setIsStatsHovered} />
 
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 md:px-8">
         <div className="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
@@ -1029,6 +1049,7 @@ function HomePage({ initialHistory }: { initialHistory: ServerStats[] }) {
 
       <div className="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
         {cursors.map((cursor) => {
+          const position = formatCursorPosition(cursor.x, cursor.y);
           const style = {
             left: `${cursor.x}px`,
             top: `${cursor.y}px`,
@@ -1044,12 +1065,14 @@ function HomePage({ initialHistory }: { initialHistory: ServerStats[] }) {
               }`}
               style={style}
             >
-              <span
-                className="absolute -top-1 left-3 font-mono text-[10px] tracking-[0.08em] uppercase"
-                style={{ color: cursor.color ?? pickColor(cursor.id) }}
-              >
-                {cursor.id === selfId ? "you" : cursor.id.slice(0, 4)}
-              </span>
+              {!isStatsHovered ? (
+                <span className="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-[0.5rem] tracking-[0.08em] uppercase">
+                  <span className="text-slate-300/60">
+                    {cursor.id === selfId ? "you" : cursor.id.slice(0, 4)}
+                  </span>
+                  <span className="text-slate-100/84">{position}</span>
+                </span>
+              ) : null}
             </div>
           );
         })}
