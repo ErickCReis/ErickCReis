@@ -3,40 +3,37 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "alchemy dev",
-    "deploy": "alchemy deploy",
-    "destroy": "alchemy destroy",
+    "dev": "bun run dev:server & bun run dev:web",
+    "dev:server": "bun --watch src/server/index.ts",
+    "dev:web": "astro dev",
     "lint": "oxlint --fix && oxfmt && astro check",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "start": "NODE_ENV=production bun src/server/index.ts"
   },
   "dependencies": {
     "@astrojs/solid-js": "^5.1.3",
     "@orpc/client": "^1.13.5",
-    "@orpc/experimental-publisher-durable-object": "^1.13.5",
+    "@orpc/experimental-publisher": "^1.13.5",
     "@orpc/server": "^1.13.5",
     "@solid-primitives/mouse": "^2.1.4",
     "@solid-primitives/scheduled": "^1.5.2",
     "@solid-primitives/spring": "^0.1.2",
     "astro": "^6.0.0-beta.11",
+    "elysia": "^1.4.23",
     "solid-js": "^1.9.11",
     "valibot": "^1.2.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
-    "@astrojs/cloudflare": "^13.0.0-beta.7",
-    "@cloudflare/workers-types": "^4.20260214.0",
     "@tailwindcss/vite": "^4.1.18",
-    "alchemy": "^0.84.0",
-    "miniflare": "^4.20260212.0",
+    "@types/bun": "^1.3.9",
     "oxfmt": "^0.32.0",
     "oxlint": "^1.47.0",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.65.0"
+    "typescript": "^5.9.3"
   },
   "overrides": {
-    "@astrojs/cloudflare": "13.0.0-beta.7",
     "astro": "6.0.0-beta.11"
   }
 }

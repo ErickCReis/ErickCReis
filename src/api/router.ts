@@ -1,11 +1,6 @@
-import { DurablePublisher } from "@orpc/experimental-publisher-durable-object";
 import { os } from "@orpc/server";
-import { env } from "cloudflare:workers";
 import * as v from "valibot";
-
-const publisher = new DurablePublisher<{
-  "cursor-position": { id: string; x: number; y: number };
-}>(env.CURSOR_POSITION);
+import { publisher } from "../server/publisher";
 
 const base = os.$context();
 
