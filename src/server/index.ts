@@ -1,66 +1,56 @@
-import { existsSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { Elysia, file, sse } from "elysia";
+import * as v from "valibot";
+import { latestStats, statsHistory, STATS_SAMPLE_INTERVAL_MS, startStatsSampler } from "./stats";
+import { staticPlugin } from "@elysiajs/static";
+import cors from "@elysiajs/cors";
 
-import { Elysia } from "elysia";
-
-import { createApp } from "./app";
-
-const DIST_DIR = resolve(process.cwd(), "dist");
-const HOST = process.env.HOST ?? "0.0.0.0";
-const PORT = Number(process.env.API_PORT ?? process.env.PORT ?? "3000");
-
-function toStaticPath(pathname: string) {
-  const decoded = decodeURIComponent(pathname);
-  const normalized = decoded.replace(/\\/g, "/").replace(/^\/+/, "");
-  const base = normalized === "" ? "index.html" : normalized;
-
-  const candidates = [base];
-  if (base.endsWith("/")) {
-    candidates.push(`${base}index.html`);
-  } else if (!base.includes(".")) {
-    candidates.push(`${base}/index.html`);
-  }
-
-  for (const candidate of candidates) {
-    const absolutePath = resolve(join(DIST_DIR, candidate));
-    if (!absolutePath.startsWith(DIST_DIR)) {
-      continue;
-    }
-
-    if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
-      continue;
-    }
-
-    return absolutePath;
-  }
-
-  return null;
-}
+const cursorPayloadSchema = v.object({
+  id: v.string(),
+  x: v.number(),
+  y: v.number(),
+  color: v.optional(v.string()),
+});
+type CursorPayload = v.InferOutput<typeof cursorPayloadSchema>;
 
 const app = new Elysia()
-  .get("/health", () => ({ status: "ok" }))
-  .use(createApp())
-  .get("/*", ({ request, set }) => {
-    const url = new URL(request.url);
-    const filePath = toStaticPath(url.pathname);
+  .get("/", () => file("dist/index.html"))
+  .get("/content", () => file("dist/content/index.html"))
+  .use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }))
 
-    if (filePath) {
-      return new Response(Bun.file(filePath));
+  .use(cors({ origin: ["http://localhost:4321"] }))
+  .get("/stats", () => latestStats)
+  .get("/stats/history", ({ set }) => {
+    set.headers["cache-control"] = "no-store";
+    return statsHistory;
+  })
+  .get("/stats/stream", async function* ({ set }) {
+    set.headers["cache-control"] = "no-store";
+
+    while (true) {
+      yield sse({ event: "stats", data: latestStats });
+      await Bun.sleep(STATS_SAMPLE_INTERVAL_MS);
     }
-
-    const notFoundPath = toStaticPath("/404.html");
-    if (notFoundPath) {
-      set.status = 404;
-      return new Response(Bun.file(notFoundPath));
-    }
-
-    set.status = 404;
-    return "Not Found";
+  })
+  .ws("/live", {
+    body: cursorPayloadSchema,
+    response: cursorPayloadSchema,
+    open(ws) {
+      ws.subscribe("cursors");
+    },
+    message(ws, payload: CursorPayload) {
+      ws.publish("cursors", payload);
+    },
+    close(ws) {
+      ws.unsubscribe("cursors");
+    },
   });
 
-app.listen({
-  hostname: HOST,
-  port: PORT,
+app.listen(3000, ({ hostname, port }) => {
+  console.log(`Server is running on: http://${hostname}:${port}`);
 });
 
-console.log(`Elysia server running at http://${HOST}:${PORT}`);
+if (app.server) {
+  startStatsSampler(app.server);
+}
+
+export type App = typeof app;

@@ -1,24 +1,24 @@
 import os from "node:os";
-import { z } from "zod";
+import * as v from "valibot";
 
-const serverStatsSchema = z.object({
-  timestamp: z.string(),
-  uptimeSeconds: z.number(),
-  memoryRssMb: z.number(),
-  memoryHeapUsedMb: z.number(),
-  memoryHeapTotalMb: z.number(),
-  systemMemoryTotalMb: z.number(),
-  systemMemoryFreeMb: z.number(),
-  systemMemoryUsedPercent: z.number(),
-  cpuCount: z.number(),
-  cpuUsagePercent: z.number(),
-  loadAverage: z.tuple([z.number(), z.number(), z.number()]),
-  pendingRequests: z.number(),
-  pendingWebSockets: z.number(),
-  cursorSubscribers: z.number(),
+const serverStatsSchema = v.object({
+  timestamp: v.string(),
+  uptimeSeconds: v.number(),
+  memoryRssMb: v.number(),
+  memoryHeapUsedMb: v.number(),
+  memoryHeapTotalMb: v.number(),
+  systemMemoryTotalMb: v.number(),
+  systemMemoryFreeMb: v.number(),
+  systemMemoryUsedPercent: v.number(),
+  cpuCount: v.number(),
+  cpuUsagePercent: v.number(),
+  loadAverage: v.tuple([v.number(), v.number(), v.number()]),
+  pendingRequests: v.number(),
+  pendingWebSockets: v.number(),
+  cursorSubscribers: v.number(),
 });
 
-type ServerStats = z.infer<typeof serverStatsSchema>;
+type ServerStats = v.InferOutput<typeof serverStatsSchema>;
 
 const CPU_COUNT = Math.max(1, os.cpus().length);
 const MAX_STATS_HISTORY = 84;
@@ -45,18 +45,6 @@ let statsInterval: ReturnType<typeof setInterval> | undefined;
 let previousCpuUsage = process.cpuUsage();
 let previousCpuSampleAt = process.hrtime.bigint();
 
-type RuntimeSnapshot = {
-  pendingRequests: number;
-  pendingWebSockets: number;
-  cursorSubscribers: number;
-};
-
-let getRuntimeSnapshot = (): RuntimeSnapshot => ({
-  pendingRequests: 0,
-  pendingWebSockets: 0,
-  cursorSubscribers: 0,
-});
-
 function getCpuUsagePercent() {
   const now = process.hrtime.bigint();
   const elapsedMicroseconds = Number((now - previousCpuSampleAt) / 1000n);
@@ -77,12 +65,11 @@ function getCpuUsagePercent() {
   return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
 }
 
-function sampleServerStats(): ServerStats {
+function sampleServerStats(server: Bun.Server<any>): ServerStats {
   const memory = process.memoryUsage();
   const toMb = (value: number) => Number((value / 1024 / 1024).toFixed(2));
   const systemMemoryTotalMb = toMb(os.totalmem());
   const systemMemoryFreeMb = toMb(os.freemem());
-  const runtime = getRuntimeSnapshot();
   const systemMemoryUsedPercent = Number(
     (((systemMemoryTotalMb - systemMemoryFreeMb) / Math.max(1, systemMemoryTotalMb)) * 100).toFixed(
       2,
@@ -101,14 +88,14 @@ function sampleServerStats(): ServerStats {
     cpuCount: CPU_COUNT,
     cpuUsagePercent: getCpuUsagePercent(),
     loadAverage: os.loadavg().map((value) => Number(value.toFixed(2))) as [number, number, number],
-    pendingRequests: runtime.pendingRequests,
-    pendingWebSockets: runtime.pendingWebSockets,
-    cursorSubscribers: runtime.cursorSubscribers,
+    pendingRequests: server.pendingRequests,
+    pendingWebSockets: server.pendingWebSockets,
+    cursorSubscribers: server.subscriberCount("cursors"),
   };
 }
 
-function recordServerStatsSample() {
-  const nextSample = sampleServerStats();
+function recordServerStatsSample(server: Bun.Server<any>) {
+  const nextSample = sampleServerStats(server);
   latestStats = nextSample;
   statsHistory.push(nextSample);
 
@@ -117,17 +104,13 @@ function recordServerStatsSample() {
   }
 }
 
-export function setRuntimeSnapshotProvider(provider: () => RuntimeSnapshot) {
-  getRuntimeSnapshot = provider;
-}
-
-export function startStatsSampler() {
+export function startStatsSampler(server: Bun.Server<any>) {
   if (statsInterval) {
     return;
   }
 
-  recordServerStatsSample();
+  recordServerStatsSample(server);
   statsInterval = setInterval(() => {
-    recordServerStatsSample();
+    recordServerStatsSample(server);
   }, STATS_SAMPLE_INTERVAL_MS);
 }

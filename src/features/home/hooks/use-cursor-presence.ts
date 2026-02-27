@@ -1,6 +1,6 @@
 import { pickColor } from "@/features/home/lib/cursor";
 import type { CursorState } from "@/features/home/types";
-import { publishCursor, subscribeCursor, type CursorPayload } from "@/lib/api";
+import { type CursorPayload, publishCursor, subscribeCursor } from "@/lib/api";
 import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
 export function useCursorPresence() {
