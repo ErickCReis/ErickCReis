@@ -6,7 +6,14 @@ import type {
   TelemetryPoint,
 } from "@/features/home/types";
 import { subscribeServerStats } from "@/lib/api";
-import { useEffect, useMemo, useState } from "react";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  type Accessor,
+} from "solid-js";
 
 function createEmptySeries(): MetricSeries {
   return {
@@ -119,10 +126,25 @@ function formatSigned(value: number, decimals: number, suffix = "") {
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
 }
 
-export function useServerPulse(initialHistory: ServerStats[]) {
-  const [series, setSeries] = useState<MetricSeries>(() => createSeriesFromHistory(initialHistory));
+export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
+  const [series, setSeries] = createSignal<MetricSeries>(createEmptySeries());
 
-  useEffect(() => {
+  createEffect(() => {
+    const historyValue = history();
+    if (!historyValue || historyValue.length === 0) {
+      return;
+    }
+
+    setSeries((previous) => {
+      if (previous.rss.length > 0) {
+        return previous;
+      }
+
+      return createSeriesFromHistory(historyValue);
+    });
+  });
+
+  onMount(() => {
     const controller = new AbortController();
 
     void subscribeServerStats((payload) => {
@@ -145,28 +167,29 @@ export function useServerPulse(initialHistory: ServerStats[]) {
       }
     });
 
-    return () => {
+    onCleanup(() => {
       controller.abort();
-    };
-  }, []);
+    });
+  });
 
-  const panels = useMemo<TelemetryPanel[]>(() => {
-    const latestRequests = getLatest(series.requests);
-    const previousRequests = getPrevious(series.requests);
-    const latestWebSockets = getLatest(series.websockets);
-    const latestSubscribers = getLatest(series.subscribers);
-    const latestUptime = getLatest(series.uptimeMinutes);
-    const previousUptime = getPrevious(series.uptimeMinutes);
-    const latestCpu = getLatest(series.cpu);
-    const previousCpu = getPrevious(series.cpu);
-    const latestLoad1 = getLatest(series.load1);
-    const latestLoad15 = getLatest(series.load15);
-    const latestHeap = getLatest(series.heap);
-    const previousHeap = getPrevious(series.heap);
-    const latestRss = getLatest(series.rss);
-    const latestHeapTotal = getLatest(series.heapTotal);
-    const latestSystemMemory = getLatest(series.systemMemory);
-    const previousSystemMemory = getPrevious(series.systemMemory);
+  const panels = createMemo<TelemetryPanel[]>(() => {
+    const currentSeries = series();
+    const latestRequests = getLatest(currentSeries.requests);
+    const previousRequests = getPrevious(currentSeries.requests);
+    const latestWebSockets = getLatest(currentSeries.websockets);
+    const latestSubscribers = getLatest(currentSeries.subscribers);
+    const latestUptime = getLatest(currentSeries.uptimeMinutes);
+    const previousUptime = getPrevious(currentSeries.uptimeMinutes);
+    const latestCpu = getLatest(currentSeries.cpu);
+    const previousCpu = getPrevious(currentSeries.cpu);
+    const latestLoad1 = getLatest(currentSeries.load1);
+    const latestLoad15 = getLatest(currentSeries.load15);
+    const latestHeap = getLatest(currentSeries.heap);
+    const previousHeap = getPrevious(currentSeries.heap);
+    const latestRss = getLatest(currentSeries.rss);
+    const latestHeapTotal = getLatest(currentSeries.heapTotal);
+    const latestSystemMemory = getLatest(currentSeries.systemMemory);
+    const previousSystemMemory = getPrevious(currentSeries.systemMemory);
     const heapUsagePercent = latestHeapTotal > 0 ? (latestHeap / latestHeapTotal) * 100 : 0;
     const headroom = Math.max(latestHeapTotal - latestHeap, 0);
 
@@ -180,10 +203,10 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         trend: formatSigned(latestRequests - previousRequests, 0, " req"),
         details: [
           { label: "Sockets", value: formatCount(latestWebSockets) },
-          { label: "Average", value: `${formatCount(getAverage(series.requests))} req` },
-          { label: "Peak", value: `${formatCount(getPeak(series.requests))} req` },
+          { label: "Average", value: `${formatCount(getAverage(currentSeries.requests))} req` },
+          { label: "Peak", value: `${formatCount(getPeak(currentSeries.requests))} req` },
         ],
-        points: createPanelPoints(series.requests),
+        points: createPanelPoints(currentSeries.requests),
         primaryColor: "#8ec7ff",
       },
       {
@@ -195,10 +218,13 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         trend: formatUptime(latestUptime),
         details: [
           { label: "Uptime", value: formatUptime(latestUptime) },
-          { label: "Average", value: `${formatCount(getAverage(series.subscribers))} subs` },
+          {
+            label: "Average",
+            value: `${formatCount(getAverage(currentSeries.subscribers))} subs`,
+          },
           { label: "Drift", value: formatSigned(latestUptime - previousUptime, 1, "m") },
         ],
-        points: createPanelPoints(series.subscribers),
+        points: createPanelPoints(currentSeries.subscribers),
         primaryColor: "#8edec9",
       },
       {
@@ -211,9 +237,9 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         details: [
           { label: "Load (1m)", value: formatLoad(latestLoad1) },
           { label: "Load (15m)", value: formatLoad(latestLoad15) },
-          { label: "Average", value: formatPercent(getAverage(series.cpu)) },
+          { label: "Average", value: formatPercent(getAverage(currentSeries.cpu)) },
         ],
-        points: createPanelPoints(series.cpu),
+        points: createPanelPoints(currentSeries.cpu),
         primaryColor: "#f1c18b",
       },
       {
@@ -225,10 +251,10 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         trend: formatSigned(latestHeap - previousHeap, 1, " MB"),
         details: [
           { label: "RSS", value: formatMemory(latestRss) },
-          { label: "Average", value: formatMemory(getAverage(series.heap)) },
-          { label: "Peak", value: formatMemory(getPeak(series.heap)) },
+          { label: "Average", value: formatMemory(getAverage(currentSeries.heap)) },
+          { label: "Peak", value: formatMemory(getPeak(currentSeries.heap)) },
         ],
-        points: createPanelPoints(series.heap),
+        points: createPanelPoints(currentSeries.heap),
         primaryColor: "#f0bc8d",
       },
       {
@@ -241,9 +267,9 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         details: [
           { label: "Heap total", value: formatMemory(latestHeapTotal) },
           { label: "Headroom", value: formatMemory(headroom) },
-          { label: "Peak usage", value: formatMemory(getPeak(series.heap)) },
+          { label: "Peak usage", value: formatMemory(getPeak(currentSeries.heap)) },
         ],
-        points: createPanelPoints(series.heapTotal),
+        points: createPanelPoints(currentSeries.heapTotal),
         primaryColor: "#adc4e4",
       },
       {
@@ -255,26 +281,14 @@ export function useServerPulse(initialHistory: ServerStats[]) {
         trend: formatSigned(latestSystemMemory - previousSystemMemory, 1, "%"),
         details: [
           { label: "Load (15m)", value: formatLoad(latestLoad15) },
-          { label: "Average", value: formatPercent(getAverage(series.systemMemory)) },
-          { label: "Peak", value: formatPercent(getPeak(series.systemMemory)) },
+          { label: "Average", value: formatPercent(getAverage(currentSeries.systemMemory)) },
+          { label: "Peak", value: formatPercent(getPeak(currentSeries.systemMemory)) },
         ],
-        points: createPanelPoints(series.systemMemory),
+        points: createPanelPoints(currentSeries.systemMemory),
         primaryColor: "#9ccfd2",
       },
     ];
-  }, [
-    series.cpu,
-    series.heap,
-    series.heapTotal,
-    series.load1,
-    series.load15,
-    series.requests,
-    series.rss,
-    series.subscribers,
-    series.systemMemory,
-    series.uptimeMinutes,
-    series.websockets,
-  ]);
+  });
 
   return { panels };
 }

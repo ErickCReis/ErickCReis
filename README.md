@@ -1,18 +1,18 @@
 # ErickCReis Website
 
-Bun fullstack app with Bun routes, React frontend, Elysia/Eden websockets, Tailwind CSS, and shadcn-style UI primitives.
+Astro static site with SolidJS islands, served by an Elysia server that also provides typed API and websocket endpoints.
 
 ## Stack
 
 - Bun runtime and package manager
-- React 18 + React DOM client rendering
-- `bun-plugin-tailwind` + Tailwind CSS v4 for styling
+- Astro static build output (`dist/`)
+- SolidJS client islands
+- Tailwind CSS v4 via `@tailwindcss/vite`
 - shadcn-style component layer (`src/components/ui/*`) with `class-variance-authority`
-- Elysia server (`src/server/index.ts`) running on Bun
-- Bun bundler frontend entry (`src/pages/index.html`)
-- Elysia websocket endpoint (`/api/live`) + Eden Treaty client
-- Blog collection powered by [fuma-content](https://content.fuma-nama.dev/docs/bun) (`content/blog/*.mdx`)
-- Docker Compose production build/runtime
+- Elysia API app in `src/server/app.tsx`
+- Elysia server entrypoint in `src/server/index.ts` serving static files from `dist/`
+- Elysia websocket endpoint (`/api/live`) + Eden Treaty client typing
+- Astro content collections (`content/blog/*.mdx`)
 
 ## Local Development
 
@@ -22,29 +22,27 @@ Install dependencies:
 bun install
 ```
 
-JSX is configured for React in `bunfig.toml`.
-
-Run frontend and backend together:
+Run development servers (Astro + Elysia API):
 
 ```bash
 bun run dev
 ```
 
-Run tests (Bun test runner with coverage enabled in `bunfig.toml`):
+Run checks:
 
 ```bash
-bun run test
+bun run lint
 ```
 
 ## Production Run
 
-Build the bundled server + frontend + executable:
+Build Astro static bundle:
 
 ```bash
 bun run build
 ```
 
-Start the production executable:
+Start production Elysia server:
 
 ```bash
 bun run start
@@ -52,10 +50,11 @@ bun run start
 
 Server binds to `0.0.0.0:${PORT:-3000}` and serves:
 
+- `/` and `/content` as prerendered pages
 - `/health` (healthcheck)
+- `/api/stats` and `/api/stats/history`
+- `/api/stats/stream` (SSE endpoint)
 - `/api/live` (Elysia websocket endpoint)
-- `/api/blog` (blog metadata from MDX collection)
-- frontend from Bun bundling
 
 ## Docker Production
 

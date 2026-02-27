@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { type VariantProps, cva } from "class-variance-authority";
-import type { HTMLAttributes } from "react";
+import type { JSX } from "solid-js";
 
 const badgeVariants = cva(
   "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
@@ -20,8 +20,9 @@ const badgeVariants = cva(
   },
 );
 
-type BadgeProps = HTMLAttributes<HTMLDivElement> & VariantProps<typeof badgeVariants>;
+type BadgeProps = JSX.HTMLAttributes<HTMLDivElement> & VariantProps<typeof badgeVariants>;
 
-export function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+export function Badge(props: BadgeProps) {
+  const { class: className, variant, ...rest } = props;
+  return <div class={cn(badgeVariants({ variant }), className)} {...rest} />;
 }

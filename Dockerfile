@@ -8,16 +8,19 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM debian:bookworm-slim AS runtime
+FROM oven/bun:1.3-slim AS runtime
 
-WORKDIR /app/dist
+WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
-COPY --from=build /app/dist/server ./server
-COPY --from=build /app/dist/pages ./pages
+COPY package.json bun.lock ./
+RUN bun install --production --frozen-lockfile
+
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/src/server ./src/server
 
 EXPOSE 3000
 
-CMD ["./server"]
+CMD ["bun", "src/server/index.ts"]

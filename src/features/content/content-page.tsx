@@ -1,29 +1,29 @@
-import { Suspense, useState } from "react";
+import { Suspense, createSignal } from "solid-js";
 
 import { ContentHeader } from "@/features/content/components/content-header";
-import { PostList } from "@/features/content/components/post-list";
+import { PostList, type BlogPost } from "@/features/content/components/post-list";
 import { TelemetryBackdrop } from "@/features/home/components/telemetry-backdrop";
-import { useServerPulse } from "@/features/home/hooks/use-server-pulse";
 
-export function ContentPage() {
-  const { panels } = useServerPulse([]);
-  const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = useState(true);
+type ContentPageProps = {
+  posts: BlogPost[];
+};
+
+export default function ContentPage(props: ContentPageProps) {
+  const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = createSignal(true);
 
   return (
     <>
-      {isStatsBackdropEnabled ? <TelemetryBackdrop panels={panels} /> : null}
+      <Suspense fallback={null}>{isStatsBackdropEnabled() ? <TelemetryBackdrop /> : null}</Suspense>
 
-      <main className="relative z-10 mx-auto min-h-screen w-full max-w-3xl px-4 py-12 md:px-8">
-        <section className="space-y-8 py-4">
+      <main class="relative z-10 mx-auto min-h-screen w-full max-w-3xl px-4 py-12 md:px-8">
+        <section class="space-y-8 py-4">
           <ContentHeader
-            isStatsBackdropEnabled={isStatsBackdropEnabled}
+            isStatsBackdropEnabled={isStatsBackdropEnabled()}
             onToggleStatsBackdrop={() => {
               setIsStatsBackdropEnabled((previous) => !previous);
             }}
           />
-          <Suspense fallback={null}>
-            <PostList />
-          </Suspense>
+          <PostList posts={props.posts} />
         </section>
       </main>
     </>

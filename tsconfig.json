@@ -1,18 +1,18 @@
 {
-  "include": ["src/**/*", "build.ts", "bunPreload.ts", "content.config.ts", ".content/**/*"],
+  "include": ["src/**/*", "astro.config.mjs"],
   "exclude": ["dist", "node_modules"],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "content/*": ["./.content/*"]
+      "@/*": ["./src/*"]
     },
     "target": "ESNext",
-    "module": "Preserve",
+    "module": "ESNext",
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
     "strict": true,
-    "jsx": "react-jsx",
-    "types": ["bun"]
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "types": ["astro/client", "bun"]
   }
 }

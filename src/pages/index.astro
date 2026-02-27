@@ -1,0 +1,21 @@
+---
+export const prerender = true;
+
+import HomePage from "@/features/home/home-page";
+import "../styles/site.css";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Erick C. Reis | Portfolio</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="app">
+      <HomePage client:only="solid-js" />
+    </div>
+  </body>
+</html>

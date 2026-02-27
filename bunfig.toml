@@ -1,4 +1,1 @@
-preload = ["./bunPreload.ts"]
-
-[serve.static]
-plugins = ["bun-plugin-tailwind"]
+# Bun runtime config for API server scripts.

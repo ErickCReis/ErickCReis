@@ -1,24 +1,22 @@
 import { pickColor } from "@/features/home/lib/cursor";
 import type { CursorState } from "@/features/home/types";
 import { publishCursor, subscribeCursor, type CursorPayload } from "@/lib/api";
-import { useEffect, useRef, useState } from "react";
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
 export function useCursorPresence() {
-  const [cursors, setCursors] = useState<Record<string, CursorState>>({});
-  const pendingPointRef = useRef<{ x: number; y: number } | null>(null);
-  const frameScheduledRef = useRef(false);
-  const selfIdRef = useRef(
+  const [cursorsById, setCursorsById] = createSignal<Record<string, CursorState>>({});
+  const pendingPointRef: { current: { x: number; y: number } | null } = { current: null };
+  let frameScheduled = false;
+
+  const selfId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID().slice(0, 8)
-      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
-  );
-  const selfColorRef = useRef(pickColor(selfIdRef.current));
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  const selfColor = pickColor(selfId);
 
-  useEffect(() => {
-    const selfId = selfIdRef.current;
-
+  onMount(() => {
     const unsubscribe = subscribeCursor((payload) => {
-      setCursors((previous) => ({
+      setCursorsById((previous) => ({
         ...previous,
         [payload.id]: {
           id: payload.id,
@@ -33,13 +31,13 @@ export function useCursorPresence() {
     const onPointerMove = (event: PointerEvent) => {
       pendingPointRef.current = { x: event.clientX, y: event.clientY };
 
-      if (frameScheduledRef.current) {
+      if (frameScheduled) {
         return;
       }
 
-      frameScheduledRef.current = true;
+      frameScheduled = true;
       window.requestAnimationFrame(() => {
-        frameScheduledRef.current = false;
+        frameScheduled = false;
 
         const point = pendingPointRef.current;
         if (!point) {
@@ -50,16 +48,17 @@ export function useCursorPresence() {
           id: selfId,
           x: point.x,
           y: point.y,
-          color: selfColorRef.current,
+          color: selfColor,
         };
 
-        setCursors((previous) => ({
+        setCursorsById((previous) => ({
           ...previous,
           [selfId]: {
             ...payload,
             updatedAt: Date.now(),
           },
         }));
+
         publishCursor(payload);
       });
     };
@@ -68,22 +67,24 @@ export function useCursorPresence() {
 
     const staleInterval = window.setInterval(() => {
       const cutoff = Date.now() - 7000;
-      setCursors((previous) =>
+      setCursorsById((previous) =>
         Object.fromEntries(
           Object.entries(previous).filter(([, cursor]) => cursor.updatedAt >= cutoff),
         ),
       );
     }, 2200);
 
-    return () => {
+    onCleanup(() => {
       unsubscribe();
       window.removeEventListener("pointermove", onPointerMove);
       window.clearInterval(staleInterval);
-    };
-  }, []);
+    });
+  });
+
+  const cursors = createMemo(() => Object.values(cursorsById()));
 
   return {
-    selfId: selfIdRef.current,
-    cursors: Object.values(cursors),
+    selfId,
+    cursors,
   };
 }

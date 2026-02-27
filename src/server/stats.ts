@@ -45,6 +45,18 @@ let statsInterval: ReturnType<typeof setInterval> | undefined;
 let previousCpuUsage = process.cpuUsage();
 let previousCpuSampleAt = process.hrtime.bigint();
 
+type RuntimeSnapshot = {
+  pendingRequests: number;
+  pendingWebSockets: number;
+  cursorSubscribers: number;
+};
+
+let getRuntimeSnapshot = (): RuntimeSnapshot => ({
+  pendingRequests: 0,
+  pendingWebSockets: 0,
+  cursorSubscribers: 0,
+});
+
 function getCpuUsagePercent() {
   const now = process.hrtime.bigint();
   const elapsedMicroseconds = Number((now - previousCpuSampleAt) / 1000n);
@@ -65,11 +77,12 @@ function getCpuUsagePercent() {
   return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
 }
 
-function sampleServerStats(server: Bun.Server<any>): ServerStats {
+function sampleServerStats(): ServerStats {
   const memory = process.memoryUsage();
   const toMb = (value: number) => Number((value / 1024 / 1024).toFixed(2));
   const systemMemoryTotalMb = toMb(os.totalmem());
   const systemMemoryFreeMb = toMb(os.freemem());
+  const runtime = getRuntimeSnapshot();
   const systemMemoryUsedPercent = Number(
     (((systemMemoryTotalMb - systemMemoryFreeMb) / Math.max(1, systemMemoryTotalMb)) * 100).toFixed(
       2,
@@ -88,14 +101,14 @@ function sampleServerStats(server: Bun.Server<any>): ServerStats {
     cpuCount: CPU_COUNT,
     cpuUsagePercent: getCpuUsagePercent(),
     loadAverage: os.loadavg().map((value) => Number(value.toFixed(2))) as [number, number, number],
-    pendingRequests: server.pendingRequests,
-    pendingWebSockets: server.pendingWebSockets,
-    cursorSubscribers: server.subscriberCount("cursors"),
+    pendingRequests: runtime.pendingRequests,
+    pendingWebSockets: runtime.pendingWebSockets,
+    cursorSubscribers: runtime.cursorSubscribers,
   };
 }
 
-function recordServerStatsSample(server: Bun.Server<any>) {
-  const nextSample = sampleServerStats(server);
+function recordServerStatsSample() {
+  const nextSample = sampleServerStats();
   latestStats = nextSample;
   statsHistory.push(nextSample);
 
@@ -104,13 +117,17 @@ function recordServerStatsSample(server: Bun.Server<any>) {
   }
 }
 
-export function startStatsSampler(server: Bun.Server<any>) {
+export function setRuntimeSnapshotProvider(provider: () => RuntimeSnapshot) {
+  getRuntimeSnapshot = provider;
+}
+
+export function startStatsSampler() {
   if (statsInterval) {
     return;
   }
 
-  recordServerStatsSample(server);
+  recordServerStatsSample();
   statsInterval = setInterval(() => {
-    recordServerStatsSample(server);
+    recordServerStatsSample();
   }, STATS_SAMPLE_INTERVAL_MS);
 }

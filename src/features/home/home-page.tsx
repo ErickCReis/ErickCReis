@@ -1,12 +1,12 @@
-import { Suspense, useState } from "react";
+import { Suspense, createSignal } from "solid-js";
 import { TelemetryBackdrop } from "@/features/home/components/telemetry-backdrop";
 import { CursorPresenceLayer } from "@/features/home/components/cursor-presence-layer";
 import { HeroIntro } from "@/features/home/components/hero-intro";
 import { useCursorPresence } from "@/features/home/hooks/use-cursor-presence";
 
-export function HomePage() {
+export default function HomePage() {
   const { selfId, cursors } = useCursorPresence();
-  const [isStatsHovered, setIsStatsHovered] = useState(false);
+  const [isStatsHovered, setIsStatsHovered] = createSignal(false);
 
   return (
     <>
@@ -14,8 +14,8 @@ export function HomePage() {
         <TelemetryBackdrop onStatsHoverChange={setIsStatsHovered} />
       </Suspense>
 
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 md:px-8">
-        <div className="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
+      <main class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 md:px-8">
+        <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
           <HeroIntro
             onOpenContent={() => {
               window.location.href = "/content";
@@ -27,7 +27,7 @@ export function HomePage() {
         </div>
       </main>
 
-      <CursorPresenceLayer selfId={selfId} cursors={cursors} isStatsHovered={isStatsHovered} />
+      <CursorPresenceLayer selfId={selfId} cursors={cursors()} isStatsHovered={isStatsHovered()} />
     </>
   );
 }
