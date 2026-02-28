@@ -23,7 +23,6 @@
     "clsx": "^2.1.1",
     "elysia": "^1.4.26",
     "solid-js": "^1.9.11",
-    "tailwind-merge": "^3.5.0",
     "valibot": "^1.2.0"
   },
   "devDependencies": {
