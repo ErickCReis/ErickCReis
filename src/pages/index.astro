@@ -14,16 +14,24 @@ import "../styles/site.css";
   <body>
     <div id="app">
       <HomeLiveOverlay client:only="solid-js" />
-      <main class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 md:px-8">
+      <main
+        class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-start px-4 pt-16 pb-10 sm:items-center sm:px-8 sm:py-10"
+      >
         <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
           <section class="space-y-5">
-            <div class="inline-flex items-center rounded-full border border-border/80 bg-card/40 px-3 py-1 font-mono text-xs tracking-[0.22em] uppercase">
+            <div
+              class="inline-flex items-center rounded-full border border-border/80 bg-card/40 px-3 py-1 font-mono text-xs tracking-[0.22em] uppercase"
+            >
               live portfolio
             </div>
-            <h1 class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl">Erick C. Reis</h1>
+            <h1
+              class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
+            >
+              Erick C. Reis
+            </h1>
             <p class="max-w-xl text-sm text-muted-foreground md:text-base">
-              TypeScript, React, Tailwind, shadcn/ui, Elysia, and Bun, with realtime cursor and
-              telemetry overlays.
+              TypeScript, React, Tailwind, shadcn/ui, Elysia, and Bun, with
+              realtime cursor and telemetry overlays.
             </p>
             <div class="flex flex-wrap gap-3">
               <a
