@@ -1,5 +1,7 @@
 ---
 import { Font } from "astro:assets";
+import { ClientRouter } from "astro:transitions";
+
 import "../styles/site.css";
 
 interface Props {
@@ -23,6 +25,7 @@ const { title, description, lang = "en" } = Astro.props;
     <title>{title}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <slot name="head" />
+    <ClientRouter />
   </head>
   <body>
     <div id="app">
