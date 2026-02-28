@@ -6,11 +6,13 @@ import BaseLayout from "../layouts/base-layout.astro";
 <BaseLayout title="Erick Reis | Portfolio">
   <HomeLiveOverlay client:only="solid-js" />
   <main
-    class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-start px-4 pt-16 pb-10 sm:items-center sm:px-8 sm:py-10"
+    class="relative z-10 mx-auto flex min-h-svh w-full max-w-5xl items-start px-4 pt-16 pb-10 sm:items-center sm:px-8 sm:py-10 md:min-h-dvh"
   >
     <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
       <section class="space-y-5">
-        <h1 class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl">
+        <h1
+          class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
+        >
           Erick Reis
         </h1>
         <p class="max-w-xl text-sm text-muted-foreground md:text-base">

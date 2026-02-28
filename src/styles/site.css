@@ -52,9 +52,8 @@
   }
 
   html,
-  body,
-  #app {
-    @apply min-h-screen;
+  body {
+    @apply min-h-svh;
   }
 
   body {
