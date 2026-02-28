@@ -1,9 +1,9 @@
-import { formatCursorPosition, pickColor } from "@/features/home/lib/cursor";
-import type { CursorState } from "@/features/home/types";
+import { formatCursorPosition, pickColor } from "@/lib/cursor";
+import type { CursorState } from "@/types/home";
 import { For, type JSX } from "solid-js";
 
 type CursorPresenceLayerProps = {
-  selfId: string;
+  selfId: string | null;
   cursors: CursorState[];
   isStatsHovered: boolean;
 };

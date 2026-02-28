@@ -1,4 +1,4 @@
-import type { TelemetryPoint } from "@/features/home/types";
+import type { TelemetryPoint } from "@/types/home";
 
 type SparklineProps = {
   points: TelemetryPoint[];

@@ -1,14 +1,18 @@
-import {
-  clamp,
-  createFloatingMotion,
-  type FloatingMotion,
-  getFloatingBounds,
-} from "@/features/home/lib/motion";
+import { clamp, createFloatingMotion, type FloatingMotion, getFloatingBounds } from "@/lib/motion";
 import { cn } from "@/lib/utils";
-import { createResource, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js";
+import {
+  createResource,
+  createSignal,
+  For,
+  Index,
+  onCleanup,
+  onMount,
+  Show,
+  type JSX,
+} from "solid-js";
 import { getServerStatsHistory } from "@/lib/api";
-import { useServerPulse } from "@/features/home/hooks/use-server-pulse";
-import { Sparkline } from "@/features/home/components/sparkline";
+import { useServerPulse } from "@/hooks/use-server-pulse";
+import { Sparkline } from "@/components/sparkline";
 
 type TelemetryBackdropProps = {
   onStatsHoverChange?: (isHovering: boolean) => void;
@@ -218,12 +222,14 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(113,152,208,0.16),transparent_42%),radial-gradient(circle_at_78%_74%,rgba(120,184,173,0.15),transparent_44%)]" />
 
       <div class="relative hidden h-full w-full md:block">
-        <For each={panels()}>
+        <Index each={panels()}>
           {(panel) => {
-            const isOpen = () => activePanelId() === panel.id;
-            const colorStyle = { "background-color": panel.primaryColor } as JSX.CSSProperties;
+            const panelId = () => panel().id;
+            const isOpen = () => activePanelId() === panelId();
+            const colorStyle = () =>
+              ({ "background-color": panel().primaryColor }) as JSX.CSSProperties;
             const fallbackPositionStyle = () => {
-              const currentMotion = motionById[panel.id];
+              const currentMotion = motionById[panelId()];
               return currentMotion
                 ? ({
                     left: `${currentMotion.x}px`,
@@ -236,10 +242,10 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
               <article
                 data-telemetry-item="true"
                 ref={(panelElement) => {
-                  panelRefs[panel.id] = panelElement;
+                  panelRefs[panelId()] = panelElement;
                 }}
-                onPointerEnter={() => onPanelHoverStart(panel.id)}
-                onPointerLeave={() => onPanelHoverEnd(panel.id)}
+                onPointerEnter={() => onPanelHoverStart(panelId())}
+                onPointerLeave={() => onPanelHoverEnd(panelId())}
                 class={cn(
                   "pointer-events-auto group absolute -translate-x-1/2 -translate-y-1/2 will-change-[left,top]",
                   isOpen() ? "z-50" : "z-20 hover:z-30",
@@ -248,7 +254,7 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
               >
                 <button
                   type="button"
-                  onClick={() => togglePanel(panel.id)}
+                  onClick={() => togglePanel(panelId())}
                   class={cn(
                     "relative flex items-center gap-2 rounded-full border border-transparent px-2 py-1 transition duration-200 hover:border-slate-200/20 hover:bg-slate-950/25",
                     isOpen() ? "border-slate-200/25 bg-slate-950/30" : "",
@@ -256,13 +262,13 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                 >
                   <span
                     class="size-1.5 rounded-full opacity-65 transition-opacity duration-200 group-hover:opacity-100"
-                    style={colorStyle}
+                    style={colorStyle()}
                   />
                   <span class="font-mono text-[0.52rem] tracking-[0.14em] text-slate-200/45 uppercase transition-colors duration-200 group-hover:text-slate-200/80">
-                    {panel.tag}
+                    {panel().tag}
                   </span>
                   <span class="font-mono text-[0.6rem] tracking-[0.08em] text-slate-200/28 uppercase transition-colors duration-200 group-hover:text-slate-100/78">
-                    {panel.current}
+                    {panel().current}
                   </span>
                 </button>
                 <div
@@ -275,17 +281,17 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                   )}
                 >
                   <p class="font-mono text-[0.55rem] tracking-[0.14em] text-slate-300/70 uppercase">
-                    {panel.title}
+                    {panel().title}
                   </p>
                   <p class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
-                    {panel.trend}
+                    {panel().trend}
                   </p>
                   <div class="mt-2 h-12 w-full opacity-75">
-                    <Sparkline points={panel.points} color={panel.primaryColor} />
+                    <Sparkline points={panel().points} color={panel().primaryColor} />
                   </div>
-                  <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{panel.hint}</p>
+                  <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{panel().hint}</p>
                   <dl class="mt-2 flex flex-col gap-1">
-                    <For each={panel.details}>
+                    <For each={panel().details}>
                       {(detail) => (
                         <div class="flex items-center justify-between gap-2 font-mono text-[0.5rem] tracking-[0.08em] uppercase">
                           <dt class="text-slate-300/60">{detail.label}</dt>
@@ -298,36 +304,37 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
               </article>
             );
           }}
-        </For>
+        </Index>
       </div>
 
       <div class="pointer-events-auto absolute inset-x-4 bottom-6 flex flex-wrap justify-center gap-2 md:hidden">
-        <For each={panels().slice(0, 3)}>
+        <Index each={panels().slice(0, 3)}>
           {(panel) => {
-            const style = { color: panel.primaryColor } as JSX.CSSProperties;
-            const isOpen = () => activePanelId() === panel.id;
+            const panelId = () => panel().id;
+            const style = () => ({ color: panel().primaryColor }) as JSX.CSSProperties;
+            const isOpen = () => activePanelId() === panelId();
 
             return (
               <button
                 type="button"
                 data-telemetry-item="true"
-                onClick={() => togglePanel(panel.id)}
+                onClick={() => togglePanel(panelId())}
                 class={cn(
                   "flex items-center gap-2 rounded-full border border-slate-200/20 bg-slate-950/38 px-3 py-1.5 backdrop-blur-sm transition-colors duration-200",
                   isOpen() ? "border-slate-200/35 bg-slate-950/55" : "",
                 )}
               >
-                <span class="size-1.5 rounded-full opacity-85" style={style} />
+                <span class="size-1.5 rounded-full opacity-85" style={style()} />
                 <span class="font-mono text-[0.52rem] tracking-[0.12em] text-slate-200/72 uppercase">
-                  {panel.tag}
+                  {panel().tag}
                 </span>
                 <span class="font-mono text-[0.58rem] tracking-[0.08em] text-slate-100/86 uppercase">
-                  {panel.current}
+                  {panel().current}
                 </span>
               </button>
             );
           }}
-        </For>
+        </Index>
       </div>
 
       <Show when={panels().find((panel) => panel.id === activePanelId())}>

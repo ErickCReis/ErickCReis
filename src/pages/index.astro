@@ -1,5 +1,5 @@
 ---
-import HomePage from "@/features/home/home-page";
+import HomeLiveOverlay from "@/islands/home-live-overlay";
 import "../styles/site.css";
 ---
 
@@ -13,7 +13,37 @@ import "../styles/site.css";
   </head>
   <body>
     <div id="app">
-      <HomePage client:only="solid-js" />
+      <HomeLiveOverlay client:only="solid-js" />
+      <main class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-4 py-10 md:px-8">
+        <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
+          <section class="space-y-5">
+            <div class="inline-flex items-center rounded-full border border-border/80 bg-card/40 px-3 py-1 font-mono text-xs tracking-[0.22em] uppercase">
+              live portfolio
+            </div>
+            <h1 class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl">Erick C. Reis</h1>
+            <p class="max-w-xl text-sm text-muted-foreground md:text-base">
+              TypeScript, React, Tailwind, shadcn/ui, Elysia, and Bun, with realtime cursor and
+              telemetry overlays.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <a
+                href="/content"
+                class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:brightness-110"
+              >
+                Content
+              </a>
+              <a
+                href="https://github.com/erickcreis"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                GitHub
+              </a>
+            </div>
+          </section>
+        </div>
+      </main>
     </div>
   </body>
 </html>

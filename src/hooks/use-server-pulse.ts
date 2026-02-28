@@ -1,10 +1,5 @@
-import { MAX_POINTS } from "@/features/home/constants";
-import type {
-  MetricSeries,
-  ServerStats,
-  TelemetryPanel,
-  TelemetryPoint,
-} from "@/features/home/types";
+import { MAX_POINTS } from "@/constants/telemetry";
+import type { MetricSeries, ServerStats, TelemetryPanel, TelemetryPoint } from "@/types/home";
 import { subscribeServerStats } from "@/lib/api";
 import {
   createEffect,

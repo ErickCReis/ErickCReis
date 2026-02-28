@@ -17,10 +17,6 @@ export type ServerStats = {
   cursorSubscribers: number;
 };
 
-export type StatsBootstrap = {
-  history: ServerStats[];
-};
-
 export type CursorState = CursorPayload & {
   updatedAt: number;
 };

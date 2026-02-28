@@ -75,6 +75,17 @@ export function publishCursor(payload: CursorPayload) {
   getSocket().send(payload);
 }
 
+export async function getCursorIdentity() {
+  const { data, error } = await client.live.id.get({
+    fetch: { credentials: "include" },
+  });
+  if (error || !data) {
+    throw new Error("Failed to fetch cursor identity");
+  }
+
+  return data;
+}
+
 type ServerStatsPayload = Awaited<
   ReturnType<NonNullable<Awaited<ReturnType<typeof client.stats.stream.get>>["data"]>["next"]>
 >["value"]["data"];
