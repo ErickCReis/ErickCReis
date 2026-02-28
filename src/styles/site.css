@@ -1,0 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&family=STIX+Two+Text:opsz,wght@8..60,400;8..60,500&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "STIX Two Text", ui-serif, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    --background: 211 40% 6%;
+    --foreground: 210 45% 95%;
+    --card: 214 28% 10%;
+    --card-foreground: 210 62% 96%;
+    --primary: 192 97% 74%;
+    --primary-foreground: 220 38% 9%;
+    --secondary: 221 24% 17%;
+    --secondary-foreground: 210 60% 90%;
+    --muted: 220 24% 15%;
+    --muted-foreground: 216 20% 70%;
+    --accent: 34 100% 74%;
+    --accent-foreground: 220 36% 9%;
+    --border: 218 23% 23%;
+    --input: 218 23% 23%;
+    --ring: 192 97% 74%;
+    --radius: 0.9rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #app {
+    @apply min-h-screen;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgb(72 99 145 / 30%), transparent 42%),
+      radial-gradient(circle at 88% 92%, rgb(112 180 171 / 20%), transparent 46%),
+      linear-gradient(180deg, rgb(7 12 22 / 92%), rgb(7 11 19 / 98%));
+  }
+}

@@ -1,0 +1,100 @@
+---
+export const prerender = true;
+
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import ContentTelemetryToggle from "@/islands/content-telemetry-toggle";
+import "../styles/site.css";
+
+type BlogPost = {
+  title: string;
+  description: string;
+  date: string;
+};
+
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+function formatPublishedDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return value;
+  }
+
+  return dateFormatter.format(date);
+}
+
+const entries = await getCollection("blog");
+const posts: BlogPost[] = entries
+  .map((entry: CollectionEntry<"blog">) => ({
+    title: entry.data.title,
+    description: entry.data.description,
+    date: new Date(entry.data.date).toISOString().slice(0, 10),
+  }))
+  .sort((a: BlogPost, b: BlogPost) => b.date.localeCompare(a.date));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Content | Erick C. Reis</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="app">
+      <main class="relative z-10 mx-auto min-h-screen w-full max-w-3xl px-4 py-12 md:px-8">
+        <section class="space-y-8 py-4">
+          <header class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="inline-flex w-fit items-center rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.22em] uppercase">
+                Content
+              </div>
+              <ContentTelemetryToggle client:only="solid-js" />
+            </div>
+            <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Blog</h1>
+            <p class="max-w-xl text-sm leading-relaxed text-muted-foreground">
+              One simple post to mark the beginning.
+            </p>
+          </header>
+
+          {
+            posts.length === 0 ? (
+              <p class="text-sm text-muted-foreground md:text-base">No posts published yet.</p>
+            ) : (
+              <section class="space-y-3" aria-label="Blog posts">
+                {posts.map((post, index) => (
+                  <article class="border-border/60 border-b pb-4">
+                    <details class="group" open={index === 0}>
+                      <summary class="flex w-full cursor-pointer list-none items-center justify-between gap-4 text-left">
+                        <span class="font-serif text-2xl leading-tight tracking-wide text-foreground">
+                          {post.title}
+                        </span>
+                        <span class="font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase transition-colors group-open:text-foreground/90">
+                          <span class="group-open:hidden">open</span>
+                          <span class="hidden group-open:inline">close</span>
+                        </span>
+                      </summary>
+                      <div class="mt-3 overflow-hidden">
+                        <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                          {post.description}
+                        </p>
+                        <p class="mt-3 font-mono text-[0.62rem] tracking-[0.12em] text-muted-foreground uppercase">
+                          {formatPublishedDate(post.date)}
+                        </p>
+                      </div>
+                    </details>
+                  </article>
+                ))}
+              </section>
+            )
+          }
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
