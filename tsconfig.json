@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*", "astro.config.mjs"],
+  "include": ["**/*", "./.astro/types.d.ts"],
   "exclude": ["dist", "node_modules"],
   "compilerOptions": {
     "paths": {
@@ -12,6 +12,6 @@
     "strict": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "types": ["astro/client", "bun"]
+    "types": ["bun"]
   }
 }
