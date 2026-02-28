@@ -67,3 +67,25 @@
       linear-gradient(180deg, rgb(7 12 22 / 92%), rgb(7 11 19 / 98%));
   }
 }
+
+@keyframes followPath {
+  from {
+    offset-distance: var(--panel-start-distance, 0%);
+  }
+  to {
+    offset-distance: calc(var(--panel-start-distance, 0%) + 100%);
+  }
+}
+
+.telemetry-follow-path {
+  top: 0;
+  left: 0;
+}
+
+@supports not (offset-path: path("M 0 0 L 1 1")) {
+  .telemetry-follow-path {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
