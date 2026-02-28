@@ -6,7 +6,7 @@
     "dev": "bun run --parallel dev:astro dev:api",
     "dev:astro": "bun --bun astro dev --host",
     "dev:api": "bun --watch src/server/index.ts",
-    "lint": "oxlint --fix && oxfmt && tsgo --noEmit && astro check",
+    "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
     "build": "bun --bun astro build",
     "start": "NODE_ENV=production bun src/server/index.ts"
   },
@@ -32,6 +32,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260227.1",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.50.0",
+    "oxlint-tsgolint": "^0.15.0",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vite": "8.0.0-beta.16"
