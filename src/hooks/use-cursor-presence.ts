@@ -32,7 +32,7 @@ export function useCursorPresence() {
     publishCursor(payload);
   };
 
-  const throttledPublishCursorPosition = throttle(publishCursorPosition, 200);
+  const throttledPublishCursorPosition = throttle(publishCursorPosition, 50);
 
   createEffect(() => {
     const x = mouse.x;
