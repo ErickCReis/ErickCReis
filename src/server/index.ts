@@ -46,6 +46,9 @@ const app = new Elysia()
     upgrade({ cookie }) {
       cookie.cursorId.value ??= createCursorId();
     },
+    open(ws) {
+      ws.subscribe("cursors");
+    },
     message(ws, payload) {
       if (payload.id !== ws.data.cookie.cursorId.value) {
         return;
