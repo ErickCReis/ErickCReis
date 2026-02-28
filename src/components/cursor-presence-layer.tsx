@@ -1,6 +1,6 @@
+import { clsx } from "clsx";
 import { formatCursorPosition, pickColor } from "@/lib/cursor";
 import type { CursorState } from "@/types/home";
-import { createTween } from "@solid-primitives/tween";
 import { For, createMemo, type JSX } from "solid-js";
 
 type CursorPresenceLayerProps = {
@@ -13,15 +13,12 @@ type CursorMarkerProps = {
   cursor: () => CursorState | undefined;
   selfId: string | null;
   isStatsHovered: boolean;
-  tween: boolean;
+  smooth: boolean;
 };
 
 function CursorMarker(props: CursorMarkerProps) {
-  const tweenX = createTween(() => props.cursor()?.x ?? 0, { duration: 200 });
-  const tweenY = createTween(() => props.cursor()?.y ?? 0, { duration: 200 });
-
-  const x = () => (props.tween ? tweenX() : (props.cursor()?.x ?? 0));
-  const y = () => (props.tween ? tweenY() : (props.cursor()?.y ?? 0));
+  const x = () => props.cursor()?.x ?? 0;
+  const y = () => props.cursor()?.y ?? 0;
   const position = () => formatCursorPosition(x(), y());
   const style = createMemo(() => {
     const cursor = props.cursor();
@@ -30,10 +27,9 @@ function CursorMarker(props: CursorMarkerProps) {
     }
 
     return {
-      left: `${x()}px`,
-      top: `${y()}px`,
-      "background-color": cursor.color ?? pickColor(cursor.id),
-      "border-color": cursor.color ?? pickColor(cursor.id),
+      "--cursor-x": `${x()}px`,
+      "--cursor-y": `${y()}px`,
+      "--cursor-color": cursor.color ?? pickColor(cursor.id),
     } as JSX.CSSProperties;
   });
   const cursorLabel = () => props.cursor()?.id ?? "";
@@ -45,9 +41,13 @@ function CursorMarker(props: CursorMarkerProps) {
 
   return (
     <div
-      class={`absolute -mt-1 -ml-1 size-2 rounded-full border shadow-[0_0_0_2px_rgba(8,11,18,0.64)] ${
-        isSelf() ? "opacity-45" : ""
-      }`}
+      class={clsx(
+        "absolute top-0 left-0 size-2 rounded-full border shadow-[0_0_0_2px_rgba(8,11,18,0.64)] border-(--cursor-color) bg-(--cursor-color) transform-[translate3d(var(--cursor-x,0px),var(--cursor-y,0px),0)_translate(-50%,-50%)] will-change-transform",
+        props.smooth
+          ? "transition-transform duration-180 linear motion-reduce:transition-none"
+          : "transition-none",
+        isSelf() && "opacity-45",
+      )}
       style={style()}
     >
       {!props.isStatsHovered ? (
@@ -75,7 +75,7 @@ export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
               cursor={() => cursorsById()[cursorId]}
               selfId={props.selfId}
               isStatsHovered={props.isStatsHovered}
-              tween={cursorId !== props.selfId}
+              smooth={cursorId !== props.selfId}
             />
           );
         }}
