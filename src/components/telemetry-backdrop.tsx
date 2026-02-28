@@ -154,7 +154,7 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
     const pathIndex = Math.floor(Math.random() * PREDEFINED_LONG_PATHS.length);
     const nextSeed: PanelMotionSeed = {
       pathIndex,
-      duration: 25 + Math.random() * 40,
+      duration: 200 + Math.random() * 100,
       startDistance: Math.random() * 100,
       startedAt: performance.now(),
       path: createPanelPath(pathIndex, viewport.width, viewport.height),
