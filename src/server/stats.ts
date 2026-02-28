@@ -2,7 +2,7 @@ import os from "node:os";
 import * as v from "valibot";
 
 const serverStatsSchema = v.object({
-  timestamp: v.string(),
+  timestamp: v.number(),
   uptimeSeconds: v.number(),
   memoryRssMb: v.number(),
   memoryHeapUsedMb: v.number(),
@@ -26,7 +26,7 @@ export const STATS_SAMPLE_INTERVAL_MS = 1500;
 
 export const statsHistory: ServerStats[] = [];
 export let latestStats: ServerStats = {
-  timestamp: new Date().toISOString(),
+  timestamp: Date.now(),
   uptimeSeconds: 0,
   memoryRssMb: 0,
   memoryHeapUsedMb: 0,
@@ -77,7 +77,7 @@ function sampleServerStats(server: Bun.Server<any>): ServerStats {
   );
 
   return {
-    timestamp: new Date().toISOString(),
+    timestamp: Date.now(),
     uptimeSeconds: Math.floor(process.uptime()),
     memoryRssMb: toMb(memory.rss),
     memoryHeapUsedMb: toMb(memory.heapUsed),

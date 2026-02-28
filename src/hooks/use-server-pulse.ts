@@ -47,10 +47,6 @@ function createSeriesFromHistory(history: ServerStats[]) {
   return series;
 }
 
-function appendPoint(values: number[], nextValue: number) {
-  return [...values, nextValue].slice(-MAX_POINTS);
-}
-
 function createPanelPoints(values: number[]): TelemetryPoint[] {
   if (values.length === 0) {
     return [];
@@ -122,7 +118,7 @@ function formatSigned(value: number, decimals: number, suffix = "") {
 }
 
 export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
-  const [series, setSeries] = createSignal<MetricSeries>(createEmptySeries());
+  const [samples, setSamples] = createSignal<ServerStats[]>([]);
 
   createEffect(() => {
     const historyValue = history();
@@ -130,12 +126,20 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
       return;
     }
 
-    setSeries((previous) => {
-      if (previous.rss.length > 0) {
-        return previous;
+    setSamples((previous) => {
+      const byTimestamp = new Map<number, ServerStats>();
+
+      for (const sample of previous) {
+        byTimestamp.set(sample.timestamp, sample);
       }
 
-      return createSeriesFromHistory(historyValue);
+      for (const sample of historyValue) {
+        byTimestamp.set(sample.timestamp, sample);
+      }
+
+      return [...byTimestamp.values()]
+        .sort((left, right) => left.timestamp - right.timestamp)
+        .slice(-MAX_POINTS);
     });
   });
 
@@ -143,19 +147,15 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const controller = new AbortController();
 
     void subscribeServerStats((payload) => {
-      setSeries((previous) => ({
-        rss: appendPoint(previous.rss, payload.memoryRssMb),
-        heap: appendPoint(previous.heap, payload.memoryHeapUsedMb),
-        heapTotal: appendPoint(previous.heapTotal, payload.memoryHeapTotalMb),
-        cpu: appendPoint(previous.cpu, payload.cpuUsagePercent),
-        load1: appendPoint(previous.load1, payload.loadAverage[0]),
-        load15: appendPoint(previous.load15, payload.loadAverage[2]),
-        systemMemory: appendPoint(previous.systemMemory, payload.systemMemoryUsedPercent),
-        requests: appendPoint(previous.requests, payload.pendingRequests),
-        websockets: appendPoint(previous.websockets, payload.pendingWebSockets),
-        subscribers: appendPoint(previous.subscribers, payload.cursorSubscribers),
-        uptimeMinutes: appendPoint(previous.uptimeMinutes, payload.uptimeSeconds / 60),
-      }));
+      setSamples((previous) => {
+        const previousLatest = previous[previous.length - 1];
+
+        if (previousLatest?.timestamp === payload.timestamp) {
+          return [...previous.slice(0, -1), payload];
+        }
+
+        return [...previous, payload].slice(-MAX_POINTS);
+      });
     }, controller.signal).catch((error) => {
       if (!controller.signal.aborted) {
         console.error(error);
@@ -168,7 +168,7 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
   });
 
   const panels = createMemo<TelemetryPanel[]>(() => {
-    const currentSeries = series();
+    const currentSeries = createSeriesFromHistory(samples());
     const latestRequests = getLatest(currentSeries.requests);
     const previousRequests = getPrevious(currentSeries.requests);
     const latestWebSockets = getLatest(currentSeries.websockets);

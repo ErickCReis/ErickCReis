@@ -1,7 +1,7 @@
 import type { CursorPayload } from "@/lib/api";
 
 export type ServerStats = {
-  timestamp: string;
+  timestamp: number;
   uptimeSeconds: number;
   memoryRssMb: number;
   memoryHeapUsedMb: number;
