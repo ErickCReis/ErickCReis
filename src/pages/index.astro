@@ -1,52 +1,39 @@
 ---
 import HomeLiveOverlay from "@/islands/home-live-overlay";
-import "../styles/site.css";
+import BaseLayout from "../layouts/base-layout.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Erick Reis | Portfolio</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  </head>
-  <body>
-    <div id="app">
-      <HomeLiveOverlay client:only="solid-js" />
-      <main
-        class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-start px-4 pt-16 pb-10 sm:items-center sm:px-8 sm:py-10"
-      >
-        <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
-          <section class="space-y-5">
-            <h1
-              class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
-            >
-              Erick Reis
-            </h1>
-            <p class="max-w-xl text-sm text-muted-foreground md:text-base">
-              TypeScript engineer building React and Next.js frontends,
-              microfrontends with Module Federation, and realtime microservices.
-            </p>
-            <div class="flex flex-wrap gap-3">
-              <a
-                href="/content"
-                class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:brightness-110"
-              >
-                Content
-              </a>
-              <a
-                href="https://github.com/erickcreis"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                GitHub
-              </a>
-            </div>
-          </section>
+<BaseLayout title="Erick Reis | Portfolio">
+  <HomeLiveOverlay client:only="solid-js" />
+  <main
+    class="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-start px-4 pt-16 pb-10 sm:items-center sm:px-8 sm:py-10"
+  >
+    <div class="grid w-full gap-8 md:grid-cols-[1.3fr_0.7fr]">
+      <section class="space-y-5">
+        <h1 class="font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl">
+          Erick Reis
+        </h1>
+        <p class="max-w-xl text-sm text-muted-foreground md:text-base">
+          TypeScript engineer building React and Next.js frontends,
+          microfrontends with Module Federation, and realtime microservices.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href="/content"
+            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:brightness-110"
+          >
+            Content
+          </a>
+          <a
+            href="https://github.com/erickcreis"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-input bg-background px-4 py-2 font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            GitHub
+          </a>
         </div>
-      </main>
+      </section>
     </div>
-  </body>
-</html>
+  </main>
+</BaseLayout>
