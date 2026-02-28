@@ -9,7 +9,7 @@ export type CursorPayload = {
 };
 
 const client = treaty<App>(
-  Bun.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
+  process.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
 );
 
 let socket: ReturnType<typeof client.live.subscribe> | null = null;
