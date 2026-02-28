@@ -10,6 +10,11 @@ export type CursorPayload = {
 
 const client = treaty<App>(
   process.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
+  {
+    fetch: {
+      credentials: "include",
+    },
+  },
 );
 
 let socket: ReturnType<typeof client.live.subscribe> | null = null;
@@ -72,13 +77,16 @@ export function subscribeCursor(onPayload: (payload: CursorPayload) => void) {
 }
 
 export function publishCursor(payload: CursorPayload) {
-  getSocket().send(payload);
+  const socket = getSocket();
+  if (!socket || socket.ws.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  socket.send(payload);
 }
 
 export async function getCursorIdentity() {
-  const { data, error } = await client.live.id.get({
-    fetch: { credentials: "include" },
-  });
+  const { data, error } = await client.live.id.get();
   if (error || !data) {
     throw new Error("Failed to fetch cursor identity");
   }
