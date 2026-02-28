@@ -8,9 +8,9 @@ export type CursorPayload = {
   color?: string;
 };
 
-const baseUrl = "http://localhost:3000";
-
-const client = treaty<App>(baseUrl);
+const client = treaty<App>(
+  Bun.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
+);
 
 let socket: ReturnType<typeof client.live.subscribe> | null = null;
 const listeners = new Set<(payload: CursorPayload) => void>();

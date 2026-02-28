@@ -5,8 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   output: "static",
-  site: "http://localhost:3000",
-
+  site: "https://erickr.dev",
   integrations: [mdx(), solid()],
   vite: {
     plugins: [tailwindcss()],

@@ -22,7 +22,15 @@ const app = new Elysia()
   .get("/content", () => file("dist/content/index.html"))
   .use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }))
 
-  .use(cors({ origin: ["http://localhost:4321"], credentials: true }))
+  .use(
+    cors({
+      origin:
+        Bun.env.NODE_ENV === "production"
+          ? ["https://erickr.dev", "https://www.erickr.dev"]
+          : ["http://localhost:4321"],
+      credentials: true,
+    }),
+  )
   .get("/stats", () => latestStats)
   .get("/stats/history", ({ set }) => {
     set.headers["cache-control"] = "no-store";
@@ -61,7 +69,7 @@ const app = new Elysia()
     },
   });
 
-app.listen(3000, ({ hostname, port }) => {
+app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
   console.log(`Server is running on: http://${hostname}:${port}`);
 });
 
