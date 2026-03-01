@@ -74,7 +74,7 @@ function getClientCredentials() {
 }
 
 function createBasicAuthHeader(clientId: string, clientSecret: string) {
-  const base64Auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const base64Auth = btoa(`${clientId}:${clientSecret}`);
   return `Basic ${base64Auth}`;
 }
 

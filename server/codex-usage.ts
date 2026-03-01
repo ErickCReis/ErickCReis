@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import * as v from "valibot";
 import {
@@ -118,22 +118,28 @@ let writeQueue: Promise<void> = Promise.resolve();
 
 async function refreshFromDisk(force = false) {
   const filePath = getUsageFilePath();
+  const file = Bun.file(filePath);
 
   try {
-    const fileStats = await stat(filePath);
-    if (!force && latestFileMtimeMs === fileStats.mtimeMs) {
+    const exists = await file.exists();
+    if (!exists) {
+      throw new Error("ENOENT");
+    }
+
+    const mtimeMs = await file.lastModified;
+    if (!force && latestFileMtimeMs === mtimeMs) {
       return;
     }
 
-    const raw = await readFile(filePath, "utf-8");
-    const parsed = v.safeParse(codexUsageSyncPayloadSchema, JSON.parse(raw) as unknown);
+    const raw = await file.text();
+    const parsed = v.safeParse(codexUsageSyncPayloadSchema, JSON.parse(raw));
     if (!parsed.success) {
       console.error("[codex] Ignoring invalid usage file payload");
       return;
     }
 
     latestStore = normalizeSyncPayload(parsed.output);
-    latestFileMtimeMs = fileStats.mtimeMs;
+    latestFileMtimeMs = mtimeMs;
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError?.code === "ENOENT") {
@@ -157,11 +163,11 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
   writeQueue = writeQueue
     .catch(() => {})
     .then(async () => {
-      const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+      const tempPath = `${filePath}.${Math.random().toString(36).slice(2)}.${Date.now()}.tmp`;
       await mkdir(dirname(filePath), { recursive: true });
 
       try {
-        await writeFile(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+        await Bun.write(tempPath, `${JSON.stringify(payload, null, 2)}\n`);
         await rename(tempPath, filePath);
       } catch (error) {
         await unlink(tempPath).catch(() => {});

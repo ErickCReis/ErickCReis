@@ -38,11 +38,12 @@ export let latestStats: ServerStats = createInitialServerStats();
 
 let statsInterval: ReturnType<typeof setInterval> | undefined;
 let previousCpuUsage = process.cpuUsage();
-let previousCpuSampleAt = process.hrtime.bigint();
+let previousCpuSampleAt = Bun.nanoseconds();
 
 function getCpuUsagePercent() {
-  const now = process.hrtime.bigint();
-  const elapsedMicroseconds = Number((now - previousCpuSampleAt) / 1000n);
+  const now = Bun.nanoseconds();
+  const elapsedBigInt = now - previousCpuSampleAt;
+  const elapsedMicroseconds = Number(elapsedBigInt) / 1000;
   const currentCpuUsage = process.cpuUsage();
   const usedMicroseconds =
     currentCpuUsage.user -
@@ -72,13 +73,13 @@ function getSystemMemoryUsedPercent() {
 }
 
 function sampleServerStats(server: Bun.Server<any>): ServerStats {
-  const memory = process.memoryUsage();
+  const mem = process.memoryUsage();
 
   return {
     timestamp: Date.now(),
     appVersion: APP_VERSION,
     uptimeSeconds: Math.floor(process.uptime()),
-    memoryHeapUsedMb: toMb(memory.heapUsed),
+    memoryHeapUsedMb: toMb(mem.heapUsed),
     systemMemoryUsedPercent: getSystemMemoryUsedPercent(),
     cpuUsagePercent: getCpuUsagePercent(),
     pendingWebSockets: server.pendingWebSockets,
