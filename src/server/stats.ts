@@ -1,5 +1,21 @@
 import os from "node:os";
 import * as v from "valibot";
+import { getLatestSpotifyNowPlaying, startSpotifyPoller } from "./spotify";
+
+const spotifyNowPlayingSchema = v.object({
+  isConfigured: v.boolean(),
+  isPlaying: v.boolean(),
+  trackId: v.nullable(v.string()),
+  trackName: v.nullable(v.string()),
+  artistNames: v.array(v.string()),
+  albumName: v.nullable(v.string()),
+  albumImageUrl: v.nullable(v.string()),
+  trackUrl: v.nullable(v.string()),
+  progressMs: v.number(),
+  durationMs: v.number(),
+  progressPercent: v.number(),
+  fetchedAt: v.number(),
+});
 
 const serverStatsSchema = v.object({
   timestamp: v.number(),
@@ -16,6 +32,7 @@ const serverStatsSchema = v.object({
   pendingRequests: v.number(),
   pendingWebSockets: v.number(),
   cursorSubscribers: v.number(),
+  spotify: spotifyNowPlayingSchema,
 });
 
 type ServerStats = v.InferOutput<typeof serverStatsSchema>;
@@ -40,6 +57,7 @@ export let latestStats: ServerStats = {
   pendingRequests: 0,
   pendingWebSockets: 0,
   cursorSubscribers: 0,
+  spotify: getLatestSpotifyNowPlaying(),
 };
 let statsInterval: ReturnType<typeof setInterval> | undefined;
 let previousCpuUsage = process.cpuUsage();
@@ -91,6 +109,7 @@ function sampleServerStats(server: Bun.Server<any>): ServerStats {
     pendingRequests: server.pendingRequests,
     pendingWebSockets: server.pendingWebSockets,
     cursorSubscribers: server.subscriberCount("cursors"),
+    spotify: getLatestSpotifyNowPlaying(),
   };
 }
 
@@ -109,6 +128,7 @@ export function startStatsSampler(server: Bun.Server<any>) {
     return;
   }
 
+  startSpotifyPoller();
   recordServerStatsSample(server);
   statsInterval = setInterval(() => {
     recordServerStatsSample(server);

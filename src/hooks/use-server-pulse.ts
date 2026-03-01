@@ -1,5 +1,11 @@
 import { MAX_POINTS } from "@/constants/telemetry";
-import type { MetricSeries, ServerStats, TelemetryPanel, TelemetryPoint } from "@/types/home";
+import type {
+  MetricSeries,
+  ServerStats,
+  TelemetryHistoryItem,
+  TelemetryPanel,
+  TelemetryPoint,
+} from "@/types/home";
 import { subscribeServerStats } from "@/lib/api";
 import {
   createEffect,
@@ -117,6 +123,41 @@ function formatSigned(value: number, decimals: number, suffix = "") {
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
 }
 
+function formatDuration(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function getRecentSpotifyTracks(samples: ServerStats[], currentTrackId: string | null, maxItems = 3) {
+  const results: TelemetryHistoryItem[] = [];
+  const seenTrackIds = new Set<string>();
+
+  for (let index = samples.length - 1; index >= 0; index -= 1) {
+    const spotify = samples[index]?.spotify;
+    if (!spotify || !spotify.trackId || !spotify.trackName) {
+      continue;
+    }
+
+    if (spotify.trackId === currentTrackId || seenTrackIds.has(spotify.trackId)) {
+      continue;
+    }
+
+    seenTrackIds.add(spotify.trackId);
+    results.push({
+      title: spotify.trackName,
+      subtitle: spotify.artistNames.join(", ") || "Unknown artist",
+    });
+
+    if (results.length >= maxItems) {
+      break;
+    }
+  }
+
+  return results;
+}
+
 export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
   const [samples, setSamples] = createSignal<ServerStats[]>([]);
 
@@ -168,7 +209,8 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
   });
 
   const panels = createMemo<TelemetryPanel[]>(() => {
-    const currentSeries = createSeriesFromHistory(samples());
+    const sampleHistory = samples();
+    const currentSeries = createSeriesFromHistory(sampleHistory);
     const latestRequests = getLatest(currentSeries.requests);
     const previousRequests = getPrevious(currentSeries.requests);
     const latestWebSockets = getLatest(currentSeries.websockets);
@@ -187,8 +229,19 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const previousSystemMemory = getPrevious(currentSeries.systemMemory);
     const heapUsagePercent = latestHeapTotal > 0 ? (latestHeap / latestHeapTotal) * 100 : 0;
     const headroom = Math.max(latestHeapTotal - latestHeap, 0);
+    const latestSample = sampleHistory[sampleHistory.length - 1];
+    const spotify = latestSample?.spotify;
+    const spotifyArtists = spotify?.artistNames.join(", ") || "No artist";
+    const spotifyTrackName = spotify?.trackName ?? "Nothing playing";
+    const spotifyAlbum = spotify?.albumName ?? "No album";
+    const spotifyStatus = spotify?.isPlaying ? "Playing" : "Idle";
+    const spotifyProgressLabel =
+      spotify && spotify.durationMs > 0
+        ? `${formatDuration(spotify.progressMs)} / ${formatDuration(spotify.durationMs)}`
+        : "--:-- / --:--";
+    const recentSpotifyTracks = getRecentSpotifyTracks(sampleHistory, spotify?.trackId ?? null);
 
-    return [
+    const builtPanels: TelemetryPanel[] = [
       {
         id: "traffic",
         title: "Traffic",
@@ -283,6 +336,33 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
         primaryColor: "#9ccfd2",
       },
     ];
+
+    if (spotify?.isConfigured) {
+      builtPanels.unshift({
+        id: "spotify",
+        title: "Now Playing",
+        tag: "spotify/live",
+        hint: spotify.isPlaying
+          ? "Current Spotify playback for this account"
+          : "Spotify is connected but nothing is currently playing",
+        current: spotifyTrackName,
+        trend: spotifyArtists,
+        details: [
+          { label: "Track", value: spotifyTrackName },
+          { label: "Artist", value: spotifyArtists },
+          { label: "Status", value: spotifyStatus },
+          { label: "Album", value: spotifyAlbum },
+          { label: "Progress", value: spotifyProgressLabel },
+        ],
+        points: [],
+        primaryColor: "#1db954",
+        actionUrl: spotify.trackUrl ?? undefined,
+        actionLabel: "Open",
+        historyItems: recentSpotifyTracks,
+      });
+    }
+
+    return builtPanels;
   });
 
   return { panels };

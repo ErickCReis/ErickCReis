@@ -339,7 +339,7 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                   </span>
                   <span
                     class={clsx(
-                      "font-mono text-[0.6rem] tracking-[0.08em] uppercase transition-colors duration-200",
+                      "max-w-36 truncate text-left font-mono text-[0.6rem] tracking-[0.08em] uppercase transition-colors duration-200",
                       isActive() ? "text-slate-100/78" : "text-slate-200/28",
                     )}
                   >
@@ -361,25 +361,66 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                     <p class="font-mono text-[0.55rem] tracking-[0.14em] text-slate-300/70 uppercase">
                       {panel().title}
                     </p>
-                    {isPinned() ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          clearManualPanel();
-                        }}
-                        class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
-                      >
-                        Release
-                      </button>
-                    ) : null}
+                    <div class="flex items-center gap-1">
+                      {panel().actionUrl ? (
+                        <a
+                          href={panel().actionUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
+                        >
+                          {panel().actionLabel ?? "Open"}
+                        </a>
+                      ) : null}
+                      {isPinned() ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            clearManualPanel();
+                          }}
+                          class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
+                        >
+                          Release
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <p class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
                     {panel().trend}
                   </p>
-                  <div class="mt-2 h-12 w-full opacity-75">
-                    <Sparkline points={panel().points} color={panel().primaryColor} />
-                  </div>
+                  {panel().historyItems ? (
+                    <div class="mt-2">
+                      <p class="font-mono text-[0.49rem] tracking-[0.12em] text-slate-300/58 uppercase">
+                        Previous songs
+                      </p>
+                      {panel().historyItems!.length > 0 ? (
+                        <ul class="mt-1.5 flex flex-col gap-1.5">
+                          <For each={panel().historyItems!}>
+                            {(track) => (
+                              <li class="rounded-md border border-slate-200/10 bg-slate-900/30 px-2 py-1">
+                                <p class="truncate font-mono text-[0.52rem] tracking-[0.08em] text-slate-100/88 uppercase">
+                                  {track.title}
+                                </p>
+                                <p class="truncate text-[0.56rem] text-slate-300/64">
+                                  {track.subtitle}
+                                </p>
+                              </li>
+                            )}
+                          </For>
+                        </ul>
+                      ) : (
+                        <p class="mt-1 text-[0.56rem] text-slate-300/60">
+                          No previous tracks in recent history.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div class="mt-2 h-12 w-full opacity-75">
+                      <Sparkline points={panel().points} color={panel().primaryColor} />
+                    </div>
+                  )}
                   <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{panel().hint}</p>
                   <dl class="mt-2 flex flex-col gap-1">
                     <For each={panel().details}>

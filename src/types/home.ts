@@ -1,5 +1,20 @@
 import type { CursorPayload } from "@/lib/api";
 
+export type SpotifyNowPlaying = {
+  isConfigured: boolean;
+  isPlaying: boolean;
+  trackId: string | null;
+  trackName: string | null;
+  artistNames: string[];
+  albumName: string | null;
+  albumImageUrl: string | null;
+  trackUrl: string | null;
+  progressMs: number;
+  durationMs: number;
+  progressPercent: number;
+  fetchedAt: number;
+};
+
 export type ServerStats = {
   timestamp: number;
   uptimeSeconds: number;
@@ -15,6 +30,7 @@ export type ServerStats = {
   pendingRequests: number;
   pendingWebSockets: number;
   cursorSubscribers: number;
+  spotify: SpotifyNowPlaying;
 };
 
 export type CursorState = CursorPayload & {
@@ -45,6 +61,11 @@ export type TelemetryPoint = {
   value: number;
 };
 
+export type TelemetryHistoryItem = {
+  title: string;
+  subtitle: string;
+};
+
 export type TelemetryPanel = {
   id: string;
   title: string;
@@ -55,4 +76,7 @@ export type TelemetryPanel = {
   details: TelemetryDetail[];
   points: TelemetryPoint[];
   primaryColor: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  historyItems?: TelemetryHistoryItem[];
 };
