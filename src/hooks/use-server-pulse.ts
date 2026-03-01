@@ -18,6 +18,13 @@ import {
 
 const DEFAULT_VERSION = "v0.0.0";
 const DEFAULT_GITHUB_USER = "ErickCReis";
+const DEFAULT_CODEX_STATUS = "Awaiting sync";
+const USD_FORMATTER = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 function createSeriesFromHistory(history: ServerStats[]): MetricSeries {
   const historySlice = history.slice(-MAX_POINTS);
@@ -62,6 +69,27 @@ function formatCount(value: number) {
   return Math.round(value).toLocaleString();
 }
 
+function formatTokenCount(value: number) {
+  return Math.round(value).toLocaleString();
+}
+
+function formatCompactTokenCount(value: number) {
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(2)}B`;
+  }
+
+  if (absolute >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2)}M`;
+  }
+
+  if (absolute >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+
+  return `${Math.round(value)}`;
+}
+
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
@@ -87,6 +115,21 @@ function formatUptime(minutes: number) {
 function formatSigned(value: number, decimals: number, suffix = "") {
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
+}
+
+function formatCurrency(value: number) {
+  return USD_FORMATTER.format(value);
+}
+
+function formatGeneratedAt(value: number | null) {
+  if (!value) {
+    return "--:--";
+  }
+
+  return new Date(value).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatDayRange(labels: string[]) {
@@ -181,6 +224,16 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const commitsLast7DayLabels = github?.commitsLast7DayLabels ?? [];
     const commitsLast7DaysTotal = commitsLast7Days.reduce((sum, value) => sum + value, 0);
     const commitsToday = commitsLast7Days.at(-1) ?? 0;
+    const codex = latestSample?.codex;
+    const codexLatestDay = codex?.latestDay;
+    const codexDaily = codex?.daily ?? [];
+    const codexTotals = codex?.totals;
+    const codexDailyTokenPoints = codexDaily.map((entry) => entry.totalTokens);
+    const previousCodexDayTokens =
+      codexDaily.length > 1
+        ? (codexDaily.at(-2)?.totalTokens ?? codexLatestDay?.totalTokens ?? 0)
+        : (codexLatestDay?.totalTokens ?? 0);
+    const codexTrendValue = (codexLatestDay?.totalTokens ?? 0) - previousCodexDayTokens;
 
     const spotify = latestSample?.spotify;
     const spotifyArtists = spotify?.artistNames.join(", ") || "No artist";
@@ -194,6 +247,35 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const recentSpotifyTracks = getRecentSpotifyTracks(sampleHistory, spotify?.trackId ?? null);
 
     return [
+      {
+        id: "codex",
+        title: "Codex Usage",
+        tag: "codex/daily",
+        hint: !codexLatestDay
+          ? "Awaiting first hourly sync from local machine"
+          : codex?.isStale
+            ? "Sync stale: no successful update in the configured stale window"
+            : "Hourly token usage sync from local machine",
+        current: codexLatestDay ? `${formatCompactTokenCount(codexLatestDay.totalTokens)} tokens` : DEFAULT_CODEX_STATUS,
+        trend: codexLatestDay ? `${formatSigned(codexTrendValue, 0, " tokens")} vs prev day` : "--",
+        details: codexLatestDay
+          ? [
+              { label: "Input", value: formatTokenCount(codexLatestDay.inputTokens) },
+              { label: "Cached", value: formatTokenCount(codexLatestDay.cachedInputTokens) },
+              { label: "Output", value: formatTokenCount(codexLatestDay.outputTokens) },
+              { label: "Reasoning", value: formatTokenCount(codexLatestDay.reasoningOutputTokens) },
+              { label: "Day cost", value: formatCurrency(codexLatestDay.costUSD) },
+              { label: "30d total", value: formatTokenCount(codexTotals?.totalTokens ?? codexLatestDay.totalTokens) },
+              { label: "30d cost", value: formatCurrency(codexTotals?.costUSD ?? codexLatestDay.costUSD) },
+              { label: "Updated", value: formatGeneratedAt(codex?.generatedAt ?? null) },
+            ]
+          : [
+              { label: "Status", value: DEFAULT_CODEX_STATUS },
+              { label: "Updated", value: formatGeneratedAt(codex?.generatedAt ?? null) },
+            ],
+        points: createPanelPoints(codexDailyTokenPoints, 30),
+        primaryColor: "#7fb0ff",
+      },
       {
         id: "system",
         title: "System",

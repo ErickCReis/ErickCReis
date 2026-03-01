@@ -11,4 +11,14 @@ services:
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       SPOTIFY_REFRESH_TOKEN: ${SPOTIFY_REFRESH_TOKEN:-}
+      GITHUB_USERNAME: ${GITHUB_USERNAME:-ErickCReis}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      CODEX_USAGE_FILE: ${CODEX_USAGE_FILE:-/app/runtime/codex/codex-usage.json}
+      CODEX_SYNC_TOKEN: ${CODEX_SYNC_TOKEN:-}
+      CODEX_STALE_AFTER_MINUTES: ${CODEX_STALE_AFTER_MINUTES:-180}
+    volumes:
+      - codex_usage_data:/app/runtime/codex
     restart: unless-stopped
+
+volumes:
+  codex_usage_data:

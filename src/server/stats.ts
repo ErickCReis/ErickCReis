@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import os from "node:os";
+import type { CodexUsageSnapshot } from "./codex-usage";
+import { getLatestCodexUsageSnapshot, startCodexUsageStore } from "./codex-usage";
 import type { GitHubCommitStats } from "./github";
 import { getLatestGitHubCommitStats, startGitHubPoller } from "./github";
 import type { SpotifyNowPlaying } from "./spotify";
@@ -22,6 +24,7 @@ export type ServerStats = {
   cursorSubscribers: number;
   spotify: SpotifyNowPlaying;
   github: GitHubCommitStats;
+  codex: CodexUsageSnapshot;
 };
 
 function toMb(value: number) {
@@ -61,6 +64,7 @@ function createInitialServerStats(): ServerStats {
     cursorSubscribers: 0,
     spotify: getLatestSpotifyNowPlaying(),
     github: getLatestGitHubCommitStats(),
+    codex: getLatestCodexUsageSnapshot(),
   };
 }
 
@@ -114,6 +118,7 @@ function sampleServerStats(server: Bun.Server<any>): ServerStats {
     cursorSubscribers: server.subscriberCount("cursors"),
     spotify: getLatestSpotifyNowPlaying(),
     github: getLatestGitHubCommitStats(),
+    codex: getLatestCodexUsageSnapshot(),
   };
 }
 
@@ -133,6 +138,7 @@ export function startStatsSampler(server: Bun.Server<any>) {
 
   startSpotifyPoller();
   startGitHubPoller();
+  startCodexUsageStore();
   recordServerStatsSample(server);
 
   statsInterval = setInterval(() => {

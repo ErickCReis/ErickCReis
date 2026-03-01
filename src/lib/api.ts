@@ -1,5 +1,6 @@
 import { treaty } from "@elysiajs/eden";
 import type { App } from "@/server/index";
+import type { ServerStats } from "@/types/home";
 
 export type CursorPayload = {
   id: string;
@@ -99,7 +100,7 @@ type ServerStatsPayload = Awaited<
 >["value"]["data"];
 
 export async function subscribeServerStats(
-  onPayload: (payload: ServerStatsPayload) => void,
+  onPayload: (payload: ServerStats) => void,
   signal?: AbortSignal,
 ) {
   const { data, error } = await client.stats.stream.get({ fetch: { signal } });
@@ -112,15 +113,15 @@ export async function subscribeServerStats(
       continue;
     }
 
-    onPayload(chunk.data);
+    onPayload(chunk.data as ServerStatsPayload as ServerStats);
   }
 }
 
-export async function getServerStatsHistory() {
+export async function getServerStatsHistory(): Promise<ServerStats[]> {
   const { data, error } = await client.stats.history.get();
   if (error || !data) {
     throw new Error("Failed to fetch server stats history");
   }
 
-  return data;
+  return data as ServerStats[];
 }

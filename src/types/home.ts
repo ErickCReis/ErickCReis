@@ -23,6 +23,33 @@ export type GitHubCommitStats = {
   fetchedAt: number;
 };
 
+export type CodexUsageTotals = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+  totalTokens: number;
+  costUSD: number;
+};
+
+export type CodexUsageDay = CodexUsageTotals & {
+  dateLabel: string;
+};
+
+export type CodexUsageDailySummary = {
+  dateLabel: string;
+  totalTokens: number;
+  costUSD: number;
+};
+
+export type CodexUsageSnapshot = {
+  generatedAt: number | null;
+  isStale: boolean;
+  latestDay: CodexUsageDay | null;
+  totals: CodexUsageTotals | null;
+  daily: CodexUsageDailySummary[];
+};
+
 export type ServerStats = {
   timestamp: number;
   appVersion: string;
@@ -34,6 +61,7 @@ export type ServerStats = {
   cursorSubscribers: number;
   spotify: SpotifyNowPlaying;
   github: GitHubCommitStats;
+  codex: CodexUsageSnapshot;
 };
 
 export type CursorState = CursorPayload & {
