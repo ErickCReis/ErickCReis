@@ -19,12 +19,6 @@ import {
 const DEFAULT_VERSION = "v0.0.0";
 const DEFAULT_GITHUB_USER = "ErickCReis";
 const DEFAULT_CODEX_STATUS = "Awaiting sync";
-const USD_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 
 function createSeriesFromHistory(history: ServerStats[]): MetricSeries {
   const historySlice = history.slice(-MAX_POINTS);
@@ -115,10 +109,6 @@ function formatUptime(minutes: number) {
 function formatSigned(value: number, decimals: number, suffix = "") {
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
-}
-
-function formatCurrency(value: number) {
-  return USD_FORMATTER.format(value);
 }
 
 function formatGeneratedAt(value: number | null) {
@@ -229,11 +219,6 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const codexDaily = codex?.daily ?? [];
     const codexTotals = codex?.totals;
     const codexDailyTokenPoints = codexDaily.map((entry) => entry.totalTokens);
-    const previousCodexDayTokens =
-      codexDaily.length > 1
-        ? (codexDaily.at(-2)?.totalTokens ?? codexLatestDay?.totalTokens ?? 0)
-        : (codexLatestDay?.totalTokens ?? 0);
-    const codexTrendValue = (codexLatestDay?.totalTokens ?? 0) - previousCodexDayTokens;
 
     const spotify = latestSample?.spotify;
     const spotifyArtists = spotify?.artistNames.join(", ") || "No artist";
@@ -257,16 +242,14 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
             ? "Sync stale: no successful update in the configured stale window"
             : "Hourly token usage sync from local machine",
         current: codexLatestDay ? `${formatCompactTokenCount(codexLatestDay.totalTokens)} tokens` : DEFAULT_CODEX_STATUS,
-        trend: codexLatestDay ? `${formatSigned(codexTrendValue, 0, " tokens")} vs prev day` : "--",
+        trend: "--",
         details: codexLatestDay
           ? [
               { label: "Input", value: formatTokenCount(codexLatestDay.inputTokens) },
               { label: "Cached", value: formatTokenCount(codexLatestDay.cachedInputTokens) },
               { label: "Output", value: formatTokenCount(codexLatestDay.outputTokens) },
               { label: "Reasoning", value: formatTokenCount(codexLatestDay.reasoningOutputTokens) },
-              { label: "Day cost", value: formatCurrency(codexLatestDay.costUSD) },
               { label: "30d total", value: formatTokenCount(codexTotals?.totalTokens ?? codexLatestDay.totalTokens) },
-              { label: "30d cost", value: formatCurrency(codexTotals?.costUSD ?? codexLatestDay.costUSD) },
               { label: "Updated", value: formatGeneratedAt(codex?.generatedAt ?? null) },
             ]
           : [

@@ -24,22 +24,19 @@ export type GitHubCommitStats = {
 };
 
 export type CodexUsageTotals = {
+  totalTokens: number;
+};
+
+export type CodexUsageDay = {
   inputTokens: number;
   cachedInputTokens: number;
   outputTokens: number;
   reasoningOutputTokens: number;
   totalTokens: number;
-  costUSD: number;
-};
-
-export type CodexUsageDay = CodexUsageTotals & {
-  dateLabel: string;
 };
 
 export type CodexUsageDailySummary = {
-  dateLabel: string;
   totalTokens: number;
-  costUSD: number;
 };
 
 export type CodexUsageSnapshot = {

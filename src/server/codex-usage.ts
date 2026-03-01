@@ -8,30 +8,25 @@ const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
 
 const tokenValueSchema = v.pipe(v.number(), v.minValue(0));
-const costValueSchema = v.pipe(v.number(), v.minValue(0));
 
 const codexUsageTotalsShape = {
-  inputTokens: tokenValueSchema,
-  cachedInputTokens: tokenValueSchema,
-  outputTokens: tokenValueSchema,
-  reasoningOutputTokens: tokenValueSchema,
   totalTokens: tokenValueSchema,
-  costUSD: costValueSchema,
 };
 
 export const codexUsageTotalsSchema = v.object(codexUsageTotalsShape);
 export type CodexUsageTotals = v.InferOutput<typeof codexUsageTotalsSchema>;
 
 export const codexUsageDaySchema = v.object({
-  dateLabel: v.string(),
-  ...codexUsageTotalsShape,
+  inputTokens: tokenValueSchema,
+  cachedInputTokens: tokenValueSchema,
+  outputTokens: tokenValueSchema,
+  reasoningOutputTokens: tokenValueSchema,
+  totalTokens: tokenValueSchema,
 });
 export type CodexUsageDay = v.InferOutput<typeof codexUsageDaySchema>;
 
 export const codexUsageDailySummarySchema = v.object({
-  dateLabel: v.string(),
   totalTokens: tokenValueSchema,
-  costUSD: costValueSchema,
 });
 export type CodexUsageDailySummary = v.InferOutput<typeof codexUsageDailySummarySchema>;
 
@@ -94,20 +89,10 @@ function computeTotals(daily: CodexUsageDay[]): CodexUsageTotals | null {
 
   return daily.reduce<CodexUsageTotals>(
     (totals, day) => ({
-      inputTokens: totals.inputTokens + day.inputTokens,
-      cachedInputTokens: totals.cachedInputTokens + day.cachedInputTokens,
-      outputTokens: totals.outputTokens + day.outputTokens,
-      reasoningOutputTokens: totals.reasoningOutputTokens + day.reasoningOutputTokens,
       totalTokens: totals.totalTokens + day.totalTokens,
-      costUSD: totals.costUSD + day.costUSD,
     }),
     {
-      inputTokens: 0,
-      cachedInputTokens: 0,
-      outputTokens: 0,
-      reasoningOutputTokens: 0,
       totalTokens: 0,
-      costUSD: 0,
     },
   );
 }
@@ -121,11 +106,7 @@ function normalizeSyncPayload(payload: CodexUsageSyncPayload): CodexUsageStore {
     generatedAt: payload.generatedAt,
     latestDay,
     totals: totals ? { ...totals } : null,
-    daily: normalizedDaily.map(({ dateLabel, totalTokens, costUSD }) => ({
-      dateLabel,
-      totalTokens,
-      costUSD,
-    })),
+    daily: normalizedDaily.map(({ totalTokens }) => ({ totalTokens })),
   };
 }
 
