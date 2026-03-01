@@ -1,5 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
-import * as os from "node:os";
+import { readdir } from "node:fs/promises";
 import * as path from "node:path";
 import * as v from "valibot";
 import {
@@ -11,7 +10,7 @@ import {
 
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;
-const DEFAULT_CODEX_HOME = path.join(os.homedir(), ".codex");
+const DEFAULT_CODEX_HOME = Bun.env.HOME ?? path.join(Bun.env.USERPROFILE ?? "", ".codex");
 const DEFAULT_CODEX_SESSIONS_SUBDIR = "sessions";
 
 type RawUsage = {
@@ -155,23 +154,12 @@ function addDeltaToDay(day: CodexUsageDay, delta: TokenUsageDelta) {
 }
 
 async function listJsonlFiles(rootDir: string) {
+  const entries = await readdir(rootDir, { recursive: true });
   const files: string[] = [];
-  const stack: string[] = [rootDir];
 
-  while (stack.length > 0) {
-    const currentDir = stack.pop();
-    if (currentDir == null) {
-      continue;
-    }
-
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(fullPath);
-      } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
-        files.push(fullPath);
-      }
+  for (const entry of entries) {
+    if (typeof entry === "string" && entry.endsWith(".jsonl")) {
+      files.push(path.join(rootDir, entry));
     }
   }
 
@@ -195,8 +183,8 @@ async function loadDailyUsageFromSessions(
   until: string,
 ) {
   const sessionsDir = path.join(codexHome, DEFAULT_CODEX_SESSIONS_SUBDIR);
-  const sessionsDirStat = await stat(sessionsDir).catch(() => null);
-  if (sessionsDirStat == null || !sessionsDirStat.isDirectory()) {
+  const sessionsDirExists = await Bun.file(sessionsDir).exists();
+  if (!sessionsDirExists) {
     return new Map<string, CodexUsageDay>();
   }
 
@@ -216,7 +204,7 @@ async function loadDailyUsageFromSessions(
       continue;
     }
 
-    const fileContents = await readFile(filePath, "utf8");
+    const fileContents = await Bun.file(filePath).text();
     let previousTotals: RawUsage | null = null;
 
     for (const line of fileContents.split(/\r?\n/)) {

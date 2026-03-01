@@ -1,4 +1,4 @@
-import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, rename } from "node:fs/promises";
 import { dirname } from "node:path";
 import * as v from "valibot";
 import {
@@ -170,7 +170,7 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
         await Bun.write(tempPath, `${JSON.stringify(payload, null, 2)}\n`);
         await rename(tempPath, filePath);
       } catch (error) {
-        await unlink(tempPath).catch(() => {});
+        await Bun.file(tempPath).delete().catch(() => {});
         throw error;
       }
 
