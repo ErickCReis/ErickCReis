@@ -3,7 +3,10 @@
   "exclude": ["dist", "node_modules"],
   "compilerOptions": {
     "paths": {
-      "@/*": ["./src/*"]
+      "@web/*": ["./web/*"],
+      "@server/*": ["./server/*"],
+      "@shared/*": ["./shared/*"],
+      "@scripts/*": ["./scripts/*"]
     },
     "target": "ESNext",
     "module": "ESNext",

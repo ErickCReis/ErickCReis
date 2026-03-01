@@ -5,11 +5,11 @@
   "scripts": {
     "dev": "bun run --parallel dev:astro dev:api",
     "dev:astro": "bun --bun astro dev --host",
-    "dev:api": "bun --watch src/server/index.ts",
+    "dev:api": "bun --watch server/index.ts",
     "codex:sync": "bun scripts/codex-sync.ts",
     "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
     "build": "bun --bun astro build",
-    "start": "NODE_ENV=production bun src/server/index.ts"
+    "start": "NODE_ENV=production bun server/index.ts"
   },
   "dependencies": {
     "@astrojs/mdx": "5.0.0-beta.9",

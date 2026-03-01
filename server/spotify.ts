@@ -1,3 +1,5 @@
+import type { SpotifyNowPlaying } from "@shared/telemetry";
+
 const SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SPOTIFY_NOW_PLAYING_ENDPOINT = "https://api.spotify.com/v1/me/player/currently-playing";
 const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 2500;
@@ -8,19 +10,6 @@ const TOKEN_EXPIRY_SAFETY_MARGIN_MS = 60_000;
 type SpotifyTokenCache = {
   accessToken: string;
   expiresAt: number;
-};
-
-export type SpotifyNowPlaying = {
-  isConfigured: boolean;
-  isPlaying: boolean;
-  trackId: string | null;
-  trackName: string | null;
-  artistNames: string[];
-  albumName: string | null;
-  trackUrl: string | null;
-  progressMs: number;
-  durationMs: number;
-  fetchedAt: number;
 };
 
 type SpotifyTrackPayload = {

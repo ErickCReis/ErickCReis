@@ -1,12 +1,12 @@
-import { MAX_POINTS } from "@/constants/telemetry";
+import { MAX_POINTS } from "@web/constants/telemetry";
 import type {
   MetricSeries,
   ServerStats,
   TelemetryHistoryItem,
   TelemetryPanel,
   TelemetryPoint,
-} from "@/types/home";
-import { subscribeServerStats } from "@/lib/api";
+} from "@web/types/home";
+import { subscribeServerStats } from "@web/lib/api";
 import {
   createEffect,
   createMemo,

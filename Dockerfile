@@ -18,7 +18,7 @@ COPY package.json bun.lock ./
 RUN bun install --production --frozen-lockfile
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/src/server ./src/server
+COPY --from=build /app/server ./server
 
 EXPOSE 3000
 

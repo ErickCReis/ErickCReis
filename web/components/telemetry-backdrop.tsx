@@ -1,8 +1,8 @@
 import { clsx } from "clsx";
 import { createResource, createSignal, For, Index, onCleanup, onMount } from "solid-js";
-import { getServerStatsHistory } from "@/lib/api";
-import { useServerPulse } from "@/hooks/use-server-pulse";
-import { Sparkline } from "@/components/sparkline";
+import { getServerStatsHistory } from "@web/lib/api";
+import { useServerPulse } from "@web/hooks/use-server-pulse";
+import { Sparkline } from "@web/components/sparkline";
 
 type TelemetryBackdropProps = {
   onStatsHoverChange?: (isHovering: boolean) => void;

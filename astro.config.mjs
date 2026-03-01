@@ -4,6 +4,7 @@ import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  srcDir: "./web",
   output: "static",
   site: "https://erickr.dev",
   integrations: [mdx(), solid()],

@@ -1,13 +1,15 @@
 import { treaty } from "@elysiajs/eden";
-import type { App } from "@/server/index";
-import type { ServerStats } from "@/types/home";
+import type { App } from "@server/index";
+import {
+  cursorPayloadSchema,
+  serverStatsHistorySchema,
+  serverStatsSchema,
+  type CursorPayload,
+  type ServerStats,
+} from "@shared/telemetry";
+import * as v from "valibot";
 
-export type CursorPayload = {
-  id: string;
-  x: number;
-  y: number;
-  color?: string;
-};
+export type { CursorPayload } from "@shared/telemetry";
 
 const client = treaty<App>(
   process.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
@@ -30,8 +32,13 @@ function connectSocket() {
   const ws = client.live.subscribe();
 
   ws.subscribe((event) => {
+    const parsedPayload = v.safeParse(cursorPayloadSchema, event.data);
+    if (!parsedPayload.success) {
+      return;
+    }
+
     for (const listener of listeners) {
-      listener(event.data);
+      listener(parsedPayload.output);
     }
   });
 
@@ -95,10 +102,6 @@ export async function getCursorIdentity() {
   return data;
 }
 
-type ServerStatsPayload = Awaited<
-  ReturnType<NonNullable<Awaited<ReturnType<typeof client.stats.stream.get>>["data"]>["next"]>
->["value"]["data"];
-
 export async function subscribeServerStats(
   onPayload: (payload: ServerStats) => void,
   signal?: AbortSignal,
@@ -113,7 +116,12 @@ export async function subscribeServerStats(
       continue;
     }
 
-    onPayload(chunk.data as ServerStatsPayload as ServerStats);
+    const parsedPayload = v.safeParse(serverStatsSchema, chunk.data);
+    if (!parsedPayload.success) {
+      continue;
+    }
+
+    onPayload(parsedPayload.output);
   }
 }
 
@@ -123,5 +131,10 @@ export async function getServerStatsHistory(): Promise<ServerStats[]> {
     throw new Error("Failed to fetch server stats history");
   }
 
-  return data as ServerStats[];
+  const parsedHistory = v.safeParse(serverStatsHistorySchema, data);
+  if (!parsedHistory.success) {
+    throw new Error("Received malformed server stats history");
+  }
+
+  return parsedHistory.output;
 }

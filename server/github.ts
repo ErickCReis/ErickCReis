@@ -1,3 +1,5 @@
+import type { GitHubCommitStats } from "@shared/telemetry";
+
 const GITHUB_COMMIT_SEARCH_ENDPOINT = "https://api.github.com/search/commits";
 const GITHUB_POLL_INTERVAL_MS = 30 * 60 * 1000;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 15 * 60 * 1000;
@@ -5,16 +7,6 @@ const DEFAULT_GITHUB_USERNAME = "ErickCReis";
 
 type GitHubSearchResponse = {
   total_count?: number;
-};
-
-export type GitHubCommitStats = {
-  isConfigured: boolean;
-  username: string;
-  year: number;
-  commitsYearToDate: number;
-  commitsLast7Days: number[];
-  commitsLast7DayLabels: string[];
-  fetchedAt: number;
 };
 
 class GitHubRateLimitError extends Error {

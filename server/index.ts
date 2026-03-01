@@ -1,20 +1,18 @@
 import { Elysia, file, sse, t } from "elysia";
-import * as v from "valibot";
-import { parseCodexUsageSyncPayload, persistCodexUsageSyncPayload } from "./codex-usage";
-import { latestStats, statsHistory, STATS_SAMPLE_INTERVAL_MS, startStatsSampler } from "./stats";
 import { staticPlugin } from "@elysiajs/static";
 import cors from "@elysiajs/cors";
+import { parseCodexUsageSyncPayload, persistCodexUsageSyncPayload } from "@server/codex-usage";
+import {
+  latestStats,
+  statsHistory,
+  STATS_SAMPLE_INTERVAL_MS,
+  startStatsSampler,
+} from "@server/stats";
+import { cursorPayloadSchema } from "@shared/telemetry";
 
 function createCursorId() {
   return crypto.randomUUID().replaceAll("-", "");
 }
-
-const cursorPayloadSchema = v.object({
-  id: v.string(),
-  x: v.number(),
-  y: v.number(),
-  color: v.optional(v.string()),
-});
 
 const cursorCookieSchema = t.Cookie({ cursorId: t.Optional(t.String()) }, { httpOnly: true });
 

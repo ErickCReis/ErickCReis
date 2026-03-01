@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
-import { formatCursorPosition, pickColor } from "@/lib/cursor";
-import type { CursorState } from "@/types/home";
+import { formatCursorPosition, pickColor } from "@web/lib/cursor";
+import type { CursorState } from "@web/types/home";
 import { For, createMemo, type JSX } from "solid-js";
 
 type CursorPresenceLayerProps = {

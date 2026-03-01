@@ -1,24 +1,13 @@
 import { readFile, readdir, stat } from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-
-type CodexCliTotals = {
-  totalTokens: number;
-};
-
-type CodexCliDay = {
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-  reasoningOutputTokens: number;
-  totalTokens: number;
-};
-
-type CodexUsageSyncPayload = {
-  generatedAt: number;
-  daily: CodexCliDay[];
-  totals: CodexCliTotals | null;
-};
+import * as v from "valibot";
+import {
+  codexUsageSyncPayloadSchema,
+  type CodexUsageDay,
+  type CodexUsageSyncPayload,
+  type CodexUsageTotals,
+} from "@shared/telemetry";
 
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;
@@ -147,7 +136,7 @@ function parseDateFromSessionPath(relativePath: string) {
   return `${match[1]}-${match[2]}-${match[3]}`;
 }
 
-function createEmptyDay(): CodexCliDay {
+function createEmptyDay(): CodexUsageDay {
   return {
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -157,7 +146,7 @@ function createEmptyDay(): CodexCliDay {
   };
 }
 
-function addDeltaToDay(day: CodexCliDay, delta: TokenUsageDelta) {
+function addDeltaToDay(day: CodexUsageDay, delta: TokenUsageDelta) {
   day.inputTokens += delta.inputTokens;
   day.cachedInputTokens += delta.cachedInputTokens;
   day.outputTokens += delta.outputTokens;
@@ -208,11 +197,11 @@ async function loadDailyUsageFromSessions(
   const sessionsDir = path.join(codexHome, DEFAULT_CODEX_SESSIONS_SUBDIR);
   const sessionsDirStat = await stat(sessionsDir).catch(() => null);
   if (sessionsDirStat == null || !sessionsDirStat.isDirectory()) {
-    return new Map<string, CodexCliDay>();
+    return new Map<string, CodexUsageDay>();
   }
 
   const files = await listJsonlFiles(sessionsDir);
-  const dailyUsage = new Map<string, CodexCliDay>();
+  const dailyUsage = new Map<string, CodexUsageDay>();
   const dateFormatter = new Intl.DateTimeFormat("sv-SE", {
     timeZone: timezone,
     year: "numeric",
@@ -301,7 +290,7 @@ async function loadDailyUsageFromSessions(
   return dailyUsage;
 }
 
-function buildSyncPayload(dailyUsage: Map<string, CodexCliDay>): CodexUsageSyncPayload {
+function buildSyncPayload(dailyUsage: Map<string, CodexUsageDay>): CodexUsageSyncPayload {
   const sortedDays = Array.from(dailyUsage.entries()).sort(([dateA], [dateB]) =>
     dateA.localeCompare(dateB),
   );
@@ -314,7 +303,7 @@ function buildSyncPayload(dailyUsage: Map<string, CodexCliDay>): CodexUsageSyncP
   }));
 
   const totals = daily.length
-    ? daily.reduce<CodexCliTotals>(
+    ? daily.reduce<CodexUsageTotals>(
         (accumulator, day) => ({
           totalTokens: accumulator.totalTokens + day.totalTokens,
         }),
@@ -342,6 +331,11 @@ async function main() {
 
   const dailyUsage = await loadDailyUsageFromSessions(codexHome, timezone, since, until);
   const payload = buildSyncPayload(dailyUsage);
+
+  const validatedPayload = v.safeParse(codexUsageSyncPayloadSchema, payload);
+  if (!validatedPayload.success) {
+    throw new Error(`Invalid sync payload: ${JSON.stringify(validatedPayload.issues)}`);
+  }
 
   const response = await fetch(syncUrl, {
     method: "POST",

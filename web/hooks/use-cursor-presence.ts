@@ -1,8 +1,9 @@
 import { createMousePosition } from "@solid-primitives/mouse";
 import { throttle } from "@solid-primitives/scheduled";
-import { pickColor } from "@/lib/cursor";
-import type { CursorState } from "@/types/home";
-import { getCursorIdentity, type CursorPayload, publishCursor, subscribeCursor } from "@/lib/api";
+import { pickColor } from "@web/lib/cursor";
+import type { CursorState } from "@web/types/home";
+import type { CursorPayload } from "@shared/telemetry";
+import { getCursorIdentity, publishCursor, subscribeCursor } from "@web/lib/api";
 import { createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
 export function useCursorPresence() {

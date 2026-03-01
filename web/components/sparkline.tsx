@@ -1,4 +1,4 @@
-import type { TelemetryPoint } from "@/types/home";
+import type { TelemetryPoint } from "@web/types/home";
 
 type SparklineProps = {
   points: TelemetryPoint[];

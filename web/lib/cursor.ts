@@ -1,4 +1,4 @@
-import { PALETTE } from "@/constants/telemetry";
+import { PALETTE } from "@web/constants/telemetry";
 
 function hash(value: string) {
   let output = 0;

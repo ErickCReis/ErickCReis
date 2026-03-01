@@ -1,50 +1,38 @@
 import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import * as v from "valibot";
+import {
+  codexUsageDaySchema,
+  codexUsageDailySummarySchema,
+  codexUsageSnapshotSchema,
+  codexUsageSyncPayloadSchema,
+  codexUsageTotalsSchema,
+  type CodexUsageDay,
+  type CodexUsageDailySummary,
+  type CodexUsageSnapshot,
+  type CodexUsageSyncPayload,
+  type CodexUsageTotals,
+} from "@shared/telemetry";
 
 const DEFAULT_CODEX_USAGE_FILE = "/app/runtime/codex/codex-usage.json";
 const DEFAULT_STALE_AFTER_MINUTES = 180;
 const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
 
-const tokenValueSchema = v.pipe(v.number(), v.minValue(0));
-
-const codexUsageTotalsShape = {
-  totalTokens: tokenValueSchema,
+export {
+  codexUsageDaySchema,
+  codexUsageDailySummarySchema,
+  codexUsageSnapshotSchema,
+  codexUsageSyncPayloadSchema,
+  codexUsageTotalsSchema,
 };
-
-export const codexUsageTotalsSchema = v.object(codexUsageTotalsShape);
-export type CodexUsageTotals = v.InferOutput<typeof codexUsageTotalsSchema>;
-
-export const codexUsageDaySchema = v.object({
-  inputTokens: tokenValueSchema,
-  cachedInputTokens: tokenValueSchema,
-  outputTokens: tokenValueSchema,
-  reasoningOutputTokens: tokenValueSchema,
-  totalTokens: tokenValueSchema,
-});
-export type CodexUsageDay = v.InferOutput<typeof codexUsageDaySchema>;
-
-export const codexUsageDailySummarySchema = v.object({
-  totalTokens: tokenValueSchema,
-});
-export type CodexUsageDailySummary = v.InferOutput<typeof codexUsageDailySummarySchema>;
-
-export const codexUsageSnapshotSchema = v.object({
-  generatedAt: v.nullable(v.number()),
-  isStale: v.boolean(),
-  latestDay: v.nullable(codexUsageDaySchema),
-  totals: v.nullable(codexUsageTotalsSchema),
-  daily: v.array(codexUsageDailySummarySchema),
-});
-export type CodexUsageSnapshot = v.InferOutput<typeof codexUsageSnapshotSchema>;
-
-export const codexUsageSyncPayloadSchema = v.object({
-  generatedAt: v.pipe(v.number(), v.minValue(0)),
-  daily: v.array(codexUsageDaySchema),
-  totals: v.optional(v.nullable(codexUsageTotalsSchema)),
-});
-export type CodexUsageSyncPayload = v.InferOutput<typeof codexUsageSyncPayloadSchema>;
+export type {
+  CodexUsageDay,
+  CodexUsageDailySummary,
+  CodexUsageSnapshot,
+  CodexUsageSyncPayload,
+  CodexUsageTotals,
+};
 
 type CodexUsageStore = Omit<CodexUsageSnapshot, "isStale">;
 

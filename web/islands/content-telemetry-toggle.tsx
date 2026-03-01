@@ -1,6 +1,6 @@
 import { clsx } from "clsx";
 import { createSignal } from "solid-js";
-import { TelemetryBackdrop } from "@/components/telemetry-backdrop";
+import { TelemetryBackdrop } from "@web/components/telemetry-backdrop";
 
 export default function ContentTelemetryToggle() {
   const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = createSignal(true);

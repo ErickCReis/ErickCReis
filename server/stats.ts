@@ -1,11 +1,9 @@
-import { readFileSync } from "node:fs";
 import os from "node:os";
-import type { CodexUsageSnapshot } from "./codex-usage";
-import { getLatestCodexUsageSnapshot, startCodexUsageStore } from "./codex-usage";
-import type { GitHubCommitStats } from "./github";
-import { getLatestGitHubCommitStats, startGitHubPoller } from "./github";
-import type { SpotifyNowPlaying } from "./spotify";
-import { getLatestSpotifyNowPlaying, startSpotifyPoller } from "./spotify";
+import { version } from "../package.json";
+import type { ServerStats } from "@shared/telemetry";
+import { getLatestCodexUsageSnapshot, startCodexUsageStore } from "@server/codex-usage";
+import { getLatestGitHubCommitStats, startGitHubPoller } from "@server/github";
+import { getLatestSpotifyNowPlaying, startSpotifyPoller } from "@server/spotify";
 
 const CPU_COUNT = Math.max(1, os.cpus().length);
 const MAX_STATS_HISTORY = 84;
@@ -13,44 +11,11 @@ const MB = 1024 * 1024;
 
 export const STATS_SAMPLE_INTERVAL_MS = 1500;
 
-export type ServerStats = {
-  timestamp: number;
-  appVersion: string;
-  uptimeSeconds: number;
-  memoryHeapUsedMb: number;
-  systemMemoryUsedPercent: number;
-  cpuUsagePercent: number;
-  pendingWebSockets: number;
-  cursorSubscribers: number;
-  spotify: SpotifyNowPlaying;
-  github: GitHubCommitStats;
-  codex: CodexUsageSnapshot;
-};
-
 function toMb(value: number) {
   return Number((value / MB).toFixed(2));
 }
 
-function resolveAppVersion() {
-  const explicitVersion = Bun.env.APP_VERSION?.trim();
-  if (explicitVersion) {
-    return explicitVersion;
-  }
-
-  try {
-    const packageJsonRaw = readFileSync(new URL("../../package.json", import.meta.url), "utf-8");
-    const packageJson = JSON.parse(packageJsonRaw) as { version?: string };
-    if (packageJson.version) {
-      return `v${packageJson.version}`;
-    }
-  } catch (error) {
-    console.warn("[stats] Failed to read package version", error);
-  }
-
-  return "v0.0.0";
-}
-
-const APP_VERSION = resolveAppVersion();
+const APP_VERSION = version;
 
 function createInitialServerStats(): ServerStats {
   return {
