@@ -166,22 +166,24 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
   const normalized = normalizeSyncPayload(payload);
   const filePath = getUsageFilePath();
 
-  writeQueue = writeQueue.catch(() => {}).then(async () => {
-    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    await mkdir(dirname(filePath), { recursive: true });
+  writeQueue = writeQueue
+    .catch(() => {})
+    .then(async () => {
+      const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+      await mkdir(dirname(filePath), { recursive: true });
 
-    try {
-      await writeFile(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
-      await rename(tempPath, filePath);
-    } catch (error) {
-      await unlink(tempPath).catch(() => {});
-      throw error;
-    }
+      try {
+        await writeFile(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf-8");
+        await rename(tempPath, filePath);
+      } catch (error) {
+        await unlink(tempPath).catch(() => {});
+        throw error;
+      }
 
-    latestStore = normalized;
-    latestFileMtimeMs = null;
-    await refreshFromDisk(true);
-  });
+      latestStore = normalized;
+      latestFileMtimeMs = null;
+      await refreshFromDisk(true);
+    });
 
   await writeQueue;
 }

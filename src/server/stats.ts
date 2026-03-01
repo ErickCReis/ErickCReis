@@ -100,7 +100,9 @@ function getSystemMemoryUsedPercent() {
   const systemMemoryFreeMb = toMb(os.freemem());
 
   return Number(
-    (((systemMemoryTotalMb - systemMemoryFreeMb) / Math.max(1, systemMemoryTotalMb)) * 100).toFixed(2),
+    (((systemMemoryTotalMb - systemMemoryFreeMb) / Math.max(1, systemMemoryTotalMb)) * 100).toFixed(
+      2,
+    ),
   );
 }
 

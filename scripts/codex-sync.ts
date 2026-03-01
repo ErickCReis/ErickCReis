@@ -110,15 +110,22 @@ function normalizeRawUsage(value: unknown): RawUsage | null {
 function subtractRawUsage(current: RawUsage, previous: RawUsage | null): RawUsage {
   return {
     input_tokens: Math.max(current.input_tokens - (previous?.input_tokens ?? 0), 0),
-    cached_input_tokens: Math.max(current.cached_input_tokens - (previous?.cached_input_tokens ?? 0), 0),
+    cached_input_tokens: Math.max(
+      current.cached_input_tokens - (previous?.cached_input_tokens ?? 0),
+      0,
+    ),
     output_tokens: Math.max(current.output_tokens - (previous?.output_tokens ?? 0), 0),
-    reasoning_output_tokens: Math.max(current.reasoning_output_tokens - (previous?.reasoning_output_tokens ?? 0), 0),
+    reasoning_output_tokens: Math.max(
+      current.reasoning_output_tokens - (previous?.reasoning_output_tokens ?? 0),
+      0,
+    ),
     total_tokens: Math.max(current.total_tokens - (previous?.total_tokens ?? 0), 0),
   };
 }
 
 function toDelta(raw: RawUsage): TokenUsageDelta {
-  const totalTokens = raw.total_tokens > 0 ? raw.total_tokens : raw.input_tokens + raw.output_tokens;
+  const totalTokens =
+    raw.total_tokens > 0 ? raw.total_tokens : raw.input_tokens + raw.output_tokens;
   const cachedInputTokens = Math.min(raw.cached_input_tokens, raw.input_tokens);
 
   return {

@@ -44,7 +44,9 @@ type SpotifyNowPlayingResponse = {
 };
 
 function hasSpotifyCredentials() {
-  return Boolean(Bun.env.SPOTIFY_CLIENT_ID && Bun.env.SPOTIFY_CLIENT_SECRET && Bun.env.SPOTIFY_REFRESH_TOKEN);
+  return Boolean(
+    Bun.env.SPOTIFY_CLIENT_ID && Bun.env.SPOTIFY_CLIENT_SECRET && Bun.env.SPOTIFY_REFRESH_TOKEN,
+  );
 }
 
 function createEmptyNowPlaying(isConfigured: boolean): SpotifyNowPlaying {

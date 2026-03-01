@@ -137,7 +137,11 @@ function formatDuration(milliseconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function getRecentSpotifyTracks(samples: ServerStats[], currentTrackId: string | null, maxItems = 3) {
+function getRecentSpotifyTracks(
+  samples: ServerStats[],
+  currentTrackId: string | null,
+  maxItems = 3,
+) {
   const results: TelemetryHistoryItem[] = [];
   const seenTrackIds = new Set<string>();
 
@@ -180,12 +184,9 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
   onMount(() => {
     const controller = new AbortController();
 
-    void subscribeServerStats(
-      (payload) => {
-        setSamples((previous) => mergeSamples(previous, [payload]));
-      },
-      controller.signal,
-    ).catch((error) => {
+    void subscribeServerStats((payload) => {
+      setSamples((previous) => mergeSamples(previous, [payload]));
+    }, controller.signal).catch((error) => {
       if (!controller.signal.aborted) {
         console.error(error);
       }
@@ -224,7 +225,11 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
     const spotifyArtists = spotify?.artistNames.join(", ") || "No artist";
     const spotifyTrackName = spotify?.trackName ?? "Nothing playing";
     const spotifyAlbum = spotify?.albumName ?? "No album";
-    const spotifyStatus = !spotify?.isConfigured ? "Not configured" : spotify.isPlaying ? "Playing" : "Idle";
+    const spotifyStatus = !spotify?.isConfigured
+      ? "Not configured"
+      : spotify.isPlaying
+        ? "Playing"
+        : "Idle";
     const spotifyProgressLabel =
       spotify && spotify.durationMs > 0
         ? `${formatDuration(spotify.progressMs)} / ${formatDuration(spotify.durationMs)}`
@@ -241,7 +246,9 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
           : codex?.isStale
             ? "Sync stale: no successful update in the configured stale window"
             : "Hourly token usage sync from local machine",
-        current: codexLatestDay ? `${formatCompactTokenCount(codexLatestDay.totalTokens)} tokens` : DEFAULT_CODEX_STATUS,
+        current: codexLatestDay
+          ? `${formatCompactTokenCount(codexLatestDay.totalTokens)} tokens`
+          : DEFAULT_CODEX_STATUS,
         trend: "--",
         details: codexLatestDay
           ? [
@@ -249,7 +256,10 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
               { label: "Cached", value: formatTokenCount(codexLatestDay.cachedInputTokens) },
               { label: "Output", value: formatTokenCount(codexLatestDay.outputTokens) },
               { label: "Reasoning", value: formatTokenCount(codexLatestDay.reasoningOutputTokens) },
-              { label: "30d total", value: formatTokenCount(codexTotals?.totalTokens ?? codexLatestDay.totalTokens) },
+              {
+                label: "30d total",
+                value: formatTokenCount(codexTotals?.totalTokens ?? codexLatestDay.totalTokens),
+              },
               { label: "Updated", value: formatGeneratedAt(codex?.generatedAt ?? null) },
             ]
           : [
