@@ -7,30 +7,33 @@ export type SpotifyNowPlaying = {
   trackName: string | null;
   artistNames: string[];
   albumName: string | null;
-  albumImageUrl: string | null;
   trackUrl: string | null;
   progressMs: number;
   durationMs: number;
-  progressPercent: number;
+  fetchedAt: number;
+};
+
+export type GitHubCommitStats = {
+  isConfigured: boolean;
+  username: string;
+  year: number;
+  commitsYearToDate: number;
+  commitsLast7Days: number[];
+  commitsLast7DayLabels: string[];
   fetchedAt: number;
 };
 
 export type ServerStats = {
   timestamp: number;
+  appVersion: string;
   uptimeSeconds: number;
-  memoryRssMb: number;
   memoryHeapUsedMb: number;
-  memoryHeapTotalMb: number;
-  systemMemoryTotalMb: number;
-  systemMemoryFreeMb: number;
   systemMemoryUsedPercent: number;
-  cpuCount: number;
   cpuUsagePercent: number;
-  loadAverage: [number, number, number];
-  pendingRequests: number;
   pendingWebSockets: number;
   cursorSubscribers: number;
   spotify: SpotifyNowPlaying;
+  github: GitHubCommitStats;
 };
 
 export type CursorState = CursorPayload & {
@@ -38,14 +41,8 @@ export type CursorState = CursorPayload & {
 };
 
 export type MetricSeries = {
-  rss: number[];
   heap: number[];
-  heapTotal: number[];
   cpu: number[];
-  load1: number[];
-  load15: number[];
-  systemMemory: number[];
-  requests: number[];
   websockets: number[];
   subscribers: number[];
   uptimeMinutes: number[];

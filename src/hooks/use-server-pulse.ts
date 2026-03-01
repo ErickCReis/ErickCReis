@@ -16,72 +16,46 @@ import {
   type Accessor,
 } from "solid-js";
 
-function createEmptySeries(): MetricSeries {
+const DEFAULT_VERSION = "v0.0.0";
+const DEFAULT_GITHUB_USER = "ErickCReis";
+
+function createSeriesFromHistory(history: ServerStats[]): MetricSeries {
+  const historySlice = history.slice(-MAX_POINTS);
+
   return {
-    rss: [],
-    heap: [],
-    heapTotal: [],
-    cpu: [],
-    load1: [],
-    load15: [],
-    systemMemory: [],
-    requests: [],
-    websockets: [],
-    subscribers: [],
-    uptimeMinutes: [],
+    heap: historySlice.map((sample) => sample.memoryHeapUsedMb),
+    cpu: historySlice.map((sample) => sample.cpuUsagePercent),
+    websockets: historySlice.map((sample) => sample.pendingWebSockets),
+    subscribers: historySlice.map((sample) => sample.cursorSubscribers),
+    uptimeMinutes: historySlice.map((sample) => sample.uptimeSeconds / 60),
   };
 }
 
-function createSeriesFromHistory(history: ServerStats[]) {
-  const series = createEmptySeries();
-  const historySlice = history.slice(-MAX_POINTS);
+function mergeSamples(...batches: ServerStats[][]) {
+  const byTimestamp = new Map<number, ServerStats>();
 
-  for (const sample of historySlice) {
-    series.rss.push(sample.memoryRssMb);
-    series.heap.push(sample.memoryHeapUsedMb);
-    series.heapTotal.push(sample.memoryHeapTotalMb);
-    series.cpu.push(sample.cpuUsagePercent);
-    series.load1.push(sample.loadAverage[0]);
-    series.load15.push(sample.loadAverage[2]);
-    series.systemMemory.push(sample.systemMemoryUsedPercent);
-    series.requests.push(sample.pendingRequests);
-    series.websockets.push(sample.pendingWebSockets);
-    series.subscribers.push(sample.cursorSubscribers);
-    series.uptimeMinutes.push(sample.uptimeSeconds / 60);
+  for (const batch of batches) {
+    for (const sample of batch) {
+      byTimestamp.set(sample.timestamp, sample);
+    }
   }
 
-  return series;
+  return [...byTimestamp.values()]
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .slice(-MAX_POINTS);
 }
 
-function createPanelPoints(values: number[]): TelemetryPoint[] {
-  if (values.length === 0) {
-    return [];
-  }
-
-  return values.slice(-MAX_POINTS).map((value, point) => ({
-    point,
-    value,
-  }));
+function createPanelPoints(values: number[], maxPoints = MAX_POINTS): TelemetryPoint[] {
+  const points = values.slice(-maxPoints);
+  return points.map((value, point) => ({ point, value }));
 }
 
 function getLatest(values: number[]) {
-  return values[values.length - 1] ?? 0;
+  return values.at(-1) ?? 0;
 }
 
 function getPrevious(values: number[]) {
-  return values.length > 1 ? values[values.length - 2] : (values[values.length - 1] ?? 0);
-}
-
-function getAverage(values: number[]) {
-  if (values.length === 0) {
-    return 0;
-  }
-
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function getPeak(values: number[]) {
-  return values.length > 0 ? Math.max(...values) : 0;
+  return values.at(-2) ?? values.at(-1) ?? 0;
 }
 
 function formatCount(value: number) {
@@ -92,16 +66,8 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
 
-function formatLoad(value: number) {
-  return value.toFixed(2);
-}
-
 function formatMemory(valueMb: number) {
-  if (valueMb >= 1024) {
-    return `${(valueMb / 1024).toFixed(2)} GB`;
-  }
-
-  return `${valueMb.toFixed(1)} MB`;
+  return valueMb >= 1024 ? `${(valueMb / 1024).toFixed(2)} GB` : `${valueMb.toFixed(1)} MB`;
 }
 
 function formatUptime(minutes: number) {
@@ -123,6 +89,14 @@ function formatSigned(value: number, decimals: number, suffix = "") {
   return `${sign}${Math.abs(value).toFixed(decimals)}${suffix}`;
 }
 
+function formatDayRange(labels: string[]) {
+  if (labels.length === 0) {
+    return "--/--";
+  }
+
+  return `${labels[0]}-${labels[labels.length - 1]}`;
+}
+
 function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -136,7 +110,7 @@ function getRecentSpotifyTracks(samples: ServerStats[], currentTrackId: string |
 
   for (let index = samples.length - 1; index >= 0; index -= 1) {
     const spotify = samples[index]?.spotify;
-    if (!spotify || !spotify.trackId || !spotify.trackName) {
+    if (!spotify?.trackId || !spotify.trackName) {
       continue;
     }
 
@@ -163,41 +137,22 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
 
   createEffect(() => {
     const historyValue = history();
-    if (!historyValue || historyValue.length === 0) {
+    if (!historyValue?.length) {
       return;
     }
 
-    setSamples((previous) => {
-      const byTimestamp = new Map<number, ServerStats>();
-
-      for (const sample of previous) {
-        byTimestamp.set(sample.timestamp, sample);
-      }
-
-      for (const sample of historyValue) {
-        byTimestamp.set(sample.timestamp, sample);
-      }
-
-      return [...byTimestamp.values()]
-        .sort((left, right) => left.timestamp - right.timestamp)
-        .slice(-MAX_POINTS);
-    });
+    setSamples((previous) => mergeSamples(previous, historyValue));
   });
 
   onMount(() => {
     const controller = new AbortController();
 
-    void subscribeServerStats((payload) => {
-      setSamples((previous) => {
-        const previousLatest = previous[previous.length - 1];
-
-        if (previousLatest?.timestamp === payload.timestamp) {
-          return [...previous.slice(0, -1), payload];
-        }
-
-        return [...previous, payload].slice(-MAX_POINTS);
-      });
-    }, controller.signal).catch((error) => {
+    void subscribeServerStats(
+      (payload) => {
+        setSamples((previous) => mergeSamples(previous, [payload]));
+      },
+      controller.signal,
+    ).catch((error) => {
       if (!controller.signal.aborted) {
         console.error(error);
       }
@@ -210,141 +165,105 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
 
   const panels = createMemo<TelemetryPanel[]>(() => {
     const sampleHistory = samples();
+    const latestSample = sampleHistory.at(-1);
     const currentSeries = createSeriesFromHistory(sampleHistory);
-    const latestRequests = getLatest(currentSeries.requests);
-    const previousRequests = getPrevious(currentSeries.requests);
-    const latestWebSockets = getLatest(currentSeries.websockets);
-    const latestSubscribers = getLatest(currentSeries.subscribers);
-    const latestUptime = getLatest(currentSeries.uptimeMinutes);
-    const previousUptime = getPrevious(currentSeries.uptimeMinutes);
+
     const latestCpu = getLatest(currentSeries.cpu);
     const previousCpu = getPrevious(currentSeries.cpu);
-    const latestLoad1 = getLatest(currentSeries.load1);
-    const latestLoad15 = getLatest(currentSeries.load15);
     const latestHeap = getLatest(currentSeries.heap);
-    const previousHeap = getPrevious(currentSeries.heap);
-    const latestRss = getLatest(currentSeries.rss);
-    const latestHeapTotal = getLatest(currentSeries.heapTotal);
-    const latestSystemMemory = getLatest(currentSeries.systemMemory);
-    const previousSystemMemory = getPrevious(currentSeries.systemMemory);
-    const heapUsagePercent = latestHeapTotal > 0 ? (latestHeap / latestHeapTotal) * 100 : 0;
-    const headroom = Math.max(latestHeapTotal - latestHeap, 0);
-    const latestSample = sampleHistory[sampleHistory.length - 1];
+    const latestUptime = getLatest(currentSeries.uptimeMinutes);
+    const latestSubscribers = getLatest(currentSeries.subscribers);
+    const latestWebSockets = getLatest(currentSeries.websockets);
+    const previousWebSockets = getPrevious(currentSeries.websockets);
+
+    const github = latestSample?.github;
+    const commitsLast7Days = github?.commitsLast7Days ?? [];
+    const commitsLast7DayLabels = github?.commitsLast7DayLabels ?? [];
+    const commitsLast7DaysTotal = commitsLast7Days.reduce((sum, value) => sum + value, 0);
+    const commitsToday = commitsLast7Days.at(-1) ?? 0;
+
     const spotify = latestSample?.spotify;
     const spotifyArtists = spotify?.artistNames.join(", ") || "No artist";
     const spotifyTrackName = spotify?.trackName ?? "Nothing playing";
     const spotifyAlbum = spotify?.albumName ?? "No album";
-    const spotifyStatus = spotify?.isPlaying ? "Playing" : "Idle";
+    const spotifyStatus = !spotify?.isConfigured ? "Not configured" : spotify.isPlaying ? "Playing" : "Idle";
     const spotifyProgressLabel =
       spotify && spotify.durationMs > 0
         ? `${formatDuration(spotify.progressMs)} / ${formatDuration(spotify.durationMs)}`
         : "--:-- / --:--";
     const recentSpotifyTracks = getRecentSpotifyTracks(sampleHistory, spotify?.trackId ?? null);
 
-    const builtPanels: TelemetryPanel[] = [
+    return [
       {
-        id: "traffic",
-        title: "Traffic",
-        tag: "req/ws",
-        hint: "Incoming load versus persistent channels",
-        current: `${formatCount(latestRequests)} req`,
-        trend: formatSigned(latestRequests - previousRequests, 0, " req"),
-        details: [
-          { label: "Sockets", value: formatCount(latestWebSockets) },
-          { label: "Average", value: `${formatCount(getAverage(currentSeries.requests))} req` },
-          { label: "Peak", value: `${formatCount(getPeak(currentSeries.requests))} req` },
-        ],
-        points: createPanelPoints(currentSeries.requests),
-        primaryColor: "#8ec7ff",
-      },
-      {
-        id: "presence",
-        title: "Presence",
-        tag: "subs/uptime",
-        hint: "Audience continuity over session time",
-        current: `${formatCount(latestSubscribers)} live`,
-        trend: formatUptime(latestUptime),
-        details: [
-          { label: "Uptime", value: formatUptime(latestUptime) },
-          {
-            label: "Average",
-            value: `${formatCount(getAverage(currentSeries.subscribers))} subs`,
-          },
-          { label: "Drift", value: formatSigned(latestUptime - previousUptime, 1, "m") },
-        ],
-        points: createPanelPoints(currentSeries.subscribers),
-        primaryColor: "#8edec9",
-      },
-      {
-        id: "cpu",
-        title: "Compute",
-        tag: "cpu/load1",
-        hint: "Core activity and short load pressure",
-        current: formatPercent(latestCpu),
+        id: "system",
+        title: "System",
+        tag: "cpu/mem",
+        hint: "Live runtime usage from the current server process",
+        current: `${formatPercent(latestCpu)} cpu`,
         trend: formatSigned(latestCpu - previousCpu, 1, "%"),
         details: [
-          { label: "Load (1m)", value: formatLoad(latestLoad1) },
-          { label: "Load (15m)", value: formatLoad(latestLoad15) },
-          { label: "Average", value: formatPercent(getAverage(currentSeries.cpu)) },
+          { label: "CPU", value: formatPercent(latestCpu) },
+          { label: "Heap", value: formatMemory(latestHeap) },
+          { label: "Memory", value: formatPercent(latestSample?.systemMemoryUsedPercent ?? 0) },
         ],
         points: createPanelPoints(currentSeries.cpu),
         primaryColor: "#f1c18b",
       },
       {
-        id: "memory",
-        title: "Heap",
-        tag: "heap/rss",
-        hint: "Runtime allocation against resident memory",
-        current: formatMemory(latestHeap),
-        trend: formatSigned(latestHeap - previousHeap, 1, " MB"),
+        id: "server",
+        title: "Server",
+        tag: "uptime/ver",
+        hint: "Server identity and uptime lifecycle",
+        current: formatUptime(latestUptime),
+        trend: latestSample?.appVersion ?? DEFAULT_VERSION,
         details: [
-          { label: "RSS", value: formatMemory(latestRss) },
-          { label: "Average", value: formatMemory(getAverage(currentSeries.heap)) },
-          { label: "Peak", value: formatMemory(getPeak(currentSeries.heap)) },
+          { label: "Uptime", value: formatUptime(latestUptime) },
+          { label: "Version", value: latestSample?.appVersion ?? DEFAULT_VERSION },
         ],
-        points: createPanelPoints(currentSeries.heap),
-        primaryColor: "#f0bc8d",
+        points: createPanelPoints(currentSeries.uptimeMinutes),
+        primaryColor: "#8edec9",
       },
       {
-        id: "memory-total",
-        title: "Capacity",
-        tag: "heapT/heap",
-        hint: "Allocated ceiling and remaining headroom",
-        current: formatPercent(heapUsagePercent),
-        trend: `${formatMemory(headroom)} free`,
+        id: "websocket",
+        title: "WebSocket",
+        tag: "ws/subs",
+        hint: "Live websocket and cursor subscriber activity",
+        current: `${formatCount(latestWebSockets)} sockets`,
+        trend: formatSigned(latestWebSockets - previousWebSockets, 0, " sockets"),
         details: [
-          { label: "Heap total", value: formatMemory(latestHeapTotal) },
-          { label: "Headroom", value: formatMemory(headroom) },
-          { label: "Peak usage", value: formatMemory(getPeak(currentSeries.heap)) },
+          { label: "Sockets", value: formatCount(latestWebSockets) },
+          { label: "Subs", value: formatCount(latestSubscribers) },
         ],
-        points: createPanelPoints(currentSeries.heapTotal),
-        primaryColor: "#adc4e4",
-      },
-      {
-        id: "system",
-        title: "System",
-        tag: "sys/load15",
-        hint: "Host pressure across long windows",
-        current: formatPercent(latestSystemMemory),
-        trend: formatSigned(latestSystemMemory - previousSystemMemory, 1, "%"),
-        details: [
-          { label: "Load (15m)", value: formatLoad(latestLoad15) },
-          { label: "Average", value: formatPercent(getAverage(currentSeries.systemMemory)) },
-          { label: "Peak", value: formatPercent(getPeak(currentSeries.systemMemory)) },
-        ],
-        points: createPanelPoints(currentSeries.systemMemory),
+        points: createPanelPoints(currentSeries.websockets),
         primaryColor: "#9ccfd2",
       },
-    ];
-
-    if (spotify?.isConfigured) {
-      builtPanels.unshift({
+      {
+        id: "github",
+        title: "Commits",
+        tag: "github/7d",
+        hint: "GitHub commit search counts for the current year and last 7 days",
+        current: `${formatCount(github?.commitsYearToDate ?? 0)} ytd`,
+        trend: `${formatCount(commitsLast7DaysTotal)} in 7d`,
+        details: [
+          { label: "Year", value: `${github?.year ?? new Date().getFullYear()}` },
+          { label: "Today", value: formatCount(commitsToday) },
+          { label: "Range", value: formatDayRange(commitsLast7DayLabels) },
+          { label: "User", value: github?.username ?? DEFAULT_GITHUB_USER },
+        ],
+        points: createPanelPoints(commitsLast7Days, 7),
+        primaryColor: "#8ec7ff",
+        actionUrl: github?.username ? `https://github.com/${github.username}` : undefined,
+        actionLabel: "Profile",
+      },
+      {
         id: "spotify",
         title: "Now Playing",
         tag: "spotify/live",
-        hint: spotify.isPlaying
-          ? "Current Spotify playback for this account"
-          : "Spotify is connected but nothing is currently playing",
+        hint: !spotify?.isConfigured
+          ? "Spotify is not configured for this deployment"
+          : spotify.isPlaying
+            ? "Current Spotify playback for this account"
+            : "Spotify is connected but nothing is currently playing",
         current: spotifyTrackName,
         trend: spotifyArtists,
         details: [
@@ -356,13 +275,11 @@ export function useServerPulse(history: Accessor<ServerStats[] | undefined>) {
         ],
         points: [],
         primaryColor: "#1db954",
-        actionUrl: spotify.trackUrl ?? undefined,
+        actionUrl: spotify?.trackUrl ?? undefined,
         actionLabel: "Open",
         historyItems: recentSpotifyTracks,
-      });
-    }
-
-    return builtPanels;
+      },
+    ];
   });
 
   return { panels };

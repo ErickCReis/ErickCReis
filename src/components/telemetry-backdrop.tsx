@@ -416,11 +416,11 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                         </p>
                       )}
                     </div>
-                  ) : (
+                  ) : panel().points.length > 0 ? (
                     <div class="mt-2 h-12 w-full opacity-75">
                       <Sparkline points={panel().points} color={panel().primaryColor} />
                     </div>
-                  )}
+                  ) : null}
                   <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{panel().hint}</p>
                   <dl class="mt-2 flex flex-col gap-1">
                     <For each={panel().details}>

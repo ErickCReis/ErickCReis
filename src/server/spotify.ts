@@ -17,11 +17,9 @@ export type SpotifyNowPlaying = {
   trackName: string | null;
   artistNames: string[];
   albumName: string | null;
-  albumImageUrl: string | null;
   trackUrl: string | null;
   progressMs: number;
   durationMs: number;
-  progressPercent: number;
   fetchedAt: number;
 };
 
@@ -32,7 +30,6 @@ type SpotifyTrackPayload = {
   artists: Array<{ name: string }>;
   album: {
     name: string;
-    images: Array<{ url: string }>;
   };
   external_urls?: {
     spotify?: string;
@@ -58,11 +55,9 @@ function createEmptyNowPlaying(isConfigured: boolean): SpotifyNowPlaying {
     trackName: null,
     artistNames: [],
     albumName: null,
-    albumImageUrl: null,
     trackUrl: null,
     progressMs: 0,
     durationMs: 0,
-    progressPercent: 0,
     fetchedAt: Date.now(),
   };
 }
@@ -70,6 +65,10 @@ function createEmptyNowPlaying(isConfigured: boolean): SpotifyNowPlaying {
 let tokenCache: SpotifyTokenCache | null = null;
 let latestNowPlaying = createEmptyNowPlaying(hasSpotifyCredentials());
 let isPollerStarted = false;
+
+function setUnconfiguredNowPlaying() {
+  latestNowPlaying = createEmptyNowPlaying(false);
+}
 
 function getClientCredentials() {
   const clientId = Bun.env.SPOTIFY_CLIENT_ID;
@@ -128,14 +127,6 @@ async function getSpotifyAccessToken() {
   return payload.access_token;
 }
 
-function computeProgressPercent(progressMs: number, durationMs: number) {
-  if (durationMs <= 0) {
-    return 0;
-  }
-
-  return Number(Math.max(0, Math.min(100, (progressMs / durationMs) * 100)).toFixed(2));
-}
-
 function parseRetryAfterMs(retryAfterHeaderValue: string | null) {
   const retryAfterSeconds = Number.parseInt(retryAfterHeaderValue ?? "", 10);
   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
@@ -177,7 +168,7 @@ async function requestNowPlaying(accessToken: string) {
 
   if (!response.ok) {
     const responseText = await response.text();
-    throw new Error(`Spotify now playing request failed (${response.status}): ${responseText}`);
+    throw new Error(`Spotify now-playing request failed (${response.status}): ${responseText}`);
   }
 
   const payload = (await response.json()) as SpotifyNowPlayingResponse;
@@ -190,9 +181,6 @@ async function requestNowPlaying(accessToken: string) {
     };
   }
 
-  const progressMs = payload.progress_ms ?? 0;
-  const durationMs = item.duration_ms ?? 0;
-
   return {
     nowPlaying: {
       isConfigured: true,
@@ -201,11 +189,9 @@ async function requestNowPlaying(accessToken: string) {
       trackName: item.name,
       artistNames: item.artists.map((artist) => artist.name),
       albumName: item.album.name,
-      albumImageUrl: item.album.images[0]?.url ?? null,
       trackUrl: item.external_urls?.spotify ?? null,
-      progressMs,
-      durationMs,
-      progressPercent: computeProgressPercent(progressMs, durationMs),
+      progressMs: payload.progress_ms ?? 0,
+      durationMs: item.duration_ms ?? 0,
       fetchedAt: Date.now(),
     } satisfies SpotifyNowPlaying,
     retryAfterMs: null,
@@ -214,7 +200,7 @@ async function requestNowPlaying(accessToken: string) {
 
 async function refreshNowPlayingSnapshot() {
   if (!hasSpotifyCredentials()) {
-    latestNowPlaying = createEmptyNowPlaying(false);
+    setUnconfiguredNowPlaying();
     return SPOTIFY_IDLE_POLL_INTERVAL_MS;
   }
 
@@ -245,7 +231,7 @@ export function startSpotifyPoller() {
   const hasCredentials = hasSpotifyCredentials();
   if (isPollerStarted || !hasCredentials) {
     if (!hasCredentials) {
-      latestNowPlaying = createEmptyNowPlaying(false);
+      setUnconfiguredNowPlaying();
     }
     return;
   }
