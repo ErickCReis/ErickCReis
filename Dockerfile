@@ -14,10 +14,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package.json bun.lock ./
+COPY package.json bun.lock tsconfig.json ./
 RUN bun install --production --frozen-lockfile
 
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/shared ./shared
 COPY --from=build /app/server ./server
 
 EXPOSE 3000
