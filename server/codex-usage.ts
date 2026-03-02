@@ -126,7 +126,7 @@ async function refreshFromDisk(force = false) {
       throw new Error("ENOENT");
     }
 
-    const mtimeMs = await file.lastModified;
+    const mtimeMs = file.lastModified;
     if (!force && latestFileMtimeMs === mtimeMs) {
       return;
     }
@@ -170,7 +170,9 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
         await Bun.write(tempPath, `${JSON.stringify(payload, null, 2)}\n`);
         await rename(tempPath, filePath);
       } catch (error) {
-        await Bun.file(tempPath).delete().catch(() => {});
+        await Bun.file(tempPath)
+          .delete()
+          .catch(() => {});
         throw error;
       }
 
