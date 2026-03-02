@@ -1,16 +1,17 @@
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import * as path from "node:path";
+import * as os from "node:os";
 import * as v from "valibot";
 import {
   codexUsageSyncPayloadSchema,
-  type CodexUsageDay,
   type CodexUsageSyncPayload,
+  type CodexUsageDay,
   type CodexUsageTotals,
 } from "@shared/telemetry";
 
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;
-const DEFAULT_CODEX_HOME = Bun.env.HOME ?? path.join(Bun.env.USERPROFILE ?? "", ".codex");
+const DEFAULT_CODEX_HOME = path.join(os.homedir(), ".codex");
 const DEFAULT_CODEX_SESSIONS_SUBDIR = "sessions";
 
 type RawUsage = {
@@ -183,8 +184,8 @@ async function loadDailyUsageFromSessions(
   until: string,
 ) {
   const sessionsDir = path.join(codexHome, DEFAULT_CODEX_SESSIONS_SUBDIR);
-  const sessionsDirExists = await Bun.file(sessionsDir).exists();
-  if (!sessionsDirExists) {
+  const sessionsDirStat = await stat(sessionsDir).catch(() => null);
+  if (sessionsDirStat == null || !sessionsDirStat.isDirectory()) {
     return new Map<string, CodexUsageDay>();
   }
 
