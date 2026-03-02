@@ -8,7 +8,7 @@
     "dev:api": "bun --watch server/index.ts",
     "codex:sync": "bun scripts/codex-sync.ts",
     "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
-    "build": "bun --bun astro build",
+    "build": "bun --bun astro build && bun build ./server/index.ts --compile --minify --outfile myserver",
     "start": "NODE_ENV=production bun server/index.ts"
   },
   "dependencies": {
