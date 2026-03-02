@@ -1,12 +1,14 @@
 import { clsx } from "clsx";
-import { createResource, createSignal, For, Index, onCleanup, onMount } from "solid-js";
-import { getServerStatsHistory } from "@web/lib/api";
-import { useServerPulse } from "@web/hooks/use-server-pulse";
-import { Sparkline } from "@web/components/sparkline";
-
-type TelemetryBackdropProps = {
-  onStatsHoverChange?: (isHovering: boolean) => void;
-};
+import { createSignal, For, onCleanup, onMount, type Component } from "solid-js";
+import { PanelProvider, PanelRenderModeProvider } from "@web/components/stat-panel";
+import { subscribeStatsStream } from "@web/stats/stream";
+import { fetchStatsHistory } from "@web/stats/history";
+import { CodexPanel } from "@web/stats/codex/panel";
+import { SystemPanel } from "@web/stats/system/panel";
+import { ServerPanel } from "@web/stats/server/panel";
+import { WebSocketPanel } from "@web/stats/websocket/panel";
+import { GitHubPanel } from "@web/stats/github/panel";
+import { SpotifyPanel } from "@web/stats/spotify/panel";
 
 type PanelMotionSeed = {
   pathIndex: number;
@@ -16,9 +18,14 @@ type PanelMotionSeed = {
   path: string;
 };
 
-type PredefinedPath = {
-  build: (width: number, height: number) => string;
-};
+const PANEL_CONFIGS: { id: string; primaryColor: string; component: Component }[] = [
+  { id: CodexPanel.id, primaryColor: CodexPanel.primaryColor, component: CodexPanel },
+  { id: SystemPanel.id, primaryColor: SystemPanel.primaryColor, component: SystemPanel },
+  { id: ServerPanel.id, primaryColor: ServerPanel.primaryColor, component: ServerPanel },
+  { id: WebSocketPanel.id, primaryColor: WebSocketPanel.primaryColor, component: WebSocketPanel },
+  { id: GitHubPanel.id, primaryColor: GitHubPanel.primaryColor, component: GitHubPanel },
+  { id: SpotifyPanel.id, primaryColor: SpotifyPanel.primaryColor, component: SpotifyPanel },
+];
 
 function formatCoord(value: number) {
   return Number.parseFloat(value.toFixed(2));
@@ -42,7 +49,7 @@ function point(width: number, height: number, x: number, y: number) {
   return `${formatCoord(safeX)} ${formatCoord(shiftedY)}`;
 }
 
-const PREDEFINED_LONG_PATHS: PredefinedPath[] = [
+const PREDEFINED_LONG_PATHS: { build: (width: number, height: number) => string }[] = [
   {
     build: (width, height) =>
       `M ${point(width, height, 0.09, 0.33)} C ${point(width, height, 0.22, 0.02)}, ${point(width, height, 0.46, 0.08)}, ${point(width, height, 0.64, 0.24)} C ${point(width, height, 0.86, 0.44)}, ${point(width, height, 0.94, 0.12)}, ${point(width, height, 0.88, 0.52)} C ${point(width, height, 0.84, 0.82)}, ${point(width, height, 0.58, 0.96)}, ${point(width, height, 0.36, 0.78)} C ${point(width, height, 0.22, 0.66)}, ${point(width, height, 0.04, 0.94)}, ${point(width, height, 0.1, 0.56)} C ${point(width, height, 0.14, 0.42)}, ${point(width, height, 0.02, 0.44)}, ${point(width, height, 0.09, 0.33)}`,
@@ -112,10 +119,7 @@ function applyMotionStyle(element: HTMLElement, motionSeed: PanelMotionSeed) {
   element.style.setProperty("offset-path", `path('${motionSeed.path}')`);
 }
 
-export function TelemetryBackdrop(props: TelemetryBackdropProps) {
-  const [history] = createResource(getServerStatsHistory);
-  const { panels } = useServerPulse(history);
-
+export function TelemetryBackdrop(props: { onStatsHoverChange?: (isHovering: boolean) => void }) {
   const [viewportSize, setViewportSize] = createSignal({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -133,9 +137,7 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
       motionSeed.startedAt = now;
       motionSeed.path = createPanelPath(motionSeed.pathIndex, width, height);
       const panelElement = panelRefs[panelId];
-      if (panelElement) {
-        applyMotionStyle(panelElement, motionSeed);
-      }
+      if (panelElement) applyMotionStyle(panelElement, motionSeed);
     }
   };
 
@@ -146,9 +148,7 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
 
   const getMotionSeed = (panelId: string): PanelMotionSeed => {
     const existing = motionSeedById[panelId];
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
     const viewport = viewportSize();
     const pathIndex = Math.floor(Math.random() * PREDEFINED_LONG_PATHS.length);
@@ -169,16 +169,12 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
   };
 
   const onPanelHoverStart = (panelId: string) => {
-    if (manualPanelId() !== null) {
-      return;
-    }
+    if (manualPanelId() !== null) return;
     setActivePanel(panelId);
   };
 
   const onPanelHoverEnd = (panelId: string) => {
-    if (manualPanelId() !== null || activePanelId() !== panelId) {
-      return;
-    }
+    if (manualPanelId() !== null || activePanelId() !== panelId) return;
     setActivePanel(null);
   };
 
@@ -198,32 +194,30 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
   };
 
   onMount(() => {
+    const controller = new AbortController();
+
+    void fetchStatsHistory().catch((error) => console.error(error));
+    void subscribeStatsStream(controller.signal).catch((error) => {
+      if (!controller.signal.aborted) console.error(error);
+    });
+
     let resizeTimeout = 0;
 
-    const syncViewport = () => {
-      applyViewport(window.innerWidth, window.innerHeight);
-    };
-
     const onResize = () => {
-      if (resizeTimeout !== 0) {
-        window.clearTimeout(resizeTimeout);
-      }
-
+      if (resizeTimeout !== 0) window.clearTimeout(resizeTimeout);
       resizeTimeout = window.setTimeout(() => {
         applyViewport(window.innerWidth, window.innerHeight);
         resizeTimeout = 0;
       }, 120);
     };
 
-    syncViewport();
-
+    applyViewport(window.innerWidth, window.innerHeight);
     window.addEventListener("resize", onResize, { passive: true });
 
     onCleanup(() => {
+      controller.abort();
       window.removeEventListener("resize", onResize);
-      if (resizeTimeout !== 0) {
-        window.clearTimeout(resizeTimeout);
-      }
+      if (resizeTimeout !== 0) window.clearTimeout(resizeTimeout);
     });
   });
 
@@ -260,16 +254,14 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <For each={panels()}>
-            {(panel) => {
-              const motionSeed = getMotionSeed(panel.id);
-              const debugPath = motionSeed.path;
-
+          <For each={PANEL_CONFIGS}>
+            {(config) => {
+              const motionSeed = getMotionSeed(config.id);
               return (
                 <path
-                  d={debugPath}
+                  d={motionSeed.path}
                   fill="none"
-                  stroke={panel.primaryColor}
+                  stroke={config.primaryColor}
                   stroke-opacity="0.45"
                   stroke-width="1.1"
                   stroke-dasharray="4 6"
@@ -281,25 +273,22 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
       ) : null}
 
       <div class="relative h-full w-full">
-        <Index each={panels()}>
-          {(panel) => {
-            const panelId = panel().id;
-            const colorStyle = `background-color:${panel().primaryColor};`;
-            const motionSeed = getMotionSeed(panelId);
-            const isActive = () => activePanelId() === panelId;
-            const isPinned = () => manualPanelId() === panelId;
+        <For each={PANEL_CONFIGS}>
+          {(config) => {
+            const motionSeed = getMotionSeed(config.id);
+            const isActive = () => activePanelId() === config.id;
+            const isPinned = () => manualPanelId() === config.id;
+            const StatPanel = config.component;
 
             return (
               <article
                 data-telemetry-item="true"
                 ref={(element) => {
-                  panelRefs[panelId] = element;
-                  if (element) {
-                    applyMotionStyle(element, motionSeed);
-                  }
+                  panelRefs[config.id] = element;
+                  if (element) applyMotionStyle(element, motionSeed);
                 }}
-                onPointerEnter={() => onPanelHoverStart(panelId)}
-                onPointerLeave={() => onPanelHoverEnd(panelId)}
+                onPointerEnter={() => onPanelHoverStart(config.id)}
+                onPointerLeave={() => onPanelHoverEnd(config.id)}
                 class={clsx(
                   "telemetry-follow-path pointer-events-auto absolute [offset-anchor:50%_50%] [offset-distance:var(--panel-start-distance)] [offset-rotate:0deg] will-change-[offset-distance] motion-reduce:animate-none animate-[followPath_var(--panel-float-duration)_linear_infinite] z-20",
                   isActive()
@@ -308,135 +297,50 @@ export function TelemetryBackdrop(props: TelemetryBackdropProps) {
                 )}
                 style={getPanelStyle(motionSeed)}
               >
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onPanelToggle(panelId);
-                  }}
-                  class={clsx(
-                    "relative flex items-center gap-2 rounded-full border px-2 py-1 transition duration-200",
-                    isActive()
-                      ? "border-slate-200/25 bg-slate-950/42"
-                      : "border-transparent hover:border-slate-200/25 hover:bg-slate-950/30",
-                  )}
-                  aria-pressed={isPinned()}
+                <PanelProvider
+                  isActive={isActive}
+                  isPinned={isPinned}
+                  primaryColor={config.primaryColor}
+                  onRelease={clearManualPanel}
                 >
-                  <span
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onPanelToggle(config.id);
+                    }}
                     class={clsx(
-                      "size-1.5 rounded-full transition-opacity duration-200",
-                      isActive() ? "opacity-100" : "opacity-65",
+                      "relative flex items-center gap-2 rounded-full border px-2 py-1 transition duration-200",
+                      isActive()
+                        ? "border-slate-200/25 bg-slate-950/42"
+                        : "border-transparent hover:border-slate-200/25 hover:bg-slate-950/30",
                     )}
-                    style={colorStyle}
-                  />
-                  <span
-                    class={clsx(
-                      "font-mono text-[0.52rem] tracking-[0.14em] uppercase transition-colors duration-200",
-                      isActive() ? "text-slate-200/80" : "text-slate-200/45",
-                    )}
+                    aria-pressed={isPinned()}
                   >
-                    {panel().tag}
-                  </span>
-                  <span
+                    <PanelRenderModeProvider mode="trigger">
+                      <StatPanel />
+                    </PanelRenderModeProvider>
+                  </button>
+                  <div
                     class={clsx(
-                      "max-w-36 truncate text-left font-mono text-[0.6rem] tracking-[0.08em] uppercase transition-colors duration-200",
-                      isActive() ? "text-slate-100/78" : "text-slate-200/28",
+                      "absolute z-20 top-7 left-1/2 w-[min(82vw,14.5rem)] min-w-44 -translate-x-1/2 rounded-xl border border-slate-200/15 bg-slate-950/68 p-3 shadow-[0_10px_30px_rgba(3,8,16,0.28)] backdrop-blur-md transition duration-200",
+                      isActive()
+                        ? "pointer-events-auto translate-y-0 opacity-100"
+                        : "pointer-events-none translate-y-1 opacity-0",
                     )}
+                    onPointerEnter={() => onPanelHoverStart(config.id)}
+                    onPointerLeave={() => onPanelHoverEnd(config.id)}
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    {panel().current}
-                  </span>
-                </button>
-                <div
-                  class={clsx(
-                    "absolute z-20 top-7 left-1/2 w-[min(82vw,14.5rem)] min-w-44 -translate-x-1/2 rounded-xl border border-slate-200/15 bg-slate-950/68 p-3 shadow-[0_10px_30px_rgba(3,8,16,0.28)] backdrop-blur-md transition duration-200",
-                    isActive()
-                      ? "pointer-events-auto translate-y-0 opacity-100"
-                      : "pointer-events-none translate-y-1 opacity-0",
-                  )}
-                  onPointerEnter={() => onPanelHoverStart(panelId)}
-                  onPointerLeave={() => onPanelHoverEnd(panelId)}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <p class="font-mono text-[0.55rem] tracking-[0.14em] text-slate-300/70 uppercase">
-                      {panel().title}
-                    </p>
-                    <div class="flex items-center gap-1">
-                      {panel().actionUrl ? (
-                        <a
-                          href={panel().actionUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(event) => event.stopPropagation()}
-                          class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
-                        >
-                          {panel().actionLabel ?? "Open"}
-                        </a>
-                      ) : null}
-                      {isPinned() ? (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            clearManualPanel();
-                          }}
-                          class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
-                        >
-                          Release
-                        </button>
-                      ) : null}
-                    </div>
+                    <PanelRenderModeProvider mode="content">
+                      <StatPanel />
+                    </PanelRenderModeProvider>
                   </div>
-                  <p class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
-                    {panel().trend}
-                  </p>
-                  {panel().historyItems ? (
-                    <div class="mt-2">
-                      <p class="font-mono text-[0.49rem] tracking-[0.12em] text-slate-300/58 uppercase">
-                        Previous songs
-                      </p>
-                      {panel().historyItems!.length > 0 ? (
-                        <ul class="mt-1.5 flex flex-col gap-1.5">
-                          <For each={panel().historyItems!}>
-                            {(track) => (
-                              <li class="rounded-md border border-slate-200/10 bg-slate-900/30 px-2 py-1">
-                                <p class="truncate font-mono text-[0.52rem] tracking-[0.08em] text-slate-100/88 uppercase">
-                                  {track.title}
-                                </p>
-                                <p class="truncate text-[0.56rem] text-slate-300/64">
-                                  {track.subtitle}
-                                </p>
-                              </li>
-                            )}
-                          </For>
-                        </ul>
-                      ) : (
-                        <p class="mt-1 text-[0.56rem] text-slate-300/60">
-                          No previous tracks in recent history.
-                        </p>
-                      )}
-                    </div>
-                  ) : panel().points.length > 0 ? (
-                    <div class="mt-2 h-12 w-full opacity-75">
-                      <Sparkline points={panel().points} color={panel().primaryColor} />
-                    </div>
-                  ) : null}
-                  <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{panel().hint}</p>
-                  <dl class="mt-2 flex flex-col gap-1">
-                    <For each={panel().details}>
-                      {(detail) => (
-                        <div class="flex items-center justify-between gap-2 font-mono text-[0.5rem] tracking-[0.08em] uppercase">
-                          <dt class="text-slate-300/60">{detail.label}</dt>
-                          <dd class="m-0 text-slate-100/84">{detail.value}</dd>
-                        </div>
-                      )}
-                    </For>
-                  </dl>
-                </div>
+                </PanelProvider>
               </article>
             );
           }}
-        </Index>
+        </For>
       </div>
     </div>
   );

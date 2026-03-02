@@ -1,9 +1,11 @@
-import type { GitHubCommitStats } from "@shared/telemetry";
+import type { GitHubCommitStats } from "@shared/stats/github";
+import type { StatModule } from "@server/stats/types";
 
 const GITHUB_COMMIT_SEARCH_ENDPOINT = "https://api.github.com/search/commits";
 const GITHUB_POLL_INTERVAL_MS = 30 * 60 * 1000;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 15 * 60 * 1000;
 const DEFAULT_GITHUB_USERNAME = "ErickCReis";
+const MAX_HISTORY = 84;
 
 type GitHubSearchResponse = {
   total_count?: number;
@@ -11,7 +13,6 @@ type GitHubSearchResponse = {
 
 class GitHubRateLimitError extends Error {
   retryAfterMs: number;
-
   constructor(retryAfterMs: number) {
     super("GitHub API rate limited");
     this.retryAfterMs = retryAfterMs;
@@ -54,14 +55,12 @@ function formatDayLabel(date: Date) {
 function getRecentDates(totalDays: number) {
   const dates: Date[] = [];
   const now = new Date();
-
   for (let offset = totalDays - 1; offset >= 0; offset -= 1) {
     const date = new Date(now);
     date.setHours(0, 0, 0, 0);
     date.setDate(now.getDate() - offset);
     dates.push(date);
   }
-
   return dates;
 }
 
@@ -69,11 +68,8 @@ function getRateLimitRetryAfterMs(response: Response) {
   const resetAtSeconds = Number.parseInt(response.headers.get("x-ratelimit-reset") ?? "", 10);
   if (Number.isFinite(resetAtSeconds)) {
     const nowSeconds = Math.floor(Date.now() / 1000);
-    if (resetAtSeconds > nowSeconds) {
-      return (resetAtSeconds - nowSeconds + 1) * 1000;
-    }
+    if (resetAtSeconds > nowSeconds) return (resetAtSeconds - nowSeconds + 1) * 1000;
   }
-
   return GITHUB_RATE_LIMIT_FALLBACK_MS;
 }
 
@@ -89,9 +85,7 @@ async function fetchGitHubCommitCount(username: string, from: string, to: string
   };
 
   const token = getGitHubToken();
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
+  if (token) headers.authorization = `Bearer ${token}`;
 
   const response = await fetch(url, { headers });
 
@@ -111,13 +105,22 @@ async function fetchGitHubCommitCount(username: string, from: string, to: string
   return Number.isFinite(payload.total_count) ? Number(payload.total_count) : 0;
 }
 
-let latestGitHubCommitStats = createEmptyGitHubCommitStats(getGitHubUsername());
-let isGitHubPollerStarted = false;
+let latest: GitHubCommitStats = createEmptyGitHubCommitStats(getGitHubUsername());
+let history: GitHubCommitStats[] = [];
+let dirty = false;
+let started = false;
+
+function markDirty(stats: GitHubCommitStats) {
+  latest = stats;
+  history.push(latest);
+  if (history.length > MAX_HISTORY) history.shift();
+  dirty = true;
+}
 
 async function refreshGitHubCommitStats() {
   const username = getGitHubUsername();
   if (!username) {
-    latestGitHubCommitStats = createEmptyGitHubCommitStats(username);
+    markDirty(createEmptyGitHubCommitStats(username));
     return GITHUB_POLL_INTERVAL_MS;
   }
 
@@ -138,7 +141,7 @@ async function refreshGitHubCommitStats() {
       ...dailyRanges.map((range) => fetchGitHubCommitCount(username, range.from, range.to)),
     ]);
 
-    latestGitHubCommitStats = {
+    markDirty({
       isConfigured: true,
       username,
       year: currentYear,
@@ -146,7 +149,7 @@ async function refreshGitHubCommitStats() {
       commitsLast7Days,
       commitsLast7DayLabels: last7Dates.map(formatDayLabel),
       fetchedAt: Date.now(),
-    };
+    });
 
     return GITHUB_POLL_INTERVAL_MS;
   } catch (error) {
@@ -156,46 +159,46 @@ async function refreshGitHubCommitStats() {
     }
 
     console.error("[github] Failed to refresh commit stats", error);
-    latestGitHubCommitStats = {
+    markDirty({
       ...createEmptyGitHubCommitStats(username),
       isConfigured: true,
       year: currentYear,
       fetchedAt: Date.now(),
-    };
+    });
 
     return GITHUB_RATE_LIMIT_FALLBACK_MS;
   }
 }
 
-export function startGitHubPoller() {
-  if (isGitHubPollerStarted) {
-    return;
-  }
+export const githubStat: StatModule<GitHubCommitStats> = {
+  start() {
+    if (started) return;
+    started = true;
 
-  isGitHubPollerStarted = true;
+    const tick = async () => {
+      if (!started) return;
+      const nextIntervalMs = await refreshGitHubCommitStats();
+      if (!started) return;
+      setTimeout(() => void tick(), nextIntervalMs);
+    };
 
-  const tick = async () => {
-    if (!isGitHubPollerStarted) {
-      return;
-    }
-
-    const nextIntervalMs = await refreshGitHubCommitStats();
-    if (!isGitHubPollerStarted) {
-      return;
-    }
-
-    setTimeout(() => {
-      void tick();
-    }, nextIntervalMs);
-  };
-
-  void tick();
-}
-
-export function getLatestGitHubCommitStats(): GitHubCommitStats {
-  return {
-    ...latestGitHubCommitStats,
-    commitsLast7Days: [...latestGitHubCommitStats.commitsLast7Days],
-    commitsLast7DayLabels: [...latestGitHubCommitStats.commitsLast7DayLabels],
-  };
-}
+    void tick();
+  },
+  getLatest() {
+    return {
+      ...latest,
+      commitsLast7Days: [...latest.commitsLast7Days],
+      commitsLast7DayLabels: [...latest.commitsLast7DayLabels],
+    };
+  },
+  getHistory: () => [...history],
+  consumeLatest() {
+    if (!dirty) return null;
+    dirty = false;
+    return {
+      ...latest,
+      commitsLast7Days: [...latest.commitsLast7Days],
+      commitsLast7DayLabels: [...latest.commitsLast7DayLabels],
+    };
+  },
+};

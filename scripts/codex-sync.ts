@@ -7,7 +7,7 @@ import {
   type CodexUsageSyncPayload,
   type CodexUsageDay,
   type CodexUsageTotals,
-} from "@shared/telemetry";
+} from "@shared/stats/codex";
 
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;

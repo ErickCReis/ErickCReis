@@ -2,59 +2,24 @@ import { mkdir, rename } from "node:fs/promises";
 import { dirname } from "node:path";
 import * as v from "valibot";
 import {
-  codexUsageDaySchema,
-  codexUsageDailySummarySchema,
-  codexUsageSnapshotSchema,
   codexUsageSyncPayloadSchema,
-  codexUsageTotalsSchema,
   type CodexUsageDay,
-  type CodexUsageDailySummary,
   type CodexUsageSnapshot,
   type CodexUsageSyncPayload,
   type CodexUsageTotals,
-} from "@shared/telemetry";
+} from "@shared/stats/codex";
+import type { StatModule } from "@server/stats/types";
 
 const DEFAULT_CODEX_USAGE_FILE = "/app/runtime/codex/codex-usage.json";
 const DEFAULT_STALE_AFTER_MINUTES = 180;
 const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
-
-export {
-  codexUsageDaySchema,
-  codexUsageDailySummarySchema,
-  codexUsageSnapshotSchema,
-  codexUsageSyncPayloadSchema,
-  codexUsageTotalsSchema,
-};
-export type {
-  CodexUsageDay,
-  CodexUsageDailySummary,
-  CodexUsageSnapshot,
-  CodexUsageSyncPayload,
-  CodexUsageTotals,
-};
+const MAX_HISTORY = 84;
 
 type CodexUsageStore = Omit<CodexUsageSnapshot, "isStale">;
 
-function cloneTotals(totals: CodexUsageTotals | null): CodexUsageTotals | null {
-  return totals ? { ...totals } : null;
-}
-
-function cloneDay(day: CodexUsageDay | null): CodexUsageDay | null {
-  return day ? { ...day } : null;
-}
-
-function cloneDailySummary(daily: CodexUsageDailySummary[]) {
-  return daily.map((entry) => ({ ...entry }));
-}
-
 function createEmptyStore(): CodexUsageStore {
-  return {
-    generatedAt: null,
-    latestDay: null,
-    totals: null,
-    daily: [],
-  };
+  return { generatedAt: null, latestDay: null, totals: null, daily: [] };
 }
 
 function getStaleAfterMs() {
@@ -71,17 +36,10 @@ function getUsageFilePath() {
 }
 
 function computeTotals(daily: CodexUsageDay[]): CodexUsageTotals | null {
-  if (daily.length === 0) {
-    return null;
-  }
-
+  if (daily.length === 0) return null;
   return daily.reduce<CodexUsageTotals>(
-    (totals, day) => ({
-      totalTokens: totals.totalTokens + day.totalTokens,
-    }),
-    {
-      totalTokens: 0,
-    },
+    (totals, day) => ({ totalTokens: totals.totalTokens + day.totalTokens }),
+    { totalTokens: 0 },
   );
 }
 
@@ -89,7 +47,6 @@ function normalizeSyncPayload(payload: CodexUsageSyncPayload): CodexUsageStore {
   const normalizedDaily = payload.daily.slice(-MAX_DAILY_POINTS).map((entry) => ({ ...entry }));
   const latestDay = normalizedDaily.at(-1) ?? null;
   const totals = payload.totals ?? computeTotals(normalizedDaily);
-
   return {
     generatedAt: payload.generatedAt,
     latestDay,
@@ -99,22 +56,30 @@ function normalizeSyncPayload(payload: CodexUsageSyncPayload): CodexUsageStore {
 }
 
 function withStaleStatus(store: CodexUsageStore): CodexUsageSnapshot {
-  const generatedAt = store.generatedAt;
-  const isStale = generatedAt === null || Date.now() - generatedAt > getStaleAfterMs();
-
+  const isStale = store.generatedAt === null || Date.now() - store.generatedAt > getStaleAfterMs();
   return {
-    generatedAt,
+    generatedAt: store.generatedAt,
     isStale,
-    latestDay: cloneDay(store.latestDay),
-    totals: cloneTotals(store.totals),
-    daily: cloneDailySummary(store.daily),
+    latestDay: store.latestDay ? { ...store.latestDay } : null,
+    totals: store.totals ? { ...store.totals } : null,
+    daily: store.daily.map((entry) => ({ ...entry })),
   };
 }
 
 let latestStore: CodexUsageStore = createEmptyStore();
 let latestFileMtimeMs: number | null = null;
-let readInterval: ReturnType<typeof setInterval> | undefined;
 let writeQueue: Promise<void> = Promise.resolve();
+
+let history: CodexUsageSnapshot[] = [];
+let dirty = false;
+let started = false;
+
+function markDirty() {
+  const snapshot = withStaleStatus(latestStore);
+  history.push(snapshot);
+  if (history.length > MAX_HISTORY) history.shift();
+  dirty = true;
+}
 
 async function refreshFromDisk(force = false) {
   const filePath = getUsageFilePath();
@@ -122,14 +87,10 @@ async function refreshFromDisk(force = false) {
 
   try {
     const exists = await file.exists();
-    if (!exists) {
-      throw new Error("ENOENT");
-    }
+    if (!exists) throw new Error("ENOENT");
 
     const mtimeMs = file.lastModified;
-    if (!force && latestFileMtimeMs === mtimeMs) {
-      return;
-    }
+    if (!force && latestFileMtimeMs === mtimeMs) return;
 
     const raw = await file.text();
     const parsed = v.safeParse(codexUsageSyncPayloadSchema, JSON.parse(raw));
@@ -140,6 +101,7 @@ async function refreshFromDisk(force = false) {
 
     latestStore = normalizeSyncPayload(parsed.output);
     latestFileMtimeMs = mtimeMs;
+    markDirty();
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError?.code === "ENOENT") {
@@ -147,7 +109,6 @@ async function refreshFromDisk(force = false) {
       latestFileMtimeMs = null;
       return;
     }
-
     console.error("[codex] Failed to refresh usage file", error);
   }
 }
@@ -184,17 +145,19 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
   await writeQueue;
 }
 
-export function startCodexUsageStore() {
-  if (readInterval) {
-    return;
-  }
+export const codexStat: StatModule<CodexUsageSnapshot> = {
+  start() {
+    if (started) return;
+    started = true;
 
-  void refreshFromDisk(true);
-  readInterval = setInterval(() => {
-    void refreshFromDisk();
-  }, CODEX_USAGE_REFRESH_INTERVAL_MS);
-}
-
-export function getLatestCodexUsageSnapshot(): CodexUsageSnapshot {
-  return withStaleStatus(latestStore);
-}
+    void refreshFromDisk(true);
+    setInterval(() => void refreshFromDisk(), CODEX_USAGE_REFRESH_INTERVAL_MS);
+  },
+  getLatest: () => withStaleStatus(latestStore),
+  getHistory: () => [...history],
+  consumeLatest() {
+    if (!dirty) return null;
+    dirty = false;
+    return withStaleStatus(latestStore);
+  },
+};
