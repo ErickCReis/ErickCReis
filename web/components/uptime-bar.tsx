@@ -38,9 +38,7 @@ export function UptimeBar(props: UptimeBarProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  setTooltip((prev) =>
-                    prev ? null : { date: day.date, pct: day.uptimePercent },
-                  );
+                  setTooltip((prev) => (prev ? null : { date: day.date, pct: day.uptimePercent }));
                 } else if (e.key === "Escape") {
                   setTooltip(null);
                 }

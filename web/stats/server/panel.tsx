@@ -19,6 +19,20 @@ export function ServerPanel() {
   const uptimePct = createMemo(() => latest()?.uptimePercent30d ?? 0);
   const version = createMemo(() => latest()?.appVersion ?? "v0.0.0");
   const dailyUptime = createMemo(() => latest()?.dailyUptime ?? []);
+  const uptimeSummary = createMemo(() => {
+    const days = dailyUptime();
+    const percent = `${uptimePct().toFixed(1)}%`;
+    const startDate = days[0]?.date;
+    if (!startDate) return `${percent} uptime`;
+    return `${percent} since ${startDate}`;
+  });
+  const uptimeWindow = createMemo(() => {
+    const days = dailyUptime();
+    const startDate = days[0]?.date;
+    if (!startDate) return "No data";
+    const label = days.length === 1 ? "day" : "days";
+    return `${startDate} (${days.length} ${label})`;
+  });
 
   return (
     <>
@@ -26,7 +40,7 @@ export function ServerPanel() {
       <PanelContent>
         <PanelHeader title="Uptime" />
         <PanelSubtitle>
-          <span>{uptimePct().toFixed(1)}% over 30 days</span>
+          <span>{uptimeSummary()}</span>
         </PanelSubtitle>
         <PanelChart>
           <UptimeBar days={dailyUptime()} />
@@ -34,6 +48,7 @@ export function ServerPanel() {
         <PanelFooter
           details={[
             { label: "Uptime", value: `${uptimePct().toFixed(1)}%` },
+            { label: "Window", value: uptimeWindow() },
             { label: "Version", value: version() },
           ]}
         />

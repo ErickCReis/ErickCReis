@@ -105,9 +105,7 @@ function sample(): SystemStat {
     memoryUsedMb: usedMb,
     totalMemoryMb: totalMb,
     cpuCount: CPU_COUNT,
-    systemMemoryUsedPercent: Number(
-      ((usedMb / Math.max(1, totalMb)) * 100).toFixed(2),
-    ),
+    systemMemoryUsedPercent: Number(((usedMb / Math.max(1, totalMb)) * 100).toFixed(2)),
   };
 }
 

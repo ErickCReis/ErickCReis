@@ -11,6 +11,8 @@ const HEARTBEAT_PERIOD_S = 5;
 const GAP_TOLERANCE_S = 10;
 const RETENTION_DAYS = 31;
 const MAX_HISTORY = 10;
+// First calendar day when uptime monitoring is considered valid.
+const UPTIME_MONITORING_START_DATE = new Date(2026, 2, 3);
 
 function formatDate(date: Date) {
   const y = date.getFullYear();
@@ -28,6 +30,7 @@ function dayStartUnix(date: Date) {
 let db: Database | null = null;
 let insertStmt: ReturnType<Database["prepare"]> | null = null;
 let countRangeStmt: ReturnType<Database["prepare"]> | null = null;
+let firstHeartbeatStmt: ReturnType<Database["prepare"]> | null = null;
 
 function initDb() {
   db = new Database(getDataPath("uptime.db"));
@@ -36,6 +39,7 @@ function initDb() {
 
   insertStmt = db.prepare("INSERT OR IGNORE INTO heartbeats (ts) VALUES (?)");
   countRangeStmt = db.prepare("SELECT COUNT(*) as cnt FROM heartbeats WHERE ts >= ? AND ts < ?");
+  firstHeartbeatStmt = db.prepare("SELECT MIN(ts) as ts FROM heartbeats");
 }
 
 function recordHeartbeat() {
@@ -48,9 +52,17 @@ function countBeatsInRange(startUnix: number, endUnix: number): number {
   return row?.cnt ?? 0;
 }
 
+function getFirstHeartbeatUnix(): number | null {
+  const row = firstHeartbeatStmt?.get() as { ts: number | null } | undefined;
+  return row?.ts ?? null;
+}
+
 function computeDailyUptime(): UptimeDaySummary[] {
   const now = new Date();
   const nowUnix = Math.floor(now.getTime() / 1000);
+  const configuredStartUnix = dayStartUnix(UPTIME_MONITORING_START_DATE);
+  const firstHeartbeatUnix = getFirstHeartbeatUnix();
+  const uptimeStartUnix = Math.max(configuredStartUnix, firstHeartbeatUnix ?? nowUnix);
   const days: UptimeDaySummary[] = [];
 
   for (let offset = 29; offset >= 0; offset--) {
@@ -59,9 +71,12 @@ function computeDailyUptime(): UptimeDaySummary[] {
     const dateStr = formatDate(date);
     const start = dayStartUnix(date);
     const end = offset === 0 ? nowUnix : start + SECONDS_PER_DAY;
+    if (end <= uptimeStartUnix) continue;
+    const sampleStart = Math.max(start, uptimeStartUnix);
 
-    const actual = countBeatsInRange(start, end);
-    const elapsed = end - start;
+    const actual = countBeatsInRange(sampleStart, end);
+    const elapsed = end - sampleStart;
+    if (elapsed <= 0) continue;
     const expected = Math.max(1, Math.floor(elapsed / HEARTBEAT_PERIOD_S));
     const pct = Math.min(100, Number(((actual / expected) * 100).toFixed(2)));
 
