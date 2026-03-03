@@ -45,9 +45,10 @@ function formatDate(date: Date) {
 }
 
 function normalizeSyncPayload(payload: CodexUsageSyncPayload): InternalStore {
-  const normalizedDaily = payload.daily.slice(-MAX_DAILY_POINTS).map((entry, index) => {
+  const sliced = payload.daily.slice(-MAX_DAILY_POINTS);
+  const normalizedDaily = sliced.map((entry, index) => {
     const now = new Date();
-    now.setDate(now.getDate() - (payload.daily.length - 1 - index));
+    now.setDate(now.getDate() - (sliced.length - 1 - index));
     return { date: formatDate(now), day: { ...entry } };
   });
 
@@ -80,14 +81,14 @@ let latestFileMtimeMs: number | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
 let history: CodexUsageSnapshot[] = [];
-let dirty = false;
+let version = 0;
 let started = false;
 
 function markDirty() {
   const snapshot = buildSnapshot(latestStore);
   history.push(snapshot);
   if (history.length > MAX_HISTORY) history.shift();
-  dirty = true;
+  version++;
 }
 
 async function refreshFromDisk(force = false) {
@@ -96,7 +97,11 @@ async function refreshFromDisk(force = false) {
 
   try {
     const exists = await file.exists();
-    if (!exists) throw new Error("ENOENT");
+    if (!exists) {
+      const err = new Error("ENOENT") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      throw err;
+    }
 
     const mtimeMs = file.lastModified;
     if (!force && latestFileMtimeMs === mtimeMs) return;
@@ -163,9 +168,5 @@ export const codexStat: StatModule<CodexUsageSnapshot> = {
   },
   getLatest: () => buildSnapshot(latestStore),
   getHistory: () => [...history],
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return buildSnapshot(latestStore);
-  },
+  getVersion: () => version,
 };

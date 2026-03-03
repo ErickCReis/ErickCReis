@@ -21,13 +21,13 @@ function createCursorId() {
 
 const cursorCookieSchema = t.Cookie({ cursorId: t.Optional(t.String()) }, { httpOnly: true });
 
-const statConsumers = [
-  { name: "system" as const, consume: () => systemStat.consumeLatest() },
-  { name: "server" as const, consume: () => serverInfoStat.consumeLatest() },
-  { name: "websocket" as const, consume: () => websocketStat.consumeLatest() },
-  { name: "spotify" as const, consume: () => spotifyStat.consumeLatest() },
-  { name: "github" as const, consume: () => githubStat.consumeLatest() },
-  { name: "codex" as const, consume: () => codexStat.consumeLatest() },
+const statModules = [
+  { name: "system" as const, mod: systemStat },
+  { name: "server" as const, mod: serverInfoStat },
+  { name: "websocket" as const, mod: websocketStat },
+  { name: "spotify" as const, mod: spotifyStat },
+  { name: "github" as const, mod: githubStat },
+  { name: "codex" as const, mod: codexStat },
 ];
 
 const app = new Elysia()
@@ -54,12 +54,17 @@ const app = new Elysia()
   .get("/stats/stream", async function* ({ set }) {
     set.headers["cache-control"] = "no-store";
 
+    const lastSeen = new Map<string, number>();
+
     websocketStat.addViewer();
     try {
       while (true) {
-        for (const { name, consume } of statConsumers) {
-          const data = consume();
-          if (data) yield sse({ event: name, data });
+        for (const { name, mod } of statModules) {
+          const v = mod.getVersion();
+          if (v > (lastSeen.get(name) ?? 0)) {
+            lastSeen.set(name, v);
+            yield sse({ event: name, data: mod.getLatest() });
+          }
         }
         await Bun.sleep(SSE_POLL_INTERVAL_MS);
       }

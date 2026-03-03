@@ -33,7 +33,7 @@ export function CodexPanel() {
   });
 
   const current = createMemo(() =>
-    todayTokens() > 0 ? `${formatCompactTokenCount(todayTokens())} tokens` : "Awaiting sync",
+    latest() ? `${formatCompactTokenCount(todayTokens())} tokens` : "Awaiting sync",
   );
 
   return (

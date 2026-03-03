@@ -51,7 +51,7 @@ function sample(): SystemStat {
 
 let latest: SystemStat = sample();
 let history: SystemStat[] = [];
-let dirty = false;
+let version = 0;
 let started = false;
 
 export const systemStat: StatModule<SystemStat> = {
@@ -63,7 +63,7 @@ export const systemStat: StatModule<SystemStat> = {
       latest = sample();
       history.push(latest);
       if (history.length > MAX_HISTORY) history.shift();
-      dirty = true;
+      version++;
     };
 
     tick();
@@ -71,9 +71,5 @@ export const systemStat: StatModule<SystemStat> = {
   },
   getLatest: () => latest,
   getHistory: () => [...history],
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return latest;
-  },
+  getVersion: () => version,
 };

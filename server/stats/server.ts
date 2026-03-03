@@ -34,9 +34,6 @@ function initDb() {
   db.run("PRAGMA journal_mode=WAL");
   db.run("CREATE TABLE IF NOT EXISTS heartbeats (ts INTEGER PRIMARY KEY)");
 
-  const cutoff = Math.floor(Date.now() / 1000) - RETENTION_DAYS * SECONDS_PER_DAY;
-  db.run("DELETE FROM heartbeats WHERE ts < ?", [cutoff]);
-
   insertStmt = db.prepare("INSERT OR IGNORE INTO heartbeats (ts) VALUES (?)");
   countRangeStmt = db.prepare("SELECT COUNT(*) as cnt FROM heartbeats WHERE ts >= ? AND ts < ?");
 }
@@ -125,8 +122,20 @@ let latest: ServerInfoStat = {
   dailyUptime: [],
 };
 let history: ServerInfoStat[] = [];
-let dirty = false;
+let statVersion = 0;
 let started = false;
+
+function performRetentionPurge() {
+  if (!db) return;
+  try {
+    const cutoff = Math.floor(Date.now() / 1000) - RETENTION_DAYS * SECONDS_PER_DAY;
+    db.run("DELETE FROM heartbeats WHERE ts < ?", [cutoff]);
+  } catch (error) {
+    console.error("[server] Retention purge failed", error);
+  }
+}
+
+const RETENTION_PURGE_INTERVAL_MS = 3_600_000;
 
 export const serverInfoStat: StatModule<ServerInfoStat> = {
   start() {
@@ -134,18 +143,20 @@ export const serverInfoStat: StatModule<ServerInfoStat> = {
     started = true;
 
     initDb();
+    performRetentionPurge();
     recordHeartbeat();
     latest = buildSnapshot();
     history.push(latest);
-    dirty = true;
+    statVersion++;
 
     setInterval(recordHeartbeat, HEARTBEAT_INTERVAL_MS);
+    setInterval(performRetentionPurge, RETENTION_PURGE_INTERVAL_MS);
 
     setInterval(() => {
       latest = buildSnapshot();
       history.push(latest);
       if (history.length > MAX_HISTORY) history.shift();
-      dirty = true;
+      statVersion++;
     }, RECOMPUTE_INTERVAL_MS);
   },
   getLatest: () => ({
@@ -157,12 +168,5 @@ export const serverInfoStat: StatModule<ServerInfoStat> = {
       ...s,
       dailyUptime: s.dailyUptime.map((d) => ({ ...d })),
     })),
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return {
-      ...latest,
-      dailyUptime: latest.dailyUptime.map((d) => ({ ...d })),
-    };
-  },
+  getVersion: () => statVersion,
 };

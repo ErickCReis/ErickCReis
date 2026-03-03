@@ -54,14 +54,14 @@ function createEmptyNowPlaying(isConfigured: boolean): SpotifyNowPlaying {
 let tokenCache: SpotifyTokenCache | null = null;
 let latest: SpotifyNowPlaying = createEmptyNowPlaying(hasSpotifyCredentials());
 let history: SpotifyNowPlaying[] = [];
-let dirty = false;
+let version = 0;
 let started = false;
 
 function markDirty(nowPlaying: SpotifyNowPlaying) {
   latest = nowPlaying;
   history.push(latest);
   if (history.length > MAX_HISTORY) history.shift();
-  dirty = true;
+  version++;
 }
 
 function getClientCredentials() {
@@ -225,9 +225,5 @@ export const spotifyStat: StatModule<SpotifyNowPlaying> = {
     return { ...latest, artistNames: [...latest.artistNames] };
   },
   getHistory: () => [...history],
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return { ...latest, artistNames: [...latest.artistNames] };
-  },
+  getVersion: () => version,
 };

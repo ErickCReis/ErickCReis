@@ -19,14 +19,15 @@ export function WebSocketPanel() {
   const latestUsers = createMemo(() => websocketStore.latest()?.connectedUsers ?? 0);
   const peakUsers = createMemo(() => websocketStore.latest()?.maxConcurrentUsers ?? 0);
   const connectionStartedAt = createMemo(
-    () => websocketStore.latest()?.connectionStartedAt ?? Date.now(),
+    () => websocketStore.latest()?.connectionStartedAt ?? null,
   );
 
   const [connectedMs, setConnectedMs] = createSignal(0);
 
   onMount(() => {
     const interval = setInterval(() => {
-      setConnectedMs(Date.now() - connectionStartedAt());
+      const started = connectionStartedAt();
+      setConnectedMs(started != null ? Date.now() - started : 0);
     }, 1000);
     onCleanup(() => clearInterval(interval));
   });

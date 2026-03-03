@@ -20,7 +20,7 @@ let activeViewers = 0;
 let maxConcurrentUsers = 0;
 let sseStartedAt = Date.now();
 let history: WebSocketStat[] = [];
-let dirty = false;
+let version = 0;
 let started = false;
 let persistedDirty = false;
 
@@ -97,7 +97,7 @@ export const websocketStat: StatModule<WebSocketStat> & {
           persistedDirty = true;
         }
 
-        dirty = true;
+        version++;
         persistedDirty = true;
       };
 
@@ -117,9 +117,5 @@ export const websocketStat: StatModule<WebSocketStat> & {
 
   getLatest: () => latest,
   getHistory: () => [...history],
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return latest;
-  },
+  getVersion: () => version,
 };

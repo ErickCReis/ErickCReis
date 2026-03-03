@@ -24,7 +24,9 @@ function connectSocket() {
 
   ws.on("close", () => {
     socket = null;
-    reconnectTimeout = setTimeout(connectSocket, 1000);
+    if (listeners.size > 0) {
+      reconnectTimeout = setTimeout(connectSocket, 1000);
+    }
   });
 
   ws.on("error", (error) => {

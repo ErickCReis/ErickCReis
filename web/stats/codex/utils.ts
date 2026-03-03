@@ -11,7 +11,7 @@ export function formatCompactTokenCount(value: number) {
 }
 
 export function formatGeneratedAt(value: number | null) {
-  if (!value) return "--:--";
+  if (value == null) return "--:--";
   return new Date(value).toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",

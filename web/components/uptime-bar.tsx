@@ -23,13 +23,28 @@ export function UptimeBar(props: UptimeBarProps) {
         <For each={props.days}>
           {(day) => (
             <div
-              class="flex-1 rounded-[1px] transition-opacity hover:opacity-80"
+              class="flex-1 rounded-[1px] transition-opacity hover:opacity-80 focus:opacity-80 focus:outline-none focus:ring-1 focus:ring-slate-400/50"
               style={{
                 "background-color": getBarColor(day.uptimePercent),
                 height: "100%",
               }}
+              tabIndex={0}
+              role="img"
+              aria-label={`${day.date}: ${day.uptimePercent.toFixed(1)}% uptime`}
               onMouseEnter={() => setTooltip({ date: day.date, pct: day.uptimePercent })}
               onMouseLeave={() => setTooltip(null)}
+              onFocus={() => setTooltip({ date: day.date, pct: day.uptimePercent })}
+              onBlur={() => setTooltip(null)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setTooltip((prev) =>
+                    prev ? null : { date: day.date, pct: day.uptimePercent },
+                  );
+                } else if (e.key === "Escape") {
+                  setTooltip(null);
+                }
+              }}
             />
           )}
         </For>

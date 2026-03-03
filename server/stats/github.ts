@@ -141,14 +141,14 @@ async function saveCache(stats: GitHubCommitStats): Promise<void> {
 
 let latest: GitHubCommitStats = createEmptyStats(getGitHubUsername());
 let history: GitHubCommitStats[] = [];
-let dirty = false;
+let version = 0;
 let started = false;
 
 function markDirty(stats: GitHubCommitStats) {
   latest = stats;
   history.push(latest);
   if (history.length > MAX_HISTORY) history.shift();
-  dirty = true;
+  version++;
 }
 
 async function refreshGitHubCommitStats() {
@@ -252,13 +252,5 @@ export const githubStat: StatModule<GitHubCommitStats> = {
     };
   },
   getHistory: () => [...history],
-  consumeLatest() {
-    if (!dirty) return null;
-    dirty = false;
-    return {
-      ...latest,
-      commitsLast7Days: [...latest.commitsLast7Days],
-      commitsLast7DayLabels: [...latest.commitsLast7DayLabels],
-    };
-  },
+  getVersion: () => version,
 };
