@@ -13,8 +13,3 @@ export type TelemetryPoint = {
   point: number;
   value: number;
 };
-
-export type TelemetryHistoryItem = {
-  title: string;
-  subtitle: string;
-};

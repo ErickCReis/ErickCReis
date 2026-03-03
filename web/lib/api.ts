@@ -4,7 +4,7 @@ import type { CursorPayload } from "@shared/cursor";
 
 const client = treaty<App>(
   process.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
-  { fetch: { credentials: "include" } },
+  { fetch: { credentials: "include" }, parseDate: false },
 );
 
 let socket: ReturnType<typeof client.live.subscribe> | null = null;

@@ -1,15 +1,15 @@
-import { createMemo } from "solid-js";
+import { createMemo, Show } from "solid-js";
 import {
   PanelTrigger,
   PanelContent,
-  PanelTitle,
-  PanelTrend,
-  PanelHint,
-  PanelDetails,
-  PanelHistoryList,
+  PanelHeader,
+  PanelSubtitle,
+  PanelChart,
+  PanelFooter,
 } from "@web/components/stat-panel";
+import { ProgressBar } from "@web/components/progress-bar";
 import { spotifyStore } from "@web/stats/spotify/store";
-import { formatDuration, getRecentSpotifyTracks } from "@web/stats/spotify/utils";
+import { getPreviousTrack } from "@web/stats/spotify/utils";
 
 const PRIMARY_COLOR = "#1db954";
 
@@ -17,52 +17,39 @@ export function SpotifyPanel() {
   const latest = createMemo(() => spotifyStore.latest());
   const trackName = createMemo(() => latest()?.trackName ?? "Nothing playing");
   const artists = createMemo(() => latest()?.artistNames.join(", ") || "No artist");
-  const album = createMemo(() => latest()?.albumName ?? "No album");
-  const status = createMemo(() => {
-    const s = latest();
-    if (!s?.isConfigured) return "Not configured";
-    return s.isPlaying ? "Playing" : "Idle";
-  });
-  const progressLabel = createMemo(() => {
-    const s = latest();
-    if (s && s.durationMs > 0)
-      return `${formatDuration(s.progressMs)} / ${formatDuration(s.durationMs)}`;
-    return "--:-- / --:--";
-  });
-  const hint = createMemo(() => {
-    const s = latest();
-    if (!s?.isConfigured) return "Spotify is not configured for this deployment";
-    return s.isPlaying
-      ? "Current Spotify playback for this account"
-      : "Spotify is connected but nothing is currently playing";
-  });
-  const recentTracks = createMemo(() =>
-    getRecentSpotifyTracks(spotifyStore.history(), latest()?.trackId ?? null),
+  const progressMs = createMemo(() => latest()?.progressMs ?? 0);
+  const durationMs = createMemo(() => latest()?.durationMs ?? 0);
+
+  const previousTrack = createMemo(() =>
+    getPreviousTrack(spotifyStore.history(), latest()?.trackId ?? null),
   );
 
   return (
     <>
-      <PanelTrigger tag="spotify/live" current={trackName()} />
+      <PanelTrigger tag="spotify" current={trackName()} />
       <PanelContent>
-        <PanelTitle
+        <PanelHeader
           title="Now Playing"
           actionUrl={latest()?.trackUrl ?? undefined}
           actionLabel="Open"
         />
-        <PanelTrend trend={artists()} />
-        <PanelHistoryList
-          label="Previous songs"
-          items={recentTracks()}
-          emptyMessage="No previous tracks in recent history."
-        />
-        <PanelHint hint={hint()} />
-        <PanelDetails
+        <PanelSubtitle>
+          <span>{artists()}</span>
+        </PanelSubtitle>
+        <PanelChart>
+          <ProgressBar progressMs={progressMs()} durationMs={durationMs()} color={PRIMARY_COLOR} />
+        </PanelChart>
+        <Show when={previousTrack()}>
+          {(prev) => (
+            <p class="mt-1.5 truncate text-[0.48rem] text-slate-300/50">
+              Previously: {prev().name} — {prev().artist}
+            </p>
+          )}
+        </Show>
+        <PanelFooter
           details={[
             { label: "Track", value: trackName() },
             { label: "Artist", value: artists() },
-            { label: "Status", value: status() },
-            { label: "Album", value: album() },
-            { label: "Progress", value: progressLabel() },
           ]}
         />
       </PanelContent>

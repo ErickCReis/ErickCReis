@@ -1,7 +1,6 @@
 import { clsx } from "clsx";
 import { createContext, For, Show, useContext, type Accessor, type JSX } from "solid-js";
-import { Sparkline } from "@web/components/sparkline";
-import type { TelemetryDetail, TelemetryHistoryItem, TelemetryPoint } from "@web/types/home";
+import type { TelemetryDetail } from "@web/types/home";
 
 const PanelContext = createContext<{
   isActive: Accessor<boolean>;
@@ -92,7 +91,7 @@ export function PanelContent(props: { children: JSX.Element }) {
   return <Show when={!mode || mode() === "content"}>{props.children}</Show>;
 }
 
-export function PanelTitle(props: { title: string; actionUrl?: string; actionLabel?: string }) {
+export function PanelHeader(props: { title: string; actionUrl?: string; actionLabel?: string }) {
   const { isPinned, onRelease } = usePanelContext();
 
   return (
@@ -131,29 +130,19 @@ export function PanelTitle(props: { title: string; actionUrl?: string; actionLab
   );
 }
 
-export function PanelTrend(props: { trend: string }) {
+export function PanelSubtitle(props: { children: JSX.Element }) {
   return (
-    <p class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
-      {props.trend}
-    </p>
+    <div class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
+      {props.children}
+    </div>
   );
 }
 
-export function PanelSparkline(props: { points: TelemetryPoint[]; color: string }) {
-  return (
-    <Show when={props.points.length > 0}>
-      <div class="mt-2 h-12 w-full opacity-75">
-        <Sparkline points={props.points} color={props.color} />
-      </div>
-    </Show>
-  );
+export function PanelChart(props: { children: JSX.Element }) {
+  return <div class="mt-2 h-12 w-full opacity-75">{props.children}</div>;
 }
 
-export function PanelHint(props: { hint: string }) {
-  return <p class="mt-1 text-[0.59rem] leading-snug text-slate-300/56">{props.hint}</p>;
-}
-
-export function PanelDetails(props: { details: TelemetryDetail[] }) {
+export function PanelFooter(props: { details: TelemetryDetail[] }) {
   return (
     <dl class="mt-2 flex flex-col gap-1">
       <For each={props.details}>
@@ -165,40 +154,5 @@ export function PanelDetails(props: { details: TelemetryDetail[] }) {
         )}
       </For>
     </dl>
-  );
-}
-
-export function PanelHistoryList(props: {
-  label: string;
-  items: TelemetryHistoryItem[];
-  emptyMessage?: string;
-}) {
-  return (
-    <div class="mt-2">
-      <p class="font-mono text-[0.49rem] tracking-[0.12em] text-slate-300/58 uppercase">
-        {props.label}
-      </p>
-      <Show
-        when={props.items.length > 0}
-        fallback={
-          <p class="mt-1 text-[0.56rem] text-slate-300/60">
-            {props.emptyMessage ?? "No items in recent history."}
-          </p>
-        }
-      >
-        <ul class="mt-1.5 flex flex-col gap-1.5">
-          <For each={props.items}>
-            {(item) => (
-              <li class="rounded-md border border-slate-200/10 bg-slate-900/30 px-2 py-1">
-                <p class="truncate font-mono text-[0.52rem] tracking-[0.08em] text-slate-100/88 uppercase">
-                  {item.title}
-                </p>
-                <p class="truncate text-[0.56rem] text-slate-300/64">{item.subtitle}</p>
-              </li>
-            )}
-          </For>
-        </ul>
-      </Show>
-    </div>
   );
 }

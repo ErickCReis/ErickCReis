@@ -39,11 +39,12 @@ function getSystemMemoryUsedPercent() {
 }
 
 function sample(): SystemStat {
-  const mem = process.memoryUsage();
   return {
     timestamp: Date.now(),
     cpuUsagePercent: getCpuUsagePercent(),
-    memoryHeapUsedMb: toMb(mem.heapUsed),
+    memoryUsedMb: toMb(os.totalmem() - os.freemem()),
+    totalMemoryMb: toMb(os.totalmem()),
+    cpuCount: CPU_COUNT,
     systemMemoryUsedPercent: getSystemMemoryUsedPercent(),
   };
 }

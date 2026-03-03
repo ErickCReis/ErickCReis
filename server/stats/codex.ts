@@ -1,25 +1,27 @@
-import { mkdir, rename } from "node:fs/promises";
-import { dirname } from "node:path";
+import { rename } from "node:fs/promises";
 import * as v from "valibot";
 import {
   codexUsageSyncPayloadSchema,
   type CodexUsageDay,
+  type CodexUsageDailySummary,
   type CodexUsageSnapshot,
   type CodexUsageSyncPayload,
-  type CodexUsageTotals,
 } from "@shared/stats/codex";
 import type { StatModule } from "@server/stats/types";
+import { getDataPath } from "@server/data-dir";
 
-const DEFAULT_CODEX_USAGE_FILE = "/app/runtime/codex/codex-usage.json";
 const DEFAULT_STALE_AFTER_MINUTES = 180;
 const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
 const MAX_HISTORY = 84;
 
-type CodexUsageStore = Omit<CodexUsageSnapshot, "isStale">;
+type InternalStore = {
+  generatedAt: number | null;
+  daily: { date: string; day: CodexUsageDay }[];
+};
 
-function createEmptyStore(): CodexUsageStore {
-  return { generatedAt: null, latestDay: null, totals: null, daily: [] };
+function createEmptyStore(): InternalStore {
+  return { generatedAt: null, daily: [] };
 }
 
 function getStaleAfterMs() {
@@ -32,41 +34,48 @@ function getStaleAfterMs() {
 }
 
 function getUsageFilePath() {
-  return Bun.env.CODEX_USAGE_FILE?.trim() || DEFAULT_CODEX_USAGE_FILE;
+  return getDataPath("codex-usage.json");
 }
 
-function computeTotals(daily: CodexUsageDay[]): CodexUsageTotals | null {
-  if (daily.length === 0) return null;
-  return daily.reduce<CodexUsageTotals>(
-    (totals, day) => ({ totalTokens: totals.totalTokens + day.totalTokens }),
-    { totalTokens: 0 },
-  );
+function formatDate(date: Date) {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-function normalizeSyncPayload(payload: CodexUsageSyncPayload): CodexUsageStore {
-  const normalizedDaily = payload.daily.slice(-MAX_DAILY_POINTS).map((entry) => ({ ...entry }));
-  const latestDay = normalizedDaily.at(-1) ?? null;
-  const totals = payload.totals ?? computeTotals(normalizedDaily);
+function normalizeSyncPayload(payload: CodexUsageSyncPayload): InternalStore {
+  const normalizedDaily = payload.daily.slice(-MAX_DAILY_POINTS).map((entry, index) => {
+    const now = new Date();
+    now.setDate(now.getDate() - (payload.daily.length - 1 - index));
+    return { date: formatDate(now), day: { ...entry } };
+  });
+
   return {
     generatedAt: payload.generatedAt,
-    latestDay,
-    totals: totals ? { ...totals } : null,
-    daily: normalizedDaily.map(({ totalTokens }) => ({ totalTokens })),
+    daily: normalizedDaily,
   };
 }
 
-function withStaleStatus(store: CodexUsageStore): CodexUsageSnapshot {
+function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
   const isStale = store.generatedAt === null || Date.now() - store.generatedAt > getStaleAfterMs();
+  const dailySummaries: CodexUsageDailySummary[] = store.daily.map((e) => ({
+    date: e.date,
+    totalTokens: e.day.totalTokens,
+  }));
+  const todayTokens = store.daily.at(-1)?.day.totalTokens ?? 0;
+  const totalTokens30d = store.daily.reduce((sum, e) => sum + e.day.totalTokens, 0);
+
   return {
     generatedAt: store.generatedAt,
     isStale,
-    latestDay: store.latestDay ? { ...store.latestDay } : null,
-    totals: store.totals ? { ...store.totals } : null,
-    daily: store.daily.map((entry) => ({ ...entry })),
+    todayTokens,
+    totalTokens30d,
+    daily: dailySummaries,
   };
 }
 
-let latestStore: CodexUsageStore = createEmptyStore();
+let latestStore: InternalStore = createEmptyStore();
 let latestFileMtimeMs: number | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -75,7 +84,7 @@ let dirty = false;
 let started = false;
 
 function markDirty() {
-  const snapshot = withStaleStatus(latestStore);
+  const snapshot = buildSnapshot(latestStore);
   history.push(snapshot);
   if (history.length > MAX_HISTORY) history.shift();
   dirty = true;
@@ -125,7 +134,6 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
     .catch(() => {})
     .then(async () => {
       const tempPath = `${filePath}.${Math.random().toString(36).slice(2)}.${Date.now()}.tmp`;
-      await mkdir(dirname(filePath), { recursive: true });
 
       try {
         await Bun.write(tempPath, `${JSON.stringify(payload, null, 2)}\n`);
@@ -153,11 +161,11 @@ export const codexStat: StatModule<CodexUsageSnapshot> = {
     void refreshFromDisk(true);
     setInterval(() => void refreshFromDisk(), CODEX_USAGE_REFRESH_INTERVAL_MS);
   },
-  getLatest: () => withStaleStatus(latestStore),
+  getLatest: () => buildSnapshot(latestStore),
   getHistory: () => [...history],
   consumeLatest() {
     if (!dirty) return null;
     dirty = false;
-    return withStaleStatus(latestStore);
+    return buildSnapshot(latestStore);
   },
 };

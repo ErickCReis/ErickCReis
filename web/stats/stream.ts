@@ -1,4 +1,3 @@
-import type { StatEventName } from "@shared/stats/types";
 import { systemStore } from "@web/stats/system/store";
 import { serverStore } from "@web/stats/server/store";
 import { websocketStore } from "@web/stats/websocket/store";
@@ -7,7 +6,7 @@ import { githubStore } from "@web/stats/github/store";
 import { codexStore } from "@web/stats/codex/store";
 import { statsClient } from "@web/stats/client";
 
-const storeDispatch: Record<StatEventName, (data: never) => void> = {
+const storeDispatch: Record<string, (data: never) => void> = {
   system: (d) => systemStore.pushSample(d),
   server: (d) => serverStore.pushSample(d),
   websocket: (d) => websocketStore.pushSample(d),
@@ -21,7 +20,7 @@ export async function subscribeStatsStream(signal?: AbortSignal) {
   if (error || !data) throw new Error("Failed to subscribe to stats stream");
 
   for await (const chunk of data) {
-    const push = storeDispatch[chunk.event as StatEventName];
+    const push = storeDispatch[chunk.event];
     if (push) push(chunk.data as never);
   }
 }

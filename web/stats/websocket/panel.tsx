@@ -1,38 +1,54 @@
-import { createMemo } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import {
   PanelTrigger,
   PanelContent,
-  PanelTitle,
-  PanelTrend,
-  PanelSparkline,
-  PanelHint,
-  PanelDetails,
+  PanelHeader,
+  PanelSubtitle,
+  PanelChart,
+  PanelFooter,
 } from "@web/components/stat-panel";
+import { Sparkline } from "@web/components/sparkline";
 import { websocketStore } from "@web/stats/websocket/store";
-import { formatCount } from "@web/stats/utils";
-import { createPanelPoints, getLatest, getPrevious, formatSigned } from "@web/stats/utils";
+import { formatConnectionTime } from "@web/stats/websocket/utils";
+import { createPanelPoints, formatCount } from "@web/stats/utils";
 
 const PRIMARY_COLOR = "#9ccfd2";
 
 export function WebSocketPanel() {
-  const wsSeries = createMemo(() => websocketStore.history().map((s) => s.pendingWebSockets));
-  const subSeries = createMemo(() => websocketStore.history().map((s) => s.cursorSubscribers));
-  const latestWs = createMemo(() => getLatest(wsSeries()));
-  const previousWs = createMemo(() => getPrevious(wsSeries()));
-  const latestSubs = createMemo(() => getLatest(subSeries()));
+  const connSeries = createMemo(() => websocketStore.history().map((s) => s.connectedUsers));
+  const latestUsers = createMemo(() => websocketStore.latest()?.connectedUsers ?? 0);
+  const peakUsers = createMemo(() => websocketStore.latest()?.maxConcurrentUsers ?? 0);
+  const connectionStartedAt = createMemo(
+    () => websocketStore.latest()?.connectionStartedAt ?? Date.now(),
+  );
+
+  const [connectedMs, setConnectedMs] = createSignal(0);
+
+  onMount(() => {
+    const interval = setInterval(() => {
+      setConnectedMs(Date.now() - connectionStartedAt());
+    }, 1000);
+    onCleanup(() => clearInterval(interval));
+  });
 
   return (
     <>
-      <PanelTrigger tag="ws/subs" current={`${formatCount(latestWs())} sockets`} />
+      <PanelTrigger
+        tag="live"
+        current={`${formatCount(latestUsers())} user${latestUsers() !== 1 ? "s" : ""}`}
+      />
       <PanelContent>
-        <PanelTitle title="WebSocket" />
-        <PanelTrend trend={formatSigned(latestWs() - previousWs(), 0, " sockets")} />
-        <PanelSparkline points={createPanelPoints(wsSeries())} color={PRIMARY_COLOR} />
-        <PanelHint hint="Live websocket and cursor subscriber activity" />
-        <PanelDetails
+        <PanelHeader title="WebSocket" />
+        <PanelSubtitle>
+          <span>{formatCount(latestUsers())} connected now</span>
+        </PanelSubtitle>
+        <PanelChart>
+          <Sparkline points={createPanelPoints(connSeries())} color={PRIMARY_COLOR} />
+        </PanelChart>
+        <PanelFooter
           details={[
-            { label: "Sockets", value: formatCount(latestWs()) },
-            { label: "Subs", value: formatCount(latestSubs()) },
+            { label: "Connected", value: formatConnectionTime(connectedMs()) },
+            { label: "Peak", value: `${formatCount(peakUsers())} users` },
           ]}
         />
       </PanelContent>

@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import type { WebSocketStat } from "@shared/stats/websocket";
-import { MAX_POINTS } from "@web/stats/utils";
+
+const MAX_POINTS = 720;
 
 const [latest, setLatest] = createSignal<WebSocketStat | null>(null);
 const [history, setHistory] = createSignal<WebSocketStat[]>([]);
@@ -17,7 +18,11 @@ export const websocketStore = {
       const merged = new Map<number, WebSocketStat>();
       for (const s of prev) merged.set(s.timestamp, s);
       for (const s of data) merged.set(s.timestamp, s);
-      return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_POINTS);
+      const sorted = [...merged.values()]
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-MAX_POINTS);
+      if (sorted.length > 0) setLatest(sorted.at(-1)!);
+      return sorted;
     });
   },
 };

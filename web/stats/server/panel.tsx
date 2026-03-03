@@ -2,39 +2,39 @@ import { createMemo } from "solid-js";
 import {
   PanelTrigger,
   PanelContent,
-  PanelTitle,
-  PanelTrend,
-  PanelSparkline,
-  PanelHint,
-  PanelDetails,
+  PanelHeader,
+  PanelSubtitle,
+  PanelChart,
+  PanelFooter,
 } from "@web/components/stat-panel";
+import { UptimeBar } from "@web/components/uptime-bar";
 import { serverStore } from "@web/stats/server/store";
-import { formatUptime } from "@web/stats/server/utils";
-import { createPanelPoints } from "@web/stats/utils";
+import { formatStreak } from "@web/stats/server/utils";
 
 const PRIMARY_COLOR = "#8edec9";
-const DEFAULT_VERSION = "v0.0.0";
 
 export function ServerPanel() {
-  const uptimeMinutes = createMemo(() => serverStore.history().map((s) => s.uptimeSeconds / 60));
-  const latestUptime = createMemo(() => {
-    const vals = uptimeMinutes();
-    return vals.length > 0 ? vals[vals.length - 1] : 0;
-  });
-  const latestVersion = createMemo(() => serverStore.latest()?.appVersion ?? DEFAULT_VERSION);
+  const latest = createMemo(() => serverStore.latest());
+  const streak = createMemo(() => latest()?.currentStreakSeconds ?? 0);
+  const uptimePct = createMemo(() => latest()?.uptimePercent30d ?? 0);
+  const version = createMemo(() => latest()?.appVersion ?? "v0.0.0");
+  const dailyUptime = createMemo(() => latest()?.dailyUptime ?? []);
 
   return (
     <>
-      <PanelTrigger tag="uptime/ver" current={formatUptime(latestUptime())} />
+      <PanelTrigger tag="uptime" current={formatStreak(streak())} />
       <PanelContent>
-        <PanelTitle title="Server" />
-        <PanelTrend trend={latestVersion()} />
-        <PanelSparkline points={createPanelPoints(uptimeMinutes())} color={PRIMARY_COLOR} />
-        <PanelHint hint="Server identity and uptime lifecycle" />
-        <PanelDetails
+        <PanelHeader title="Uptime" />
+        <PanelSubtitle>
+          <span>{uptimePct().toFixed(1)}% over 30 days</span>
+        </PanelSubtitle>
+        <PanelChart>
+          <UptimeBar days={dailyUptime()} />
+        </PanelChart>
+        <PanelFooter
           details={[
-            { label: "Uptime", value: formatUptime(latestUptime()) },
-            { label: "Version", value: latestVersion() },
+            { label: "Uptime", value: `${uptimePct().toFixed(1)}%` },
+            { label: "Version", value: version() },
           ]}
         />
       </PanelContent>

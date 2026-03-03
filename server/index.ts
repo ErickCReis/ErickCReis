@@ -31,9 +31,6 @@ const statConsumers = [
 ];
 
 const app = new Elysia()
-  .get("/", () => file("dist/index.html"))
-  .get("/content", () => file("dist/content/index.html"))
-  .use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }))
   .use(
     cors({
       origin:
@@ -57,12 +54,17 @@ const app = new Elysia()
   .get("/stats/stream", async function* ({ set }) {
     set.headers["cache-control"] = "no-store";
 
-    while (true) {
-      for (const { name, consume } of statConsumers) {
-        const data = consume();
-        if (data) yield sse({ event: name, data });
+    websocketStat.addViewer();
+    try {
+      while (true) {
+        for (const { name, consume } of statConsumers) {
+          const data = consume();
+          if (data) yield sse({ event: name, data });
+        }
+        await Bun.sleep(SSE_POLL_INTERVAL_MS);
       }
-      await Bun.sleep(SSE_POLL_INTERVAL_MS);
+    } finally {
+      websocketStat.removeViewer();
     }
   })
   .post("/internal/codex/sync", async ({ body, request }) => {
@@ -114,6 +116,13 @@ const app = new Elysia()
     },
   });
 
+if (Bun.env.NODE_ENV === "production") {
+  console.log("Production environment detected");
+  app.get("/", () => file("dist/index.html"));
+  app.get("/content", () => file("dist/content/index.html"));
+  app.use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }));
+}
+
 app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
   console.log(`Server is running on: http://${hostname}:${port}`);
 });
@@ -121,7 +130,7 @@ app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
 if (app.server) {
   systemStat.start();
   serverInfoStat.start();
-  websocketStat.start(app.server);
+  websocketStat.start();
   spotifyStat.start();
   githubStat.start();
   codexStat.start();

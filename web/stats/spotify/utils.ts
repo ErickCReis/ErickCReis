@@ -1,5 +1,4 @@
 import type { SpotifyNowPlaying } from "@shared/stats/spotify";
-import type { TelemetryHistoryItem } from "@web/types/home";
 
 export function formatDuration(milliseconds: number) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -8,27 +7,18 @@ export function formatDuration(milliseconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function getRecentSpotifyTracks(
+export function getPreviousTrack(
   samples: SpotifyNowPlaying[],
   currentTrackId: string | null,
-  maxItems = 3,
-) {
-  const results: TelemetryHistoryItem[] = [];
-  const seenTrackIds = new Set<string>();
-
-  for (let index = samples.length - 1; index >= 0; index -= 1) {
-    const spotify = samples[index];
-    if (!spotify?.trackId || !spotify.trackName) continue;
-    if (spotify.trackId === currentTrackId || seenTrackIds.has(spotify.trackId)) continue;
-
-    seenTrackIds.add(spotify.trackId);
-    results.push({
-      title: spotify.trackName,
-      subtitle: spotify.artistNames.join(", ") || "Unknown artist",
-    });
-
-    if (results.length >= maxItems) break;
+): { name: string; artist: string } | null {
+  for (let i = samples.length - 1; i >= 0; i--) {
+    const s = samples[i];
+    if (!s?.trackId || !s.trackName) continue;
+    if (s.trackId === currentTrackId) continue;
+    return {
+      name: s.trackName,
+      artist: s.artistNames.join(", ") || "Unknown artist",
+    };
   }
-
-  return results;
+  return null;
 }

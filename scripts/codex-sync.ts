@@ -6,7 +6,6 @@ import {
   codexUsageSyncPayloadSchema,
   type CodexUsageSyncPayload,
   type CodexUsageDay,
-  type CodexUsageTotals,
 } from "@shared/stats/codex";
 
 const DEFAULT_TIMEZONE = "America/Sao_Paulo";
@@ -292,7 +291,7 @@ function buildSyncPayload(dailyUsage: Map<string, CodexUsageDay>): CodexUsageSyn
   }));
 
   const totals = daily.length
-    ? daily.reduce<CodexUsageTotals>(
+    ? daily.reduce(
         (accumulator, day) => ({
           totalTokens: accumulator.totalTokens + day.totalTokens,
         }),

@@ -17,7 +17,11 @@ export const githubStore = {
       const merged = new Map<number, GitHubCommitStats>();
       for (const s of prev) merged.set(s.fetchedAt, s);
       for (const s of data) merged.set(s.fetchedAt, s);
-      return [...merged.values()].sort((a, b) => a.fetchedAt - b.fetchedAt).slice(-MAX_POINTS);
+      const sorted = [...merged.values()]
+        .sort((a, b) => a.fetchedAt - b.fetchedAt)
+        .slice(-MAX_POINTS);
+      if (sorted.length > 0) setLatest(sorted.at(-1)!);
+      return sorted;
     });
   },
 };
