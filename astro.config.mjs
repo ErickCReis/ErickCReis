@@ -8,6 +8,9 @@ export default defineConfig({
   output: "static",
   site: "https://erickr.dev",
   integrations: [mdx(), solid()],
+  devToolbar: {
+    enabled: false,
+  },
   fonts: [
     {
       provider: fontProviders.fontsource(),
@@ -36,5 +39,10 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        ignored: ["**/data/**"],
+      },
+    },
   },
 });

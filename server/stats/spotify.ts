@@ -1,4 +1,5 @@
-import type { SpotifyNowPlaying } from "@shared/telemetry";
+import type { SpotifyNowPlaying } from "@shared/stats/spotify";
+import type { StatModule } from "@server/stats/types";
 
 const SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SPOTIFY_NOW_PLAYING_ENDPOINT = "https://api.spotify.com/v1/me/player/currently-playing";
@@ -6,6 +7,7 @@ const SPOTIFY_ACTIVE_POLL_INTERVAL_MS = 2500;
 const SPOTIFY_IDLE_POLL_INTERVAL_MS = 15000;
 const SPOTIFY_RATE_LIMIT_FALLBACK_MS = 30_000;
 const TOKEN_EXPIRY_SAFETY_MARGIN_MS = 60_000;
+const MAX_HISTORY = 84;
 
 type SpotifyTokenCache = {
   accessToken: string;
@@ -17,12 +19,8 @@ type SpotifyTrackPayload = {
   name: string;
   duration_ms: number;
   artists: Array<{ name: string }>;
-  album: {
-    name: string;
-  };
-  external_urls?: {
-    spotify?: string;
-  };
+  album: { name: string };
+  external_urls?: { spotify?: string };
 };
 
 type SpotifyNowPlayingResponse = {
@@ -54,28 +52,28 @@ function createEmptyNowPlaying(isConfigured: boolean): SpotifyNowPlaying {
 }
 
 let tokenCache: SpotifyTokenCache | null = null;
-let latestNowPlaying = createEmptyNowPlaying(hasSpotifyCredentials());
-let isPollerStarted = false;
+let latest: SpotifyNowPlaying = createEmptyNowPlaying(hasSpotifyCredentials());
+let history: SpotifyNowPlaying[] = [];
+let version = 0;
+let started = false;
 
-function setUnconfiguredNowPlaying() {
-  latestNowPlaying = createEmptyNowPlaying(false);
+function markDirty(nowPlaying: SpotifyNowPlaying) {
+  latest = nowPlaying;
+  history.push(latest);
+  if (history.length > MAX_HISTORY) history.shift();
+  version++;
 }
 
 function getClientCredentials() {
   const clientId = Bun.env.SPOTIFY_CLIENT_ID;
   const clientSecret = Bun.env.SPOTIFY_CLIENT_SECRET;
   const refreshToken = Bun.env.SPOTIFY_REFRESH_TOKEN;
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    return null;
-  }
-
+  if (!clientId || !clientSecret || !refreshToken) return null;
   return { clientId, clientSecret, refreshToken };
 }
 
 function createBasicAuthHeader(clientId: string, clientSecret: string) {
-  const base64Auth = btoa(`${clientId}:${clientSecret}`);
-  return `Basic ${base64Auth}`;
+  return `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
 }
 
 function invalidateTokenCache() {
@@ -88,9 +86,7 @@ async function getSpotifyAccessToken() {
   }
 
   const credentials = getClientCredentials();
-  if (!credentials) {
-    throw new Error("Missing Spotify credentials");
-  }
+  if (!credentials) throw new Error("Missing Spotify credentials");
 
   const response = await fetch(SPOTIFY_TOKEN_ENDPOINT, {
     method: "POST",
@@ -123,7 +119,6 @@ function parseRetryAfterMs(retryAfterHeaderValue: string | null) {
   if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
     return retryAfterSeconds * 1000;
   }
-
   return SPOTIFY_RATE_LIMIT_FALLBACK_MS;
 }
 
@@ -133,16 +128,11 @@ function getPollIntervalMs(isPlaying: boolean) {
 
 async function requestNowPlaying(accessToken: string) {
   const response = await fetch(SPOTIFY_NOW_PLAYING_ENDPOINT, {
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-    },
+    headers: { authorization: `Bearer ${accessToken}` },
   });
 
   if (response.status === 204) {
-    return {
-      nowPlaying: createEmptyNowPlaying(true),
-      retryAfterMs: null,
-    };
+    return { nowPlaying: createEmptyNowPlaying(true), retryAfterMs: null };
   }
 
   if (response.status === 401) {
@@ -166,10 +156,7 @@ async function requestNowPlaying(accessToken: string) {
   const item = payload.item;
 
   if (payload.currently_playing_type !== "track" || !item) {
-    return {
-      nowPlaying: createEmptyNowPlaying(true),
-      retryAfterMs: null,
-    };
+    return { nowPlaying: createEmptyNowPlaying(true), retryAfterMs: null };
   }
 
   return {
@@ -191,7 +178,7 @@ async function requestNowPlaying(accessToken: string) {
 
 async function refreshNowPlayingSnapshot() {
   if (!hasSpotifyCredentials()) {
-    setUnconfiguredNowPlaying();
+    markDirty(createEmptyNowPlaying(false));
     return SPOTIFY_IDLE_POLL_INTERVAL_MS;
   }
 
@@ -205,50 +192,38 @@ async function refreshNowPlayingSnapshot() {
     }
 
     if (nowPlaying) {
-      latestNowPlaying = nowPlaying;
+      markDirty(nowPlaying);
     }
   } catch (error) {
     console.error("[spotify] Failed to refresh now-playing snapshot", error);
-    latestNowPlaying = {
-      ...createEmptyNowPlaying(true),
-      fetchedAt: Date.now(),
+    markDirty({ ...createEmptyNowPlaying(true), fetchedAt: Date.now() });
+  }
+
+  return getPollIntervalMs(latest.isPlaying);
+}
+
+export const spotifyStat: StatModule<SpotifyNowPlaying> = {
+  start() {
+    if (started) return;
+    if (!hasSpotifyCredentials()) {
+      markDirty(createEmptyNowPlaying(false));
+      return;
+    }
+
+    started = true;
+
+    const tick = async () => {
+      if (!started) return;
+      const nextIntervalMs = await refreshNowPlayingSnapshot();
+      if (!started) return;
+      setTimeout(() => void tick(), nextIntervalMs);
     };
-  }
 
-  return getPollIntervalMs(latestNowPlaying.isPlaying);
-}
-
-export function startSpotifyPoller() {
-  const hasCredentials = hasSpotifyCredentials();
-  if (isPollerStarted || !hasCredentials) {
-    if (!hasCredentials) {
-      setUnconfiguredNowPlaying();
-    }
-    return;
-  }
-
-  isPollerStarted = true;
-  const tick = async () => {
-    if (!isPollerStarted) {
-      return;
-    }
-
-    const nextIntervalMs = await refreshNowPlayingSnapshot();
-    if (!isPollerStarted) {
-      return;
-    }
-
-    setTimeout(() => {
-      void tick();
-    }, nextIntervalMs);
-  };
-
-  void tick();
-}
-
-export function getLatestSpotifyNowPlaying(): SpotifyNowPlaying {
-  return {
-    ...latestNowPlaying,
-    artistNames: [...latestNowPlaying.artistNames],
-  };
-}
+    void tick();
+  },
+  getLatest() {
+    return { ...latest, artistNames: [...latest.artistNames] };
+  },
+  getHistory: () => [...history],
+  getVersion: () => version,
+};

@@ -1,14 +1,19 @@
-import { Elysia, file, sse, t } from "elysia";
+import { Elysia, file, sse, status, t } from "elysia";
 import { staticPlugin } from "@elysiajs/static";
 import cors from "@elysiajs/cors";
-import { parseCodexUsageSyncPayload, persistCodexUsageSyncPayload } from "@server/codex-usage";
+import { cursorPayloadSchema } from "@shared/cursor";
+import { systemStat } from "@server/stats/system";
+import { serverInfoStat } from "@server/stats/server";
+import { websocketStat } from "@server/stats/websocket";
+import { spotifyStat } from "@server/stats/spotify";
+import { githubStat } from "@server/stats/github";
 import {
-  latestStats,
-  statsHistory,
-  STATS_SAMPLE_INTERVAL_MS,
-  startStatsSampler,
-} from "@server/stats";
-import { cursorPayloadSchema } from "@shared/telemetry";
+  codexStat,
+  parseCodexUsageSyncPayload,
+  persistCodexUsageSyncPayload,
+} from "@server/stats/codex";
+
+const SSE_POLL_INTERVAL_MS = 500;
 
 function createCursorId() {
   return crypto.randomUUID().replaceAll("-", "");
@@ -16,11 +21,16 @@ function createCursorId() {
 
 const cursorCookieSchema = t.Cookie({ cursorId: t.Optional(t.String()) }, { httpOnly: true });
 
-const app = new Elysia()
-  .get("/", () => file("dist/index.html"))
-  .get("/content", () => file("dist/content/index.html"))
-  .use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }))
+const statModules = [
+  { name: "system" as const, mod: systemStat },
+  { name: "server" as const, mod: serverInfoStat },
+  { name: "websocket" as const, mod: websocketStat },
+  { name: "spotify" as const, mod: spotifyStat },
+  { name: "github" as const, mod: githubStat },
+  { name: "codex" as const, mod: codexStat },
+];
 
+const app = new Elysia()
   .use(
     cors({
       origin:
@@ -30,26 +40,42 @@ const app = new Elysia()
       credentials: true,
     }),
   )
-  .get("/stats", () => latestStats)
   .get("/stats/history", ({ set }) => {
     set.headers["cache-control"] = "no-store";
-    return statsHistory;
+    return {
+      system: systemStat.getHistory(),
+      server: serverInfoStat.getHistory(),
+      websocket: websocketStat.getHistory(),
+      spotify: spotifyStat.getHistory(),
+      github: githubStat.getHistory(),
+      codex: codexStat.getHistory(),
+    };
   })
   .get("/stats/stream", async function* ({ set }) {
     set.headers["cache-control"] = "no-store";
 
-    while (true) {
-      yield sse({ event: "stats", data: latestStats });
-      await Bun.sleep(STATS_SAMPLE_INTERVAL_MS);
+    const lastSeen = new Map<string, number>();
+
+    websocketStat.addViewer();
+    try {
+      while (true) {
+        for (const { name, mod } of statModules) {
+          const v = mod.getVersion();
+          if (v > (lastSeen.get(name) ?? 0)) {
+            lastSeen.set(name, v);
+            yield sse({ event: name, data: mod.getLatest() });
+          }
+        }
+        await Bun.sleep(SSE_POLL_INTERVAL_MS);
+      }
+    } finally {
+      websocketStat.removeViewer();
     }
   })
-  .post("/internal/codex/sync", async ({ body, request, set }) => {
+  .post("/internal/codex/sync", async ({ body, request }) => {
     const configuredSyncToken = Bun.env.CODEX_SYNC_TOKEN?.trim();
     if (!configuredSyncToken) {
-      set.status = 503;
-      return {
-        error: "Codex sync is not configured",
-      };
+      return status(503, { error: "Codex sync is not configured" });
     }
 
     const authorization = request.headers.get("authorization");
@@ -57,18 +83,12 @@ const app = new Elysia()
       ? authorization.slice("Bearer ".length).trim()
       : "";
     if (!providedToken || providedToken !== configuredSyncToken) {
-      set.status = 401;
-      return {
-        error: "Unauthorized",
-      };
+      return status(401, { error: "Unauthorized" });
     }
 
     const parsedPayload = parseCodexUsageSyncPayload(body);
     if (!parsedPayload.success) {
-      set.status = 400;
-      return {
-        error: "Invalid Codex sync payload",
-      };
+      return status(400, { error: "Invalid Codex sync payload" });
     }
 
     await persistCodexUsageSyncPayload(parsedPayload.output);
@@ -93,10 +113,7 @@ const app = new Elysia()
       ws.subscribe("cursors");
     },
     message(ws, payload) {
-      if (payload.id !== ws.data.cookie.cursorId.value) {
-        return;
-      }
-
+      if (payload.id !== ws.data.cookie.cursorId.value) return;
       ws.publish("cursors", payload, true);
     },
     close(ws) {
@@ -104,12 +121,24 @@ const app = new Elysia()
     },
   });
 
+if (Bun.env.NODE_ENV === "production") {
+  console.log("Production environment detected");
+  app.get("/", () => file("dist/index.html"));
+  app.get("/content", () => file("dist/content/index.html"));
+  app.use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }));
+}
+
 app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
   console.log(`Server is running on: http://${hostname}:${port}`);
 });
 
 if (app.server) {
-  startStatsSampler(app.server);
+  systemStat.start();
+  serverInfoStat.start();
+  websocketStat.start();
+  spotifyStat.start();
+  githubStat.start();
+  codexStat.start();
 }
 
 export type App = typeof app;
