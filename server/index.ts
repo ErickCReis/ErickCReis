@@ -122,7 +122,6 @@ const app = new Elysia()
   });
 
 if (Bun.env.NODE_ENV === "production") {
-  console.log("Production environment detected");
   app.get("/", () => file("dist/index.html"));
   app.get("/content", () => file("dist/content/index.html"));
   app.use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }));

@@ -1,11 +1,63 @@
+import { readFileSync } from "node:fs";
 import os from "node:os";
 import type { SystemStat } from "@shared/stats/system";
 import type { StatModule } from "@server/stats/types";
 
-const CPU_COUNT = Math.max(1, os.cpus().length);
 const MAX_HISTORY = 84;
 const SAMPLE_INTERVAL_MS = 1500;
 const MB = 1024 * 1024;
+
+function readCgroupFile(path: string): string | null {
+  try {
+    return readFileSync(path, "utf-8").trim();
+  } catch {
+    return null;
+  }
+}
+
+function getCgroupMemoryUsed(): number | null {
+  const v2 = readCgroupFile("/sys/fs/cgroup/memory.current");
+  if (v2) return Number(v2);
+
+  const v1 = readCgroupFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+  if (v1) return Number(v1);
+
+  return null;
+}
+
+function getCgroupMemoryLimit(): number | null {
+  const v2 = readCgroupFile("/sys/fs/cgroup/memory.max");
+  if (v2 && v2 !== "max") return Number(v2);
+
+  const v1 = readCgroupFile("/sys/fs/cgroup/memory/memory.limit_in_bytes");
+  if (v1) {
+    const limit = Number(v1);
+    // cgroup v1 reports a very large number when unlimited
+    if (limit < os.totalmem() * 2) return limit;
+  }
+
+  return null;
+}
+
+function getCgroupCpuCount(): number | null {
+  const v2 = readCgroupFile("/sys/fs/cgroup/cpu.max");
+  if (v2) {
+    const [quotaStr, periodStr] = v2.split(" ");
+    if (quotaStr !== "max") {
+      return Math.max(1, Math.round(Number(quotaStr) / Number(periodStr)));
+    }
+  }
+
+  const quota = readCgroupFile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+  const period = readCgroupFile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+  if (quota && period && Number(quota) > 0) {
+    return Math.max(1, Math.round(Number(quota) / Number(period)));
+  }
+
+  return null;
+}
+
+const CPU_COUNT = getCgroupCpuCount() ?? Math.max(1, os.cpus().length);
 
 let previousCpuUsage = process.cpuUsage();
 let previousCpuSampleAt = Bun.nanoseconds();
@@ -32,20 +84,30 @@ function toMb(value: number) {
   return Number((value / MB).toFixed(2));
 }
 
-function getSystemMemoryUsedPercent() {
-  const totalMb = toMb(os.totalmem());
-  const freeMb = toMb(os.freemem());
-  return Number((((totalMb - freeMb) / Math.max(1, totalMb)) * 100).toFixed(2));
+function getMemoryInfo() {
+  const cgroupUsed = getCgroupMemoryUsed();
+  const cgroupTotal = getCgroupMemoryLimit();
+
+  const usedBytes = cgroupUsed ?? os.totalmem() - os.freemem();
+  const totalBytes = cgroupTotal ?? os.totalmem();
+
+  return { usedBytes, totalBytes };
 }
 
 function sample(): SystemStat {
+  const { usedBytes, totalBytes } = getMemoryInfo();
+  const usedMb = toMb(usedBytes);
+  const totalMb = toMb(totalBytes);
+
   return {
     timestamp: Date.now(),
     cpuUsagePercent: getCpuUsagePercent(),
-    memoryUsedMb: toMb(os.totalmem() - os.freemem()),
-    totalMemoryMb: toMb(os.totalmem()),
+    memoryUsedMb: usedMb,
+    totalMemoryMb: totalMb,
     cpuCount: CPU_COUNT,
-    systemMemoryUsedPercent: getSystemMemoryUsedPercent(),
+    systemMemoryUsedPercent: Number(
+      ((usedMb / Math.max(1, totalMb)) * 100).toFixed(2),
+    ),
   };
 }
 
