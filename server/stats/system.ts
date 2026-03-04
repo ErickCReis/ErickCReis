@@ -119,11 +119,11 @@ function getBatteryInfo(): { batteryPercent: number | null; batteryStatus: Batte
   const capacityRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/capacity`);
   const statusRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/status`);
 
-  const capacity = Number(capacityRaw);
+  const capacity = capacityRaw == null ? NaN : Number(capacityRaw);
   return {
     batteryPercent:
       Number.isFinite(capacity) && capacity >= 0 && capacity <= 100 ? Number(capacity.toFixed(2)) : null,
-    batteryStatus: normalizeBatteryStatus(statusRaw),
+    batteryStatus: statusRaw == null ? null : normalizeBatteryStatus(statusRaw),
   };
 }
 
