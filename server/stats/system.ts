@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import os from "node:os";
 import type { SystemStat } from "@shared/stats/system";
 import type { StatModule } from "@server/stats/types";
@@ -6,6 +6,9 @@ import type { StatModule } from "@server/stats/types";
 const MAX_HISTORY = 84;
 const SAMPLE_INTERVAL_MS = 1500;
 const MB = 1024 * 1024;
+const BATTERY_SUPPLY_ROOT = Bun.env.BATTERY_SUPPLY_ROOT ?? "/sys/class/power_supply";
+
+type BatteryStatus = "charging" | "discharging" | "full" | "unknown";
 
 function readCgroupFile(path: string): string | null {
   try {
@@ -94,8 +97,39 @@ function getMemoryInfo() {
   return { usedBytes, totalBytes };
 }
 
+function normalizeBatteryStatus(raw: string | null): BatteryStatus {
+  const value = raw?.toLowerCase();
+  if (value === "charging") return "charging";
+  if (value === "discharging") return "discharging";
+  if (value === "full") return "full";
+  return "unknown";
+}
+
+function getBatteryInfo(): { batteryPercent: number | null; batteryStatus: BatteryStatus | null } {
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(BATTERY_SUPPLY_ROOT);
+  } catch {
+    return { batteryPercent: null, batteryStatus: null };
+  }
+
+  const batteryDir = entries.find((entry) => entry.startsWith("BAT"));
+  if (!batteryDir) return { batteryPercent: null, batteryStatus: null };
+
+  const capacityRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/capacity`);
+  const statusRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/status`);
+
+  const capacity = capacityRaw == null ? NaN : Number(capacityRaw);
+  return {
+    batteryPercent:
+      Number.isFinite(capacity) && capacity >= 0 && capacity <= 100 ? Number(capacity.toFixed(2)) : null,
+    batteryStatus: statusRaw == null ? null : normalizeBatteryStatus(statusRaw),
+  };
+}
+
 function sample(): SystemStat {
   const { usedBytes, totalBytes } = getMemoryInfo();
+  const { batteryPercent, batteryStatus } = getBatteryInfo();
   const usedMb = toMb(usedBytes);
   const totalMb = toMb(totalBytes);
 
@@ -106,6 +140,8 @@ function sample(): SystemStat {
     totalMemoryMb: totalMb,
     cpuCount: CPU_COUNT,
     systemMemoryUsedPercent: Number(((usedMb / Math.max(1, totalMb)) * 100).toFixed(2)),
+    batteryPercent,
+    batteryStatus,
   };
 }
 
