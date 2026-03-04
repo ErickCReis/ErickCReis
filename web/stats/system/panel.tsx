@@ -27,6 +27,12 @@ export function SystemPanel() {
     const mb = systemStore.latest()?.totalMemoryMb ?? 0;
     return `${(mb / 1024).toFixed(0)} GB`;
   });
+  const battery = createMemo(() => {
+    const latest = systemStore.latest();
+    if (!latest || latest.batteryPercent == null) return "n/a";
+    const status = latest.batteryStatus ? ` (${latest.batteryStatus})` : "";
+    return `${latest.batteryPercent.toFixed(0)}%${status}`;
+  });
 
   return (
     <>
@@ -53,6 +59,7 @@ export function SystemPanel() {
           details={[
             { label: "vCPUs", value: `${cpuCount()}` },
             { label: "RAM", value: totalMemGb() },
+            { label: "Battery", value: battery() },
           ]}
         />
       </PanelContent>

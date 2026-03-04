@@ -16,8 +16,10 @@ services:
       CODEX_SYNC_TOKEN: ${CODEX_SYNC_TOKEN:-}
       CODEX_STALE_AFTER_MINUTES: ${CODEX_STALE_AFTER_MINUTES:-180}
       DATA_DIR: ${DATA_DIR:-/app/data}
+      BATTERY_SUPPLY_ROOT: ${BATTERY_SUPPLY_ROOT:-/host-sys/class/power_supply}
     volumes:
       - ./data:/app/data
+      - /sys/class/power_supply:/host-sys/class/power_supply:ro
     deploy:
       resources:
         limits:
