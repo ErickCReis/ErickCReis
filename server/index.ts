@@ -1,7 +1,7 @@
-import { Elysia, file, sse, status, t } from "elysia";
-import { staticPlugin } from "@elysiajs/static";
+import { Elysia, sse, status, t } from "elysia";
 import cors from "@elysiajs/cors";
 import { cursorPayloadSchema } from "@shared/cursor";
+import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { systemStat } from "@server/stats/system";
 import { serverInfoStat } from "@server/stats/server";
 import { websocketStat } from "@server/stats/websocket";
@@ -122,9 +122,7 @@ const app = new Elysia()
   });
 
 if (Bun.env.NODE_ENV === "production") {
-  app.get("/", () => file("dist/index.html"));
-  app.get("/content", () => file("dist/content/index.html"));
-  app.use(staticPlugin({ prefix: "/_astro", assets: "dist/_astro", alwaysStatic: true }));
+  app.use(createDistAssetsSubrouter());
 }
 
 app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
