@@ -6,10 +6,14 @@ export type DistAssetRoute = {
   filePath: string;
 };
 
+function shouldRequireDist() {
+  return Bun.argv.includes("build") || Bun.argv.includes("--compile") || Bun.env.NODE_ENV === "production";
+}
+
 function walkFiles(root: string): string[] {
   const entries: string[] = [];
 
-  for (const entry of readdirSync(root)) {
+  for (const entry of readdirSync(root).sort()) {
     const entryPath = resolve(root, entry);
     const stats = statSync(entryPath);
 
@@ -47,15 +51,24 @@ function toRouteCandidates(relativePath: string): string[] {
 export function loadDistAssetRoutes(): DistAssetRoute[] {
   const distRoot = resolve(import.meta.dir, "../dist");
   if (!existsSync(distRoot)) {
-    return [];
+    if (!shouldRequireDist()) {
+      return [];
+    }
+
+    throw new Error(
+      `Missing dist assets at ${distRoot}. Run the client build before bundling the server (for example: "bun --bun astro build").`,
+    );
   }
 
   const routes = new Map<string, DistAssetRoute>();
 
   for (const filePath of walkFiles(distRoot)) {
     for (const routePath of toRouteCandidates(relative(distRoot, filePath))) {
-      if (routes.has(routePath)) {
-        continue;
+      const existingRoute = routes.get(routePath);
+      if (existingRoute) {
+        throw new Error(
+          `Duplicate dist route "${routePath}" for "${filePath}". Existing route entry: ${JSON.stringify(existingRoute)}.`,
+        );
       }
 
       routes.set(routePath, {
