@@ -3,9 +3,7 @@ import { relative, resolve, sep } from "node:path";
 
 export type DistAssetRoute = {
   routePath: string;
-  contentType: string;
-  bodyBase64: string;
-  isHtml: boolean;
+  filePath: string;
 };
 
 function walkFiles(root: string): string[] {
@@ -46,7 +44,7 @@ function toRouteCandidates(relativePath: string): string[] {
   return [...routes];
 }
 
-export async function loadDistAssetRoutes(): Promise<DistAssetRoute[]> {
+export function loadDistAssetRoutes(): DistAssetRoute[] {
   const distRoot = resolve(import.meta.dir, "../dist");
   if (!existsSync(distRoot)) {
     return [];
@@ -55,11 +53,6 @@ export async function loadDistAssetRoutes(): Promise<DistAssetRoute[]> {
   const routes = new Map<string, DistAssetRoute>();
 
   for (const filePath of walkFiles(distRoot)) {
-    const file = Bun.file(filePath);
-    const bodyBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    const contentType = file.type || "application/octet-stream";
-    const isHtml = filePath.endsWith(".html");
-
     for (const routePath of toRouteCandidates(relative(distRoot, filePath))) {
       if (routes.has(routePath)) {
         continue;
@@ -67,9 +60,7 @@ export async function loadDistAssetRoutes(): Promise<DistAssetRoute[]> {
 
       routes.set(routePath, {
         routePath,
-        contentType,
-        bodyBase64,
-        isHtml,
+        filePath,
       });
     }
   }
