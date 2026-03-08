@@ -122,7 +122,9 @@ function getBatteryInfo(): { batteryPercent: number | null; batteryStatus: Batte
   const capacity = capacityRaw == null ? NaN : Number(capacityRaw);
   return {
     batteryPercent:
-      Number.isFinite(capacity) && capacity >= 0 && capacity <= 100 ? Number(capacity.toFixed(2)) : null,
+      Number.isFinite(capacity) && capacity >= 0 && capacity <= 100
+        ? Number(capacity.toFixed(2))
+        : null,
     batteryStatus: statusRaw == null ? null : normalizeBatteryStatus(statusRaw),
   };
 }

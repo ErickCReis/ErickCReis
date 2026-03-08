@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -5,6 +6,7 @@ import * as v from "valibot";
 import {
   codexUsageSyncPayloadSchema,
   type CodexUsageSyncPayload,
+  type CodexUsageDatedDay,
   type CodexUsageDay,
 } from "@shared/stats/codex";
 
@@ -282,7 +284,8 @@ function buildSyncPayload(dailyUsage: Map<string, CodexUsageDay>): CodexUsageSyn
   const sortedDays = Array.from(dailyUsage.entries()).sort(([dateA], [dateB]) =>
     dateA.localeCompare(dateB),
   );
-  const daily = sortedDays.map(([, day]) => ({
+  const daily: CodexUsageDatedDay[] = sortedDays.map(([date, day]) => ({
+    date,
     inputTokens: day.inputTokens,
     cachedInputTokens: day.cachedInputTokens,
     outputTokens: day.outputTokens,
@@ -300,10 +303,32 @@ function buildSyncPayload(dailyUsage: Map<string, CodexUsageDay>): CodexUsageSyn
     : null;
 
   return {
+    sourceId: getMachineFingerprint(),
     generatedAt: Date.now(),
     daily,
     totals,
   };
+}
+
+function getMachineFingerprint() {
+  const hostname = os.hostname().trim() || "codex";
+  const normalizedHost = hostname
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const fingerprint = createHash("sha256")
+    .update(
+      JSON.stringify({
+        hostname,
+        platform: os.platform(),
+        arch: os.arch(),
+        homedir: os.homedir(),
+      }),
+    )
+    .digest("hex")
+    .slice(0, 12);
+
+  return `${normalizedHost || "codex"}-${fingerprint}`;
 }
 
 async function main() {
@@ -344,7 +369,7 @@ async function main() {
   const generatedAt = output.generatedAt ?? payload.generatedAt;
 
   console.log(
-    `[codex-sync] synced ${syncedDays} days (${since}..${until}), generatedAt=${new Date(
+    `[codex-sync] source=${payload.sourceId} synced ${syncedDays} days (${since}..${until}), generatedAt=${new Date(
       generatedAt,
     ).toISOString()}`,
   );
