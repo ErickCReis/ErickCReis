@@ -7,7 +7,11 @@ export type DistAssetRoute = {
 };
 
 function shouldRequireDist() {
-  return Bun.argv.includes("build") || Bun.argv.includes("--compile") || Bun.env.NODE_ENV === "production";
+  return (
+    Bun.argv.includes("build") ||
+    Bun.argv.includes("--compile") ||
+    Bun.env.NODE_ENV === "production"
+  );
 }
 
 function walkFiles(root: string): string[] {

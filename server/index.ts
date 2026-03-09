@@ -2,6 +2,7 @@ import { Elysia, sse, status, t } from "elysia";
 import cors from "@elysiajs/cors";
 import { cursorPayloadSchema } from "@shared/cursor";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
+import { applySecureHeaders } from "@server/secure-headers";
 import { systemStat } from "@server/stats/system";
 import { serverInfoStat } from "@server/stats/server";
 import { websocketStat } from "@server/stats/websocket";
@@ -31,6 +32,9 @@ const statModules = [
 ];
 
 const app = new Elysia()
+  .onAfterHandle(({ set }) => {
+    applySecureHeaders(set.headers);
+  })
   .use(
     cors({
       origin:

@@ -19,7 +19,7 @@ export function UptimeBar(props: UptimeBarProps) {
 
   return (
     <div class="relative">
-      <div class="flex h-6 items-end gap-[1px]">
+      <div class="flex h-4 items-end gap-[1px]">
         <For each={props.days}>
           {(day) => (
             <div
@@ -48,7 +48,7 @@ export function UptimeBar(props: UptimeBarProps) {
         </For>
       </div>
       {tooltip() && (
-        <div class="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
+        <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
           {tooltip()!.date} — {tooltip()!.pct.toFixed(1)}%
         </div>
       )}

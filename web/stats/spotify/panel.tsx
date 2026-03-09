@@ -36,7 +36,7 @@ export function SpotifyPanel() {
         <PanelSubtitle>
           <span>{artists()}</span>
         </PanelSubtitle>
-        <PanelChart>
+        <PanelChart class="h-auto">
           <ProgressBar progressMs={progressMs()} durationMs={durationMs()} color={PRIMARY_COLOR} />
         </PanelChart>
         <Show when={previousTrack()}>

@@ -138,8 +138,8 @@ export function PanelSubtitle(props: { children: JSX.Element }) {
   );
 }
 
-export function PanelChart(props: { children: JSX.Element }) {
-  return <div class="mt-2 h-12 w-full opacity-75">{props.children}</div>;
+export function PanelChart(props: { children: JSX.Element; class?: string }) {
+  return <div class={clsx("mt-2 w-full opacity-75", props.class ?? "h-12")}>{props.children}</div>;
 }
 
 export function PanelFooter(props: { details: TelemetryDetail[] }) {

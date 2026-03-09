@@ -42,7 +42,7 @@ export function ServerPanel() {
         <PanelSubtitle>
           <span>{uptimeSummary()}</span>
         </PanelSubtitle>
-        <PanelChart>
+        <PanelChart class="h-auto">
           <UptimeBar days={dailyUptime()} />
         </PanelChart>
         <PanelFooter
