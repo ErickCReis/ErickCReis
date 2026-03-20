@@ -41,6 +41,13 @@ function createEmptyStore(): InternalStore {
   return { sources: [] };
 }
 
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getStaleAfterMs() {
   const configuredMinutes = Number.parseFloat(Bun.env.CODEX_STALE_AFTER_MINUTES ?? "");
   const minutes =
@@ -122,6 +129,21 @@ function buildMergedDaily(store: InternalStore) {
     .map(([date, day]) => ({ date, day }));
 }
 
+function buildWindowedDaily(store: InternalStore) {
+  const byDate = new Map(buildMergedDaily(store).map((entry) => [entry.date, entry.day]));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return Array.from({ length: MAX_DAILY_POINTS }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (MAX_DAILY_POINTS - index - 1));
+    return {
+      date: formatDate(date),
+      day: createDay(byDate.get(formatDate(date)) ?? createEmptyDay()),
+    };
+  });
+}
+
 function getLatestGeneratedAt(store: InternalStore) {
   return store.sources.reduce<number | null>(
     (latest, source) =>
@@ -132,7 +154,7 @@ function getLatestGeneratedAt(store: InternalStore) {
 
 function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
   const generatedAt = getLatestGeneratedAt(store);
-  const mergedDaily = buildMergedDaily(store);
+  const mergedDaily = generatedAt === null ? [] : buildWindowedDaily(store);
   const isStale = generatedAt === null || Date.now() - generatedAt > getStaleAfterMs();
   const dailySummaries: CodexUsageDailySummary[] = mergedDaily.map((e) => ({
     date: e.date,
@@ -142,6 +164,7 @@ function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
   const totalTokens30d = mergedDaily.reduce((sum, e) => sum + e.day.totalTokens, 0);
 
   return {
+    timestamp: Date.now(),
     generatedAt,
     isStale,
     todayTokens,
@@ -151,6 +174,7 @@ function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
 }
 
 let latestStore: InternalStore = createEmptyStore();
+let latestSnapshot: CodexUsageSnapshot | null = null;
 let latestFileMtimeMs: number | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -158,11 +182,35 @@ let history: CodexUsageSnapshot[] = [];
 let version = 0;
 let started = false;
 
-function markDirty() {
-  const snapshot = buildSnapshot(latestStore);
+function areSnapshotsEqual(current: CodexUsageSnapshot, next: CodexUsageSnapshot) {
+  if (current.generatedAt !== next.generatedAt) return false;
+  if (current.isStale !== next.isStale) return false;
+  if (current.todayTokens !== next.todayTokens) return false;
+  if (current.totalTokens30d !== next.totalTokens30d) return false;
+  if (current.daily.length !== next.daily.length) return false;
+
+  for (let index = 0; index < current.daily.length; index += 1) {
+    const currentEntry = current.daily[index];
+    const nextEntry = next.daily[index];
+    if (currentEntry?.date !== nextEntry?.date) return false;
+    if (currentEntry?.totalTokens !== nextEntry?.totalTokens) return false;
+  }
+
+  return true;
+}
+
+function markDirty(snapshot = buildSnapshot(latestStore)) {
+  latestSnapshot = snapshot;
   history.push(snapshot);
   if (history.length > MAX_HISTORY) history.shift();
   version++;
+}
+
+function refreshDerivedSnapshot() {
+  const snapshot = buildSnapshot(latestStore);
+  if (snapshot.generatedAt === null && latestSnapshot === null) return;
+  if (latestSnapshot && areSnapshotsEqual(latestSnapshot, snapshot)) return;
+  markDirty(snapshot);
 }
 
 async function refreshFromDisk(force = false) {
@@ -178,7 +226,10 @@ async function refreshFromDisk(force = false) {
     }
 
     const mtimeMs = file.lastModified;
-    if (!force && latestFileMtimeMs === mtimeMs) return;
+    if (!force && latestFileMtimeMs === mtimeMs) {
+      refreshDerivedSnapshot();
+      return;
+    }
 
     const raw = await file.text();
     const parsedJson = JSON.parse(raw);
@@ -193,7 +244,7 @@ async function refreshFromDisk(force = false) {
         })),
       };
       latestFileMtimeMs = mtimeMs;
-      markDirty();
+      refreshDerivedSnapshot();
       return;
     }
 
@@ -203,6 +254,7 @@ async function refreshFromDisk(force = false) {
     if (nodeError?.code === "ENOENT") {
       latestStore = createEmptyStore();
       latestFileMtimeMs = null;
+      refreshDerivedSnapshot();
       return;
     }
     console.error("[codex] Failed to refresh usage file", error);
@@ -262,7 +314,7 @@ export const codexStat: StatModule<CodexUsageSnapshot> = {
     void refreshFromDisk(true);
     setInterval(() => void refreshFromDisk(), CODEX_USAGE_REFRESH_INTERVAL_MS);
   },
-  getLatest: () => buildSnapshot(latestStore),
+  getLatest: () => latestSnapshot ?? buildSnapshot(latestStore),
   getHistory: () => [...history],
   getVersion: () => version,
 };

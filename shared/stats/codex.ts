@@ -29,6 +29,7 @@ export const codexUsageDailySummarySchema = v.object({
 export type CodexUsageDailySummary = v.InferOutput<typeof codexUsageDailySummarySchema>;
 
 export const codexUsageSnapshotSchema = v.object({
+  timestamp: nonNegativeNumber,
   generatedAt: v.nullable(nonNegativeNumber),
   isStale: v.boolean(),
   todayTokens: nonNegativeNumber,

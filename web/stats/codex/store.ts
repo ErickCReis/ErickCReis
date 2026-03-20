@@ -14,15 +14,11 @@ export const codexStore = {
   },
   loadHistory(data: CodexUsageSnapshot[]) {
     setHistory((prev) => {
-      const seen = new Set<number>();
-      const merged = [...prev, ...data].filter((s) => {
-        if (s.generatedAt == null) return true;
-        if (seen.has(s.generatedAt)) return false;
-        seen.add(s.generatedAt);
-        return true;
-      });
-      const sorted = merged
-        .sort((a, b) => (a.generatedAt ?? 0) - (b.generatedAt ?? 0))
+      const merged = new Map<number, CodexUsageSnapshot>();
+      for (const sample of prev) merged.set(sample.timestamp, sample);
+      for (const sample of data) merged.set(sample.timestamp, sample);
+      const sorted = [...merged.values()]
+        .sort((a, b) => a.timestamp - b.timestamp)
         .slice(-MAX_POINTS);
       if (sorted.length > 0) setLatest(sorted.at(-1)!);
       return sorted;
