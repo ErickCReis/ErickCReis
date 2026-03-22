@@ -6,6 +6,7 @@ import BaseLayout from "../../layouts/base-layout.astro";
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
+  timeZone: "UTC",
   year: "numeric",
 });
 
@@ -14,7 +15,7 @@ export async function getStaticPaths() {
 
   return posts.map((post) => ({
     params: {
-      slug: post.id,
+      slug: post.id.split("/"),
     },
     props: {
       post,
