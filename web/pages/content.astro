@@ -1,6 +1,7 @@
 ---
 import { getCollection } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
+import { fade } from "astro:transitions";
 import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
 import BaseLayout from "../layouts/base-layout.astro";
 
@@ -15,6 +16,7 @@ const entries = await getCollection("blog");
 const posts = entries
   .map((entry) => ({
     ...entry.data,
+    id: entry.id,
     href: `/content/${entry.id.split("/").join("/")}`,
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -26,6 +28,7 @@ const posts = entries
 >
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
+    transition:animate={fade({ duration: "0.2s" })}
   >
     <section class="space-y-8 py-4">
       <header class="space-y-6">
@@ -55,10 +58,16 @@ const posts = entries
                   href={post.href}
                   class="group flex flex-col gap-2 py-1"
                 >
-                  <h2 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
+                  <h2
+                    class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl"
+                    transition:name={`post-title-${post.id}`}
+                  >
                     {post.title}
                   </h2>
-                  <p class="text-sm leading-relaxed text-muted-foreground md:text-base">
+                  <p
+                    class="text-sm leading-relaxed text-muted-foreground md:text-base"
+                    transition:name={`post-subtitle-${post.id}`}
+                  >
                     {post.description}
                   </p>
                   <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
