@@ -1,40 +1,45 @@
 ---
 import { getCollection } from "astro:content";
+import { ArrowLeft } from "lucide-astro";
 import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
 import BaseLayout from "../layouts/base-layout.astro";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
+  timeZone: "UTC",
   year: "numeric",
 });
 
 const entries = await getCollection("blog");
 const posts = entries
-  .map((entry) => entry.data)
+  .map((entry) => ({
+    ...entry.data,
+    href: `/content/${entry.id.split("/").join("/")}`,
+  }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
 ---
 
-<BaseLayout title="Content | Erick Reis">
+<BaseLayout
+  title="Content | Erick Reis"
+  description="Notes on frontend engineering, systems work, and the decisions behind the build."
+>
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
   >
     <section class="space-y-8 py-4">
-      <header class="space-y-4">
+      <header class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
             href="/"
             class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
-            <span aria-hidden="true">←</span>
+            <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
             <span>Back</span>
           </a>
           <ContentTelemetryToggle client:only="solid-js" />
         </div>
-        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Blog</h1>
-        <p class="max-w-xl text-sm leading-relaxed text-muted-foreground">
-          One simple post to mark the beginning.
-        </p>
+        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Content</h1>
       </header>
 
       {
@@ -44,29 +49,23 @@ const posts = entries
           </p>
         ) : (
           <section class="space-y-3" aria-label="Blog posts">
-            {posts.map((post, index) => (
-              <article class="border-border/60 border-b pb-4">
-                <details class="group" open={index === 0}>
-                  <summary class="flex w-full cursor-pointer list-none items-center justify-between gap-4 text-left">
-                    <span class="font-serif text-2xl leading-tight tracking-wide text-foreground">
-                      {post.title}
-                    </span>
-                    <span class="font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase transition-colors group-open:text-foreground/90">
-                      <span class="group-open:hidden">open</span>
-                      <span class="hidden group-open:inline">close</span>
-                    </span>
-                  </summary>
-                  <div class="mt-0 grid grid-rows-[0fr] opacity-40 transition-[grid-template-rows,opacity,margin-top] duration-240 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-open:mt-3 group-open:grid-rows-[1fr] group-open:opacity-100 motion-reduce:transition-none">
-                    <div class="min-h-0 overflow-hidden">
-                      <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                        {post.description}
-                      </p>
-                      <p class="mt-3 font-mono text-[0.62rem] tracking-[0.12em] text-muted-foreground uppercase">
-                        {dateFormatter.format(post.date)}
-                      </p>
-                    </div>
+            {posts.map((post) => (
+              <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
+                <a
+                  href={post.href}
+                  class="group flex flex-col gap-2 py-1"
+                >
+                  <h2 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
+                    {post.title}
+                  </h2>
+                  <p class="text-sm leading-relaxed text-muted-foreground md:text-base">
+                    {post.description}
+                  </p>
+                  <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+                    <span>{dateFormatter.format(post.date)}</span>
+                    {post.readingTime && <span>{post.readingTime}</span>}
                   </div>
-                </details>
+                </a>
               </article>
             ))}
           </section>
