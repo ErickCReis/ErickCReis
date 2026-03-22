@@ -36,7 +36,9 @@ const { Content } = await render(post);
           href="/content"
           class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
         >
-          <span aria-hidden="true">←</span>
+          <span aria-hidden="true" class="inline-flex items-center leading-none">
+            ←
+          </span>
           <span>All posts</span>
         </a>
 
@@ -65,36 +67,9 @@ const { Content } = await render(post);
 
       <div class="h-px w-full bg-border/70"></div>
 
-      <div class="content-body space-y-5 text-base leading-8 text-foreground/92">
+      <div class="prose prose-invert max-w-none prose-a:text-primary">
         <Content />
       </div>
     </article>
   </main>
 </BaseLayout>
-
-<style>
-  .content-body :global(p) {
-    margin: 0;
-  }
-
-  .content-body :global(a) {
-    color: hsl(var(--primary));
-    text-decoration: underline;
-    text-decoration-color: rgb(255 255 255 / 0.16);
-    text-underline-offset: 0.2em;
-  }
-
-  .content-body :global(strong) {
-    color: hsl(var(--foreground));
-    font-weight: 600;
-  }
-
-  .content-body :global(code) {
-    border: 1px solid rgb(255 255 255 / 0.08);
-    border-radius: 0.45rem;
-    background: rgb(255 255 255 / 0.04);
-    padding: 0.1rem 0.4rem;
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-  }
-</style>
