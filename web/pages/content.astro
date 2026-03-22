@@ -11,16 +11,24 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 const entries = await getCollection("blog");
 const posts = entries
-  .map((entry) => entry.data)
+  .map((entry) => ({
+    ...entry.data,
+    slug: entry.id,
+  }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+const latestPost = posts[0];
 ---
 
-<BaseLayout title="Content | Erick Reis">
+<BaseLayout
+  title="Content | Erick Reis"
+  description="Notes on frontend engineering, systems work, and the decisions behind the build."
+>
   <main
-    class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
+    class="relative z-10 mx-auto min-h-svh w-full max-w-5xl px-4 py-12 md:min-h-dvh md:px-8"
   >
-    <section class="space-y-8 py-4">
-      <header class="space-y-4">
+    <section class="space-y-10 py-4">
+      <header class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
             href="/"
@@ -31,44 +39,125 @@ const posts = entries
           </a>
           <ContentTelemetryToggle client:only="solid-js" />
         </div>
-        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Blog</h1>
-        <p class="max-w-xl text-sm leading-relaxed text-muted-foreground">
-          One simple post to mark the beginning.
-        </p>
+        <div class="space-y-3">
+          <p class="font-mono text-[0.68rem] tracking-[0.28em] text-primary uppercase">
+            Content archive
+          </p>
+          <h1 class="max-w-3xl font-serif text-4xl tracking-wide md:text-6xl">
+            Writing about frontend systems, realtime interfaces, and the tradeoffs behind them.
+          </h1>
+          <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+            Short posts with implementation details, architecture decisions,
+            and lessons from shipping TypeScript-heavy products.
+          </p>
+        </div>
       </header>
 
-      {
-        posts.length === 0 ? (
-          <p class="text-sm text-muted-foreground md:text-base">
-            No posts published yet.
+      <section class="grid gap-4 md:grid-cols-[1.3fr_0.7fr]">
+        <article class="rounded-[calc(var(--radius)+0.45rem)] border border-border/70 bg-card/45 p-6 backdrop-blur-sm">
+          <p class="font-mono text-[0.68rem] tracking-[0.22em] text-muted-foreground uppercase">
+            Latest post
           </p>
-        ) : (
-          <section class="space-y-3" aria-label="Blog posts">
-            {posts.map((post, index) => (
-              <article class="border-border/60 border-b pb-4">
-                <details class="group" open={index === 0}>
-                  <summary class="flex w-full cursor-pointer list-none items-center justify-between gap-4 text-left">
-                    <span class="font-serif text-2xl leading-tight tracking-wide text-foreground">
-                      {post.title}
-                    </span>
-                    <span class="font-mono text-xs tracking-[0.12em] text-muted-foreground uppercase transition-colors group-open:text-foreground/90">
-                      <span class="group-open:hidden">open</span>
-                      <span class="hidden group-open:inline">close</span>
-                    </span>
-                  </summary>
-                  <div class="mt-0 grid grid-rows-[0fr] opacity-40 transition-[grid-template-rows,opacity,margin-top] duration-240 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-open:mt-3 group-open:grid-rows-[1fr] group-open:opacity-100 motion-reduce:transition-none">
-                    <div class="min-h-0 overflow-hidden">
-                      <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                        {post.description}
-                      </p>
-                      <p class="mt-3 font-mono text-[0.62rem] tracking-[0.12em] text-muted-foreground uppercase">
-                        {dateFormatter.format(post.date)}
-                      </p>
+          {
+            latestPost ? (
+              <div class="mt-4 space-y-4">
+                <a
+                  href={`/content/${latestPost.slug}`}
+                  class="group block space-y-3"
+                >
+                  <h2 class="max-w-2xl font-serif text-3xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-4xl">
+                    {latestPost.title}
+                  </h2>
+                  <p class="max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                    {latestPost.description}
+                  </p>
+                </a>
+                <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+                  <span>{dateFormatter.format(latestPost.date)}</span>
+                  {latestPost.readingTime && <span>{latestPost.readingTime}</span>}
+                </div>
+              </div>
+            ) : (
+              <p class="mt-4 text-sm text-muted-foreground md:text-base">
+                No posts published yet.
+              </p>
+            )
+          }
+        </article>
+
+        <aside class="rounded-[calc(var(--radius)+0.45rem)] border border-border/70 bg-secondary/35 p-6">
+          <p class="font-mono text-[0.68rem] tracking-[0.22em] text-muted-foreground uppercase">
+            Snapshot
+          </p>
+          <dl class="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-1">
+            <div>
+              <dt class="font-mono text-[0.62rem] tracking-[0.18em] text-muted-foreground uppercase">
+                Posts
+              </dt>
+              <dd class="mt-1 font-serif text-3xl">{posts.length}</dd>
+            </div>
+            <div>
+              <dt class="font-mono text-[0.62rem] tracking-[0.18em] text-muted-foreground uppercase">
+                Focus
+              </dt>
+              <dd class="mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                Engineering notes over generic tutorials.
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      </section>
+
+      {
+        posts.length > 0 && (
+          <section class="space-y-4" aria-label="Blog posts">
+            <div class="flex items-end justify-between gap-4">
+              <div>
+                <p class="font-mono text-[0.68rem] tracking-[0.22em] text-muted-foreground uppercase">
+                  All posts
+                </p>
+                <h2 class="mt-2 font-serif text-3xl tracking-wide md:text-4xl">
+                  Browse the archive
+                </h2>
+              </div>
+            </div>
+
+            <div class="grid gap-4">
+              {posts.map((post) => (
+                <article class="group rounded-[calc(var(--radius)+0.35rem)] border border-border/60 bg-background/35 transition-colors hover:border-primary/40 hover:bg-card/40">
+                  <a
+                    href={`/content/${post.slug}`}
+                    class="flex h-full flex-col gap-5 p-5 md:flex-row md:items-start md:justify-between md:p-6"
+                  >
+                    <div class="space-y-3">
+                      <div class="flex flex-wrap gap-2">
+                        {post.tags.map((tag) => (
+                          <span class="rounded-full border border-border/80 px-2.5 py-1 font-mono text-[0.62rem] tracking-[0.14em] text-muted-foreground uppercase">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <div class="space-y-2">
+                        <h3 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
+                          {post.title}
+                        </h3>
+                        <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                          {post.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </details>
-              </article>
-            ))}
+
+                    <div class="flex shrink-0 flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase md:flex-col md:items-end md:text-right">
+                      <span>{dateFormatter.format(post.date)}</span>
+                      {post.readingTime && <span>{post.readingTime}</span>}
+                      <span class="text-primary transition-transform group-hover:translate-x-1">
+                        Read post
+                      </span>
+                    </div>
+                  </a>
+                </article>
+              ))}
+            </div>
           </section>
         )
       }
