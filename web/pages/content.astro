@@ -1,5 +1,6 @@
 ---
 import { getCollection } from "astro:content";
+import { ArrowLeft } from "lucide-astro";
 import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
 import BaseLayout from "../layouts/base-layout.astro";
 
@@ -32,9 +33,7 @@ const posts = entries
             href="/"
             class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
-            <span aria-hidden="true" class="inline-flex items-center leading-none">
-              ←
-            </span>
+            <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
             <span>Back</span>
           </a>
           <ContentTelemetryToggle client:only="solid-js" />
