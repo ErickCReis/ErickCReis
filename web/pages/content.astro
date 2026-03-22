@@ -56,23 +56,23 @@ const posts = entries
               <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                 <a
                   href={post.href}
-                  class="group flex flex-col gap-2 py-1"
+                  class="group block py-1"
                 >
-                  <h2
-                    class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl"
-                    transition:name={`post-title-${post.id}`}
+                  <section
+                    id={`post-header-${post.id}`}
+                    class="space-y-4"
+                    transition:name={`post-header-${post.id}`}
                   >
-                    {post.title}
-                  </h2>
-                  <p
-                    class="text-sm leading-relaxed text-muted-foreground md:text-base"
-                    transition:name={`post-subtitle-${post.id}`}
-                  >
-                    {post.description}
-                  </p>
-                  <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
-                    <span>{dateFormatter.format(post.date)}</span>
-                  </div>
+                    <h2 class="font-serif text-4xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-6xl">
+                      {post.title}
+                    </h2>
+                    <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                      {post.description}
+                    </p>
+                    <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+                      <span>{dateFormatter.format(post.date)}</span>
+                    </div>
+                  </section>
                 </a>
               </article>
             ))}

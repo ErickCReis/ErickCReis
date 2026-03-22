@@ -46,24 +46,21 @@ const { Content } = await render(post);
           <span>All posts</span>
         </a>
 
-        <div class="space-y-4">
-          <h1
-            class="font-serif text-4xl leading-tight tracking-wide md:text-6xl"
-            transition:name={`post-title-${post.id}`}
-          >
+        <section
+          id={`post-header-${post.id}`}
+          class="space-y-4"
+          transition:name={`post-header-${post.id}`}
+        >
+          <h1 class="font-serif text-4xl leading-tight tracking-wide md:text-6xl">
             {post.data.title}
           </h1>
-          <p
-            class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base"
-            transition:name={`post-subtitle-${post.id}`}
-          >
+          <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
             {post.data.description}
           </p>
-        </div>
-
-        <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
-          <span>{dateFormatter.format(post.data.date)}</span>
-        </div>
+          <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+            <span>{dateFormatter.format(post.data.date)}</span>
+          </div>
+        </section>
       </header>
 
       <div class="h-px w-full bg-border/70"></div>
