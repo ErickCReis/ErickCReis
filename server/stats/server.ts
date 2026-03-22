@@ -14,6 +14,11 @@ const MAX_HISTORY = 10;
 // First calendar day when uptime monitoring is considered valid.
 const UPTIME_MONITORING_START_DATE = new Date(2026, 2, 3);
 
+type ComputedUptimeDay = UptimeDaySummary & {
+  actualBuckets: number;
+  expectedBuckets: number;
+};
+
 function formatDate(date: Date) {
   const y = date.getFullYear();
   const m = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -29,7 +34,7 @@ function dayStartUnix(date: Date) {
 
 let db: Database | null = null;
 let insertStmt: ReturnType<Database["prepare"]> | null = null;
-let countRangeStmt: ReturnType<Database["prepare"]> | null = null;
+let countBucketRangeStmt: ReturnType<Database["prepare"]> | null = null;
 let firstHeartbeatStmt: ReturnType<Database["prepare"]> | null = null;
 
 function initDb() {
@@ -38,7 +43,11 @@ function initDb() {
   db.run("CREATE TABLE IF NOT EXISTS heartbeats (ts INTEGER PRIMARY KEY)");
 
   insertStmt = db.prepare("INSERT OR IGNORE INTO heartbeats (ts) VALUES (?)");
-  countRangeStmt = db.prepare("SELECT COUNT(*) as cnt FROM heartbeats WHERE ts >= ? AND ts < ?");
+  countBucketRangeStmt = db.prepare(
+    `SELECT COUNT(DISTINCT CAST(ts / ${HEARTBEAT_PERIOD_S} AS INTEGER)) as cnt
+     FROM heartbeats
+     WHERE ts >= ? AND ts < ?`,
+  );
   firstHeartbeatStmt = db.prepare("SELECT MIN(ts) as ts FROM heartbeats");
 }
 
@@ -47,8 +56,16 @@ function recordHeartbeat() {
   insertStmt?.run(ts);
 }
 
-function countBeatsInRange(startUnix: number, endUnix: number): number {
-  const row = countRangeStmt?.get(startUnix, endUnix) as { cnt: number } | undefined;
+function alignRangeStartToBucket(startUnix: number): number {
+  return Math.ceil(startUnix / HEARTBEAT_PERIOD_S) * HEARTBEAT_PERIOD_S;
+}
+
+function alignRangeEndToBucket(endUnix: number): number {
+  return Math.floor(endUnix / HEARTBEAT_PERIOD_S) * HEARTBEAT_PERIOD_S;
+}
+
+function countBucketsInRange(startUnix: number, endUnix: number): number {
+  const row = countBucketRangeStmt?.get(startUnix, endUnix) as { cnt: number } | undefined;
   return row?.cnt ?? 0;
 }
 
@@ -57,13 +74,13 @@ function getFirstHeartbeatUnix(): number | null {
   return row?.ts ?? null;
 }
 
-function computeDailyUptime(): UptimeDaySummary[] {
+function computeDailyUptime(): ComputedUptimeDay[] {
   const now = new Date();
   const nowUnix = Math.floor(now.getTime() / 1000);
   const configuredStartUnix = dayStartUnix(UPTIME_MONITORING_START_DATE);
   const firstHeartbeatUnix = getFirstHeartbeatUnix();
   const uptimeStartUnix = Math.max(configuredStartUnix, firstHeartbeatUnix ?? nowUnix);
-  const days: UptimeDaySummary[] = [];
+  const days: ComputedUptimeDay[] = [];
 
   for (let offset = 29; offset >= 0; offset--) {
     const date = new Date(now);
@@ -74,22 +91,37 @@ function computeDailyUptime(): UptimeDaySummary[] {
     if (end <= uptimeStartUnix) continue;
     const sampleStart = Math.max(start, uptimeStartUnix);
 
-    const actual = countBeatsInRange(sampleStart, end);
-    const elapsed = end - sampleStart;
+    const alignedStart = alignRangeStartToBucket(sampleStart);
+    const alignedEnd = alignRangeEndToBucket(end);
+    const elapsed = alignedEnd - alignedStart;
     if (elapsed <= 0) continue;
-    const expected = Math.max(1, Math.floor(elapsed / HEARTBEAT_PERIOD_S));
-    const pct = Math.min(100, Number(((actual / expected) * 100).toFixed(2)));
 
-    days.push({ date: dateStr, uptimePercent: pct });
+    const actualBuckets = countBucketsInRange(alignedStart, alignedEnd);
+    const expectedBuckets = elapsed / HEARTBEAT_PERIOD_S;
+    const pct = Math.min(100, Number(((actualBuckets / expectedBuckets) * 100).toFixed(2)));
+
+    days.push({ date: dateStr, uptimePercent: pct, actualBuckets, expectedBuckets });
   }
 
   return days;
 }
 
-function computeOverallUptime30d(daily: UptimeDaySummary[]): number {
+function computeOverallUptime30d(daily: ComputedUptimeDay[]): number {
   if (daily.length === 0) return 0;
-  const sum = daily.reduce((acc, d) => acc + d.uptimePercent, 0);
-  return Number((sum / daily.length).toFixed(2));
+  const actualBuckets = daily.reduce((acc, d) => acc + d.actualBuckets, 0);
+  const expectedBuckets = daily.reduce((acc, d) => acc + d.expectedBuckets, 0);
+  if (expectedBuckets <= 0) return 0;
+  return Number(((actualBuckets / expectedBuckets) * 100).toFixed(2));
+}
+
+function scheduleNextHeartbeat() {
+  const now = Date.now();
+  const delay = HEARTBEAT_INTERVAL_MS - (now % HEARTBEAT_INTERVAL_MS) || HEARTBEAT_INTERVAL_MS;
+
+  setTimeout(() => {
+    recordHeartbeat();
+    scheduleNextHeartbeat();
+  }, delay);
 }
 
 function computeCurrentStreak(): number {
@@ -125,7 +157,7 @@ function buildSnapshot(): ServerInfoStat {
     appVersion: version,
     currentStreakSeconds: computeCurrentStreak(),
     uptimePercent30d: computeOverallUptime30d(daily),
-    dailyUptime: daily,
+    dailyUptime: daily.map(({ date, uptimePercent }) => ({ date, uptimePercent })),
   };
 }
 
@@ -164,7 +196,7 @@ export const serverInfoStat: StatModule<ServerInfoStat> = {
     history.push(latest);
     statVersion++;
 
-    setInterval(recordHeartbeat, HEARTBEAT_INTERVAL_MS);
+    scheduleNextHeartbeat();
     setInterval(performRetentionPurge, RETENTION_PURGE_INTERVAL_MS);
 
     setInterval(() => {
