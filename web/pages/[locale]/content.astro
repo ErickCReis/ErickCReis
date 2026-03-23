@@ -2,10 +2,28 @@
 import { getCollection } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
-import BaseLayout from "../layouts/base-layout.astro";
+import BaseLayout from "@web/layouts/base-layout.astro";
+import {
+  assertLocale,
+  getDateLocale,
+  getEntryLocale,
+  getEntrySlug,
+  getLocalizedPath,
+  getMessages,
+  locales,
+} from "@web/i18n";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
+export function getStaticPaths() {
+  return locales.map((locale) => ({
+    params: { locale },
+  }));
+}
+
+const locale = assertLocale(Astro.params.locale ?? "");
+const t = getMessages(locale);
+const dateFormatter = new Intl.DateTimeFormat(getDateLocale(locale), {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
@@ -14,17 +32,19 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 const entries = await getCollection("blog");
 const posts = entries
+  .filter((entry) => getEntryLocale(entry) === locale)
   .map((entry) => ({
     ...entry.data,
     id: entry.id,
-    href: `/content/${entry.id.split("/").join("/")}`,
+    href: getLocalizedPath(locale, `content/${getEntrySlug(entry)}`),
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
 ---
 
 <BaseLayout
-  title="Content | Erick Reis"
-  description="Notes on frontend engineering, systems work, and the decisions behind the build."
+  title={t.content.pageTitle}
+  description={t.content.pageDescription}
+  lang={locale}
 >
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
@@ -34,24 +54,28 @@ const posts = entries
       <header class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
-            href="/"
+            href={getLocalizedPath(locale)}
             class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
-            <span>Back</span>
+            <span>{t.content.back}</span>
           </a>
-          <ContentTelemetryToggle client:only="solid-js" />
+
+          <div class="flex items-center gap-3">
+            <LocaleSwitcher locale={locale} path="content" />
+            <ContentTelemetryToggle client:only="solid-js" locale={locale} />
+          </div>
         </div>
-        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Content</h1>
+        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">{t.content.title}</h1>
       </header>
 
       {
         posts.length === 0 ? (
           <p class="text-sm text-muted-foreground md:text-base">
-            No posts published yet.
+            {t.content.empty}
           </p>
         ) : (
-          <section class="space-y-3" aria-label="Blog posts">
+          <section class="space-y-3" aria-label={t.content.blogPostsAriaLabel}>
             {posts.map((post) => (
               <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                 <a

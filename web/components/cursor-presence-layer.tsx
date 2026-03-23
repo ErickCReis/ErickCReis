@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { formatCursorPosition, pickColor } from "@web/lib/cursor";
+import { getMessages, type Locale } from "@web/i18n";
 import type { CursorState } from "@web/types/home";
 import { For, createMemo, type JSX } from "solid-js";
 
@@ -7,6 +8,7 @@ type CursorPresenceLayerProps = {
   selfId: string | null;
   cursors: CursorState[];
   isStatsHovered: boolean;
+  locale: Locale;
 };
 
 type CursorMarkerProps = {
@@ -14,9 +16,11 @@ type CursorMarkerProps = {
   selfId: string | null;
   isStatsHovered: boolean;
   smooth: boolean;
+  locale: Locale;
 };
 
 function CursorMarker(props: CursorMarkerProps) {
+  const t = getMessages(props.locale);
   const x = () => props.cursor()?.x ?? 0;
   const y = () => props.cursor()?.y ?? 0;
   const position = () => formatCursorPosition(x(), y());
@@ -52,7 +56,9 @@ function CursorMarker(props: CursorMarkerProps) {
     >
       {!props.isStatsHovered ? (
         <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-[0.5rem] tracking-[0.08em] uppercase">
-          <span class="text-slate-300/60">{isSelf() ? "you" : cursorLabel().slice(0, 4)}</span>
+          <span class="text-slate-300/60">
+            {isSelf() ? t.telemetry.you : cursorLabel().slice(0, 4)}
+          </span>
           <span class="text-slate-100/84">{position()}</span>
         </span>
       ) : null}
@@ -76,6 +82,7 @@ export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
               selfId={props.selfId}
               isStatsHovered={props.isStatsHovered}
               smooth={cursorId !== props.selfId}
+              locale={props.locale}
             />
           );
         }}

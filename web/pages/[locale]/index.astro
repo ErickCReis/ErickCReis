@@ -1,0 +1,114 @@
+---
+import HomeLiveOverlay from "@web/islands/home-live-overlay";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
+import BaseLayout from "@web/layouts/base-layout.astro";
+import { assertLocale, getLocalizedPath, getMessages, locales } from "@web/i18n";
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({
+    params: { locale },
+  }));
+}
+
+const locale = assertLocale(Astro.params.locale ?? "");
+const t = getMessages(locale);
+const featuredProjects = t.home.projects;
+---
+
+<BaseLayout title={t.home.title} lang={locale}>
+  <HomeLiveOverlay client:only="solid-js" locale={locale} />
+  <main class="relative z-10">
+    <section
+      class="relative mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 pt-16 pb-0 sm:px-8 sm:pt-20 md:min-h-dvh"
+    >
+      <div class="flex justify-end">
+        <LocaleSwitcher locale={locale} />
+      </div>
+
+      <div class="flex flex-1 items-start pt-6 sm:pt-10 md:items-center md:pt-0">
+        <div class="max-w-3xl space-y-8">
+          <div class="space-y-6">
+            <h1
+              class="max-w-3xl font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
+            >
+              Erick Reis
+            </h1>
+            <p class="max-w-xl text-base leading-8 text-muted-foreground">
+              {t.home.intro}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <a
+              href={getLocalizedPath(locale, "content")}
+              class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:brightness-110"
+            >
+              {t.home.contentCta}
+            </a>
+            <a
+              href="https://github.com/erickcreis"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md border border-input bg-background/80 px-4 py-2 font-medium backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative z-10 pt-6 pb-12">
+        <p
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-primary/70"
+        >
+          <span>{t.home.featuredProjects}</span>
+          <span aria-hidden="true" class="text-primary/85">↓</span>
+        </p>
+      </div>
+    </section>
+
+    <section
+      id="selected-work"
+      class="relative z-10 mx-auto -mt-10 w-full max-w-6xl px-4 pb-14 sm:px-8 sm:pb-16"
+    >
+      <div class="pt-6">
+        <div class="space-y-1">
+          {
+            featuredProjects.map((project) => (
+              <a
+                href={project.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="group grid gap-2 border-b border-white/8 py-5 transition-colors md:grid-cols-[3rem_minmax(0,1fr)]"
+              >
+                <span class="pt-1 text-xs tracking-[0.24em] text-muted-foreground">
+                  {project.index}
+                </span>
+                <div class="space-y-2">
+                  <div class="flex flex-wrap items-baseline justify-between gap-3">
+                    <h2 class="font-serif text-2xl tracking-wide text-foreground transition-colors group-hover:text-primary">
+                      {project.name}
+                    </h2>
+                    <span class="text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
+                      {project.label}
+                    </span>
+                  </div>
+                  <p class="max-w-md text-sm leading-7 text-muted-foreground">
+                    {project.summary}
+                  </p>
+                  <div class="flex flex-wrap gap-2 pt-1">
+                    {project.technologies.map((technology) => (
+                      <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-secondary-foreground">
+                        {technology}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>

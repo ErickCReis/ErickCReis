@@ -1,19 +1,22 @@
 import { clsx } from "clsx";
 import { createSignal } from "solid-js";
 import { TelemetryBackdrop } from "@web/components/telemetry-backdrop";
+import { getMessages, type Locale } from "@web/i18n";
 
-export default function ContentTelemetryToggle() {
+export default function ContentTelemetryToggle(props: { locale: Locale }) {
   const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = createSignal(true);
+  const t = getMessages(props.locale);
 
   return (
     <>
-      {isStatsBackdropEnabled() ? <TelemetryBackdrop /> : null}
+      {isStatsBackdropEnabled() ? <TelemetryBackdrop locale={props.locale} /> : null}
       <button
         type="button"
         onClick={() => {
           setIsStatsBackdropEnabled((previous) => !previous);
         }}
         aria-pressed={isStatsBackdropEnabled()}
+        aria-label={`${t.telemetry.stats} ${isStatsBackdropEnabled() ? t.telemetry.on : t.telemetry.off}`}
         class={clsx(
           "inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-[0.6rem] tracking-[0.16em] uppercase transition-colors",
           isStatsBackdropEnabled()
@@ -27,7 +30,7 @@ export default function ContentTelemetryToggle() {
             isStatsBackdropEnabled() ? "bg-[rgb(142,199,255)]" : "bg-slate-400/60",
           )}
         />
-        Stats {isStatsBackdropEnabled() ? "On" : "Off"}
+        {t.telemetry.stats} {isStatsBackdropEnabled() ? t.telemetry.on : t.telemetry.off}
       </button>
     </>
   );

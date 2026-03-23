@@ -1,0 +1,105 @@
+---
+import { getCollection, render } from "astro:content";
+import { ArrowLeft } from "lucide-astro";
+import { fade } from "astro:transitions";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
+import BaseLayout from "@web/layouts/base-layout.astro";
+import {
+  getDateLocale,
+  getEntryLocale,
+  getEntrySlug,
+  getLocalizedPath,
+  getMessages,
+  locales,
+  type BlogEntry,
+  type Locale,
+} from "@web/i18n";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+
+  return posts.flatMap((post) => {
+    const locale = getEntryLocale(post);
+    const slug = getEntrySlug(post);
+
+    return {
+      params: {
+        locale,
+        slug,
+      },
+      props: {
+        locale,
+        post,
+        slug,
+      },
+    };
+  });
+}
+
+const { locale, post, slug } = Astro.props as {
+  locale: Locale;
+  post: BlogEntry;
+  slug: string;
+};
+
+if (!locales.includes(locale)) {
+  throw new Error(`Unsupported locale: ${locale}`);
+}
+
+const t = getMessages(locale);
+const dateFormatter = new Intl.DateTimeFormat(getDateLocale(locale), {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+const { Content } = await render(post);
+---
+
+<BaseLayout
+  title={`${post.data.title} | Erick Reis`}
+  description={post.data.description}
+  lang={locale}
+>
+  <main
+    class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
+    transition:animate={fade({ duration: "0.2s" })}
+  >
+    <article class="space-y-8 py-4">
+      <header class="space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <a
+            href={getLocalizedPath(locale, "content")}
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
+          >
+            <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
+            <span>{t.content.allPosts}</span>
+          </a>
+          <LocaleSwitcher locale={locale} path="content" />
+        </div>
+
+        <section
+          id={`post-header-${locale}-${slug}`}
+          class="space-y-4"
+          transition:name={`post-header-${post.id}`}
+        >
+          <h1 class="font-serif text-2xl leading-tight tracking-wide md:text-3xl">
+            {post.data.title}
+          </h1>
+          <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+            {post.data.description}
+          </p>
+          <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+            <span>{dateFormatter.format(post.data.date)}</span>
+          </div>
+        </section>
+      </header>
+
+      <div class="h-px w-full bg-border/70"></div>
+
+      <div class="prose prose-invert max-w-none prose-a:text-primary">
+        <Content />
+      </div>
+    </article>
+  </main>
+</BaseLayout>

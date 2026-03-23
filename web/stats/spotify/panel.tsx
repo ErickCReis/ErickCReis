@@ -10,13 +10,15 @@ import {
 import { ProgressBar } from "@web/components/progress-bar";
 import { spotifyStore } from "@web/stats/spotify/store";
 import { getPreviousTrack } from "@web/stats/spotify/utils";
+import { getMessages, type Locale } from "@web/i18n";
 
 const PRIMARY_COLOR = "#1db954";
 
-export function SpotifyPanel() {
+export function SpotifyPanel(props: { locale: Locale }) {
+  const t = getMessages(props.locale);
   const latest = createMemo(() => spotifyStore.latest());
-  const trackName = createMemo(() => latest()?.trackName ?? "Nothing playing");
-  const artists = createMemo(() => latest()?.artistNames.join(", ") || "No artist");
+  const trackName = createMemo(() => latest()?.trackName ?? t.telemetry.nothingPlaying);
+  const artists = createMemo(() => latest()?.artistNames.join(", ") || t.telemetry.noArtist);
   const progressMs = createMemo(() => latest()?.progressMs ?? 0);
   const durationMs = createMemo(() => latest()?.durationMs ?? 0);
 
@@ -29,9 +31,10 @@ export function SpotifyPanel() {
       <PanelTrigger tag="spotify" current={trackName()} />
       <PanelContent>
         <PanelHeader
-          title="Now Playing"
+          locale={props.locale}
+          title={t.telemetry.nowPlaying}
           actionUrl={latest()?.trackUrl ?? undefined}
-          actionLabel="Open"
+          actionLabel={t.telemetry.open}
         />
         <PanelSubtitle>
           <span>{artists()}</span>
@@ -42,14 +45,14 @@ export function SpotifyPanel() {
         <Show when={previousTrack()}>
           {(prev) => (
             <p class="mt-1.5 truncate text-[0.48rem] text-slate-300/50">
-              Previously: {prev().name} — {prev().artist}
+              {t.telemetry.previously(prev().name, prev().artist)}
             </p>
           )}
         </Show>
         <PanelFooter
           details={[
-            { label: "Track", value: trackName() },
-            { label: "Artist", value: artists() },
+            { label: t.telemetry.track, value: trackName() },
+            { label: t.telemetry.artist, value: artists() },
           ]}
         />
       </PanelContent>
