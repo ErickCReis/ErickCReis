@@ -27,6 +27,15 @@ const featuredProjects = [
     technologies: ["TypeScript", "React", "Three.js", "Cloudflare"],
     href: "https://github.com/ErickCReis/car-league",
   },
+  {
+    index: "04",
+    name: "tabnews",
+    label: "Contributions",
+    summary:
+      "Open source issues and improvements across frontend, backend and tooling.",
+    technologies: ["Next.js", "React", "Node.js"],
+    href: "https://github.com/filipedeschamps/tabnews.com.br/issues?q=author%3AErickCReis",
+  },
 ];
 ---
 
@@ -36,12 +45,11 @@ const featuredProjects = [
     <section
       class="relative mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 pt-16 pb-0 sm:px-8 sm:pt-20 md:min-h-dvh"
     >
-      <div class="flex flex-1 items-start pt-6 sm:pt-10 md:items-center md:pt-0">
+      <div
+        class="flex flex-1 items-start pt-6 sm:pt-10 md:items-center md:pt-0"
+      >
         <div class="max-w-3xl space-y-8">
           <div class="space-y-6">
-            <!-- <p class="text-xs font-medium uppercase tracking-[0.32em] text-primary/80">
-              TypeScript engineer
-            </p> -->
             <h1
               class="max-w-3xl font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
             >
@@ -122,52 +130,6 @@ const featuredProjects = [
               </a>
             ))
           }
-
-          <a
-            href="https://github.com/filipedeschamps/tabnews.com.br/issues?q=author%3AErickCReis"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="group grid gap-2 py-5 transition-colors md:grid-cols-[3rem_minmax(0,1fr)]"
-          >
-            <span class="pt-1 text-xs tracking-[0.24em] text-muted-foreground">
-              04
-            </span>
-            <div class="space-y-2">
-              <div class="flex flex-wrap items-baseline justify-between gap-3">
-                <h2
-                  class="font-serif text-2xl tracking-wide text-foreground transition-colors group-hover:text-primary"
-                >
-                  TabNews
-                </h2>
-                <span
-                  class="text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground"
-                >
-                  Contributions
-                </span>
-              </div>
-              <p class="max-w-md text-sm leading-7 text-muted-foreground">
-                Open source issues and improvements across frontend, backend and
-                tooling.
-              </p>
-              <div class="flex flex-wrap gap-2 pt-1">
-                <span
-                  class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-secondary-foreground"
-                >
-                  Next.js
-                </span>
-                <span
-                  class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-secondary-foreground"
-                >
-                  React
-                </span>
-                <span
-                  class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-secondary-foreground"
-                >
-                  Node.js
-                </span>
-              </div>
-            </div>
-          </a>
         </div>
       </div>
     </section>
