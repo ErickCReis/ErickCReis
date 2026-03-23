@@ -1,4 +1,4 @@
-import { createMousePosition } from "@solid-primitives/mouse";
+import { createMousePosition, getPositionToScreen } from "@solid-primitives/mouse";
 import { throttle } from "@solid-primitives/scheduled";
 import { pickColor } from "@web/lib/cursor";
 import type { CursorState } from "@web/types/home";
@@ -10,7 +10,7 @@ export function useCursorPresence() {
   const [cursorsById, setCursorsById] = createSignal<Record<string, CursorState>>({});
   const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
   const [selfId, setSelfId] = createSignal<string | null>(null);
-  const mouse = createMousePosition();
+  const mouse = createMousePosition(window, { touch: false });
 
   const selfColor = createMemo(() => {
     const id = selfId();
@@ -42,8 +42,9 @@ export function useCursorPresence() {
       return;
     }
 
-    setLocalSelfPoint({ x, y });
-    throttledPublishCursorPosition({ x, y });
+    const point = getPositionToScreen(x, y);
+    setLocalSelfPoint(point);
+    throttledPublishCursorPosition(point);
   });
 
   onCleanup(() => throttledPublishCursorPosition.clear());
