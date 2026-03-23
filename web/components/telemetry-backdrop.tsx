@@ -119,7 +119,10 @@ function applyMotionStyle(element: HTMLElement, motionSeed: PanelMotionSeed) {
   element.style.setProperty("offset-path", `path('${motionSeed.path}')`);
 }
 
-export function TelemetryBackdrop(props: { onStatsHoverChange?: (isHovering: boolean) => void }) {
+export function TelemetryBackdrop(props: {
+  onStatsHoverChange?: (isHovering: boolean) => void;
+  placement?: "viewport" | "hero";
+}) {
   const [viewportSize, setViewportSize] = createSignal({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -226,8 +229,12 @@ export function TelemetryBackdrop(props: { onStatsHoverChange?: (isHovering: boo
   });
 
   return (
-    <div class="pointer-events-none fixed inset-0 z-30 overflow-hidden">
-      <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_22%,rgba(113,152,208,0.16),transparent_42%),radial-gradient(circle_at_78%_74%,rgba(120,184,173,0.15),transparent_44%)]" />
+    <div
+      class={clsx(
+        "pointer-events-none z-30 overflow-hidden",
+        props.placement === "hero" ? "absolute inset-x-0 top-0 h-svh md:h-dvh" : "fixed inset-0",
+      )}
+    >
       <aside class="pointer-events-auto absolute right-0 bottom-5 z-70 translate-x-[calc(100%-0.6rem)] transition-transform duration-300 ease-out hover:translate-x-0 focus-within:translate-x-0">
         <div class="rounded-l-xl border border-slate-200/20 border-r-0 bg-slate-950/70 px-3 py-2 shadow-[0_8px_24px_rgba(3,8,16,0.34)] backdrop-blur-md">
           <button
@@ -310,10 +317,10 @@ export function TelemetryBackdrop(props: { onStatsHoverChange?: (isHovering: boo
                       onPanelToggle(config.id);
                     }}
                     class={clsx(
-                      "relative flex items-center gap-2 rounded-full border px-2 py-1 transition duration-200",
+                      "relative flex items-center gap-2 rounded-full px-2 py-1 transition duration-200",
                       isActive()
-                        ? "border-slate-200/25 bg-slate-950/42"
-                        : "border-transparent hover:border-slate-200/25 hover:bg-slate-950/30",
+                        ? "text-slate-100/92"
+                        : "text-slate-300/74 hover:text-slate-100/92",
                     )}
                     aria-pressed={isPinned()}
                   >

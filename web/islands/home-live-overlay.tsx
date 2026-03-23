@@ -9,7 +9,7 @@ export default function HomeLiveOverlay() {
 
   return (
     <>
-      <TelemetryBackdrop onStatsHoverChange={setIsStatsHovered} />
+      <TelemetryBackdrop placement="hero" onStatsHoverChange={setIsStatsHovered} />
       <CursorPresenceLayer
         selfId={selfId()}
         cursors={cursors()}
