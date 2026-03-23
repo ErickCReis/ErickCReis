@@ -2,15 +2,13 @@
 import HomeLiveOverlay from "@web/islands/home-live-overlay";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import BaseLayout from "@web/layouts/base-layout.astro";
-import { assertLocale, getLocalizedPath, getMessages, locales } from "@web/i18n";
+import { getLocalizedPath, getMessages, type Locale } from "@web/i18n";
 
-export function getStaticPaths() {
-  return locales.map((locale) => ({
-    params: { locale },
-  }));
+interface Props {
+  locale: Locale;
 }
 
-const locale = assertLocale(Astro.params.locale ?? "");
+const { locale } = Astro.props;
 const t = getMessages(locale);
 const featuredProjects = t.home.projects;
 ---

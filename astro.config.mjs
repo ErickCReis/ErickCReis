@@ -7,13 +7,6 @@ export default defineConfig({
   srcDir: "./web",
   output: "static",
   site: "https://erickr.dev",
-  i18n: {
-    locales: ["en", "pt-BR"],
-    defaultLocale: "en",
-    routing: {
-      prefixDefaultLocale: true,
-    },
-  },
   integrations: [mdx(), solid()],
   devToolbar: {
     enabled: false,

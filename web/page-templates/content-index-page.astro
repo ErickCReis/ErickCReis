@@ -6,22 +6,19 @@ import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import {
-  assertLocale,
   getDateLocale,
   getEntryLocale,
   getEntrySlug,
   getLocalizedPath,
   getMessages,
-  locales,
+  type Locale,
 } from "@web/i18n";
 
-export function getStaticPaths() {
-  return locales.map((locale) => ({
-    params: { locale },
-  }));
+interface Props {
+  locale: Locale;
 }
 
-const locale = assertLocale(Astro.params.locale ?? "");
+const { locale } = Astro.props;
 const t = getMessages(locale);
 const dateFormatter = new Intl.DateTimeFormat(getDateLocale(locale), {
   day: "numeric",

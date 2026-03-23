@@ -1,0 +1,47 @@
+---
+import { getCollection } from "astro:content";
+import ContentPostPage from "@web/page-templates/content-post-page.astro";
+import {
+  defaultLocale,
+  getEntryLocale,
+  getEntrySlug,
+  isLocale,
+  locales,
+  type BlogEntry,
+  type Locale,
+} from "@web/i18n";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog");
+
+  return posts
+    .filter((post) => locales.includes(getEntryLocale(post)))
+    .map((post) => {
+      const locale = getEntryLocale(post);
+
+      return {
+        params: {
+          locale: locale === defaultLocale ? undefined : locale,
+          slug: getEntrySlug(post),
+        },
+        props: {
+          locale,
+          post,
+          slug: getEntrySlug(post),
+        },
+      };
+    });
+}
+
+const { locale, post, slug } = Astro.props as {
+  locale: Locale;
+  post: BlogEntry;
+  slug: string;
+};
+
+if (!isLocale(locale)) {
+  throw new Error(`Unsupported locale: ${String(locale)}`);
+}
+---
+
+<ContentPostPage locale={locale} post={post} slug={slug} />

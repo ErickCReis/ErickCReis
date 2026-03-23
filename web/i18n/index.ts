@@ -1,6 +1,6 @@
 import type { CollectionEntry } from "astro:content";
 
-export const locales = ["en", "pt-BR"] as const;
+export const locales = ["en", "pt"] as const;
 export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = "en";
@@ -19,11 +19,15 @@ export function assertLocale(value: string): Locale {
 
 export function getLocalizedPath(locale: Locale, path = "") {
   const normalizedPath = path.replace(/^\/+|\/+$/g, "");
+  if (locale === defaultLocale) {
+    return normalizedPath ? `/${normalizedPath}` : "/";
+  }
+
   return normalizedPath ? `/${locale}/${normalizedPath}` : `/${locale}`;
 }
 
 export function getDateLocale(locale: Locale) {
-  return locale === "pt-BR" ? "pt-BR" : "en-US";
+  return locale === "pt" ? "pt-BR" : "en-US";
 }
 
 type Messages = {
@@ -196,8 +200,8 @@ const messages: Record<Locale, Messages> = {
       artist: "Artist",
     },
   },
-  "pt-BR": {
-    localeLabel: "Português (Brasil)",
+  pt: {
+    localeLabel: "Português",
     home: {
       title: "Erick Reis | Portfólio",
       intro:

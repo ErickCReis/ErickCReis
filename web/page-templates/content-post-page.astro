@@ -1,51 +1,18 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render, type CollectionEntry } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import BaseLayout from "@web/layouts/base-layout.astro";
-import {
-  getDateLocale,
-  getEntryLocale,
-  getEntrySlug,
-  getLocalizedPath,
-  getMessages,
-  locales,
-  type BlogEntry,
-  type Locale,
-} from "@web/i18n";
+import { getDateLocale, getLocalizedPath, getMessages, type Locale } from "@web/i18n";
 
-export async function getStaticPaths() {
-  const posts = await getCollection("blog");
-
-  return posts.flatMap((post) => {
-    const locale = getEntryLocale(post);
-    const slug = getEntrySlug(post);
-
-    return {
-      params: {
-        locale,
-        slug,
-      },
-      props: {
-        locale,
-        post,
-        slug,
-      },
-    };
-  });
-}
-
-const { locale, post, slug } = Astro.props as {
+interface Props {
   locale: Locale;
-  post: BlogEntry;
+  post: CollectionEntry<"blog">;
   slug: string;
-};
-
-if (!locales.includes(locale)) {
-  throw new Error(`Unsupported locale: ${locale}`);
 }
 
+const { locale, post, slug } = Astro.props;
 const t = getMessages(locale);
 const dateFormatter = new Intl.DateTimeFormat(getDateLocale(locale), {
   day: "numeric",
