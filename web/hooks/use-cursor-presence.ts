@@ -10,7 +10,7 @@ export function useCursorPresence() {
   const [cursorsById, setCursorsById] = createSignal<Record<string, CursorState>>({});
   const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
   const [selfId, setSelfId] = createSignal<string | null>(null);
-  const mouse = createMousePosition(window, { touch: false });
+  const mouse = createMousePosition(window, { followTouch: false });
 
   const selfColor = createMemo(() => {
     const id = selfId();

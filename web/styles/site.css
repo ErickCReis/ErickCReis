@@ -56,7 +56,7 @@
   body {
     @apply min-h-svh;
   }
-  
+
   body {
     @apply font-sans text-foreground antialiased;
     position: relative;

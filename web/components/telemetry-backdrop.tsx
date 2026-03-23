@@ -232,9 +232,7 @@ export function TelemetryBackdrop(props: {
     <div
       class={clsx(
         "pointer-events-none z-30 overflow-hidden",
-        props.placement === "hero"
-          ? "absolute inset-x-0 top-0 h-svh md:h-dvh"
-          : "fixed inset-0",
+        props.placement === "hero" ? "absolute inset-x-0 top-0 h-svh md:h-dvh" : "fixed inset-0",
       )}
     >
       <aside class="pointer-events-auto absolute right-0 bottom-5 z-70 translate-x-[calc(100%-0.6rem)] transition-transform duration-300 ease-out hover:translate-x-0 focus-within:translate-x-0">
