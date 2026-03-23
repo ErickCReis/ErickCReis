@@ -121,6 +121,7 @@ function applyMotionStyle(element: HTMLElement, motionSeed: PanelMotionSeed) {
 
 export function TelemetryBackdrop(props: {
   onStatsHoverChange?: (isHovering: boolean) => void;
+  placement?: "viewport" | "hero";
 }) {
   const [viewportSize, setViewportSize] = createSignal({
     width: window.innerWidth,
@@ -228,7 +229,14 @@ export function TelemetryBackdrop(props: {
   });
 
   return (
-    <div class="pointer-events-none fixed inset-0 z-30 overflow-hidden">
+    <div
+      class={clsx(
+        "pointer-events-none z-30 overflow-hidden",
+        props.placement === "hero"
+          ? "absolute inset-x-0 top-0 h-svh md:h-dvh"
+          : "fixed inset-0",
+      )}
+    >
       <aside class="pointer-events-auto absolute right-0 bottom-5 z-70 translate-x-[calc(100%-0.6rem)] transition-transform duration-300 ease-out hover:translate-x-0 focus-within:translate-x-0">
         <div class="rounded-l-xl border border-slate-200/20 border-r-0 bg-slate-950/70 px-3 py-2 shadow-[0_8px_24px_rgba(3,8,16,0.34)] backdrop-blur-md">
           <button
