@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import { createContext, For, Show, useContext, type Accessor, type JSX } from "solid-js";
+import { getMessages, type Locale } from "@web/i18n";
 import type { TelemetryDetail } from "@web/types/home";
 
 const PanelContext = createContext<{
@@ -91,8 +92,14 @@ export function PanelContent(props: { children: JSX.Element }) {
   return <Show when={!mode || mode() === "content"}>{props.children}</Show>;
 }
 
-export function PanelHeader(props: { title: string; actionUrl?: string; actionLabel?: string }) {
+export function PanelHeader(props: {
+  locale: Locale;
+  title: string;
+  actionUrl?: string;
+  actionLabel?: string;
+}) {
   const { isPinned, onRelease } = usePanelContext();
+  const t = getMessages(props.locale);
 
   return (
     <div class="flex items-center justify-between gap-2">
@@ -109,7 +116,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
               onClick={(event) => event.stopPropagation()}
               class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
             >
-              {props.actionLabel ?? "Open"}
+              {props.actionLabel ?? t.telemetry.open}
             </a>
           )}
         </Show>
@@ -122,7 +129,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
             }}
             class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
           >
-            Release
+            {t.telemetry.release}
           </button>
         </Show>
       </div>

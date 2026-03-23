@@ -1,0 +1,32 @@
+---
+import { defaultLocale, getLocalizedPath, locales, type Locale } from "@web/i18n";
+
+interface Props {
+  locale: Locale;
+  path?: string;
+}
+
+const { locale, path = "" } = Astro.props;
+---
+
+<nav
+  aria-label="Locales"
+  class="flex items-center gap-2 font-mono text-[0.62rem] tracking-[0.12em] uppercase text-muted-foreground"
+>
+  {
+    locales.map((item) => (
+      <a
+        href={getLocalizedPath(item, path)}
+        aria-current={item === locale ? "page" : undefined}
+        class:list={[
+          "rounded-full border px-2 py-1 transition-colors",
+          item === locale
+            ? "border-foreground/40 text-foreground"
+            : "border-border/70 hover:border-foreground/40 hover:text-foreground",
+        ]}
+      >
+        {item === defaultLocale ? "EN" : "PT"}
+      </a>
+    ))
+  }
+</nav>

@@ -10,10 +10,12 @@ import {
 import { UptimeBar } from "@web/components/uptime-bar";
 import { serverStore } from "@web/stats/server/store";
 import { formatStreak } from "@web/stats/server/utils";
+import { getMessages, type Locale } from "@web/i18n";
 
 const PRIMARY_COLOR = "#8edec9";
 
-export function ServerPanel() {
+export function ServerPanel(props: { locale: Locale }) {
+  const t = getMessages(props.locale);
   const latest = createMemo(() => serverStore.latest());
   const streak = createMemo(() => latest()?.currentStreakSeconds ?? 0);
   const uptimePct = createMemo(() => latest()?.uptimePercent30d ?? 0);
@@ -23,14 +25,14 @@ export function ServerPanel() {
     const days = dailyUptime();
     const percent = `${uptimePct().toFixed(1)}%`;
     const startDate = days[0]?.date;
-    if (!startDate) return `${percent} uptime`;
-    return `${percent} since ${startDate}`;
+    if (!startDate) return t.telemetry.uptimeOnly(percent);
+    return t.telemetry.uptimeSince(percent, startDate);
   });
   const uptimeWindow = createMemo(() => {
     const days = dailyUptime();
     const startDate = days[0]?.date;
-    if (!startDate) return "No data";
-    const label = days.length === 1 ? "day" : "days";
+    if (!startDate) return t.telemetry.noData;
+    const label = days.length === 1 ? t.telemetry.day : t.telemetry.days;
     return `${startDate} (${days.length} ${label})`;
   });
 
@@ -38,7 +40,7 @@ export function ServerPanel() {
     <>
       <PanelTrigger tag="uptime" current={formatStreak(streak())} />
       <PanelContent>
-        <PanelHeader title="Uptime" />
+        <PanelHeader locale={props.locale} title={t.telemetry.uptime} />
         <PanelSubtitle>
           <span>{uptimeSummary()}</span>
         </PanelSubtitle>
@@ -47,9 +49,9 @@ export function ServerPanel() {
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "Uptime", value: `${uptimePct().toFixed(1)}%` },
-            { label: "Window", value: uptimeWindow() },
-            { label: "Version", value: version() },
+            { label: t.telemetry.uptime, value: `${uptimePct().toFixed(1)}%` },
+            { label: t.telemetry.window, value: uptimeWindow() },
+            { label: t.telemetry.version, value: version() },
           ]}
         />
       </PanelContent>
