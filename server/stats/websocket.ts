@@ -13,7 +13,7 @@ type PersistedData = {
 };
 
 function getPersistPath() {
-  return getDataPath("websocket-stats.json");
+  return getDataPath("websocket-stats-v2.json");
 }
 
 let activeViewers = 0;
