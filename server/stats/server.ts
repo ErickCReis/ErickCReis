@@ -10,6 +10,8 @@ const DAYS_IN_WINDOW = 30;
 const MS_PER_DAY = 86_400_000;
 const STATUS_UP = 2;
 const UP_LOG_TYPES = new Set([2, 98]);
+const INTERRUPTION_LOG_TYPES = new Set([1, 99]);
+const STREAK_LOG_LIMIT = 50;
 
 type UptimeRobotLog = {
   type?: number;
@@ -98,6 +100,8 @@ function buildRequestBody(nowMs: number) {
       .map((range) => `${range.startUnix}_${range.endUnix}`)
       .join("-"),
     logs: "1",
+    log_types: "1-2-98-99",
+    logs_limit: `${STREAK_LOG_LIMIT}`,
   });
 
   const monitorId = getMonitorId();
@@ -160,13 +164,26 @@ function getOverallUptime(dailyUptime: UptimeDaySummary[], monitor: UptimeRobotM
 function getCurrentStreakSeconds(nowMs: number, monitor: UptimeRobotMonitor) {
   if (monitor.status !== STATUS_UP) return 0;
 
-  const startedAt = (monitor.logs ?? [])
+  const logs = (monitor.logs ?? []).filter((entry) => Number.isFinite(entry.datetime));
+  const createdAt = Number.isFinite(monitor.create_datetime)
+    ? Number(monitor.create_datetime)
+    : null;
+
+  const lastRecoveryAt = logs
     .filter((entry) => UP_LOG_TYPES.has(entry.type ?? -1))
     .map((entry) => entry.datetime)
     .filter((value): value is number => Number.isFinite(value))
     .sort((left, right) => right - left)[0];
 
+  const lastInterruptionAt = logs
+    .filter((entry) => INTERRUPTION_LOG_TYPES.has(entry.type ?? -1))
+    .map((entry) => entry.datetime)
+    .filter((value): value is number => Number.isFinite(value))
+    .sort((left, right) => right - left)[0];
+
+  const startedAt = Math.max(createdAt ?? 0, lastRecoveryAt ?? createdAt ?? 0);
   if (!startedAt) return 0;
+  if (lastInterruptionAt && lastInterruptionAt > startedAt && !lastRecoveryAt) return 0;
   return Math.max(0, Math.floor(nowMs / 1000 - startedAt));
 }
 
