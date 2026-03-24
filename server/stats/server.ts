@@ -19,6 +19,7 @@ type UptimeRobotLog = {
 type UptimeRobotMonitor = {
   id?: number;
   status?: number;
+  create_datetime?: number;
   custom_uptime_ranges?: string;
   custom_uptime_ratio?: string;
   custom_uptime_ratios?: string;
@@ -135,20 +136,25 @@ async function fetchMonitor(nowMs: number) {
 function buildDailyUptime(nowMs: number, monitor: UptimeRobotMonitor): UptimeDaySummary[] {
   const ranges = getDailyRanges(nowMs);
   const percents = parsePercentList(monitor.custom_uptime_ranges);
+  const createdAtMs = Number.isFinite(monitor.create_datetime)
+    ? Number(monitor.create_datetime) * 1000
+    : null;
 
   return ranges.map((range, index) => ({
     date: range.date,
-    uptimePercent: percents[index] ?? 0,
+    uptimePercent:
+      createdAtMs !== null && range.endUnix * 1000 <= createdAtMs ? null : (percents[index] ?? 0),
   }));
 }
 
 function getOverallUptime(dailyUptime: UptimeDaySummary[], monitor: UptimeRobotMonitor) {
   const ratio = parsePercentList(monitor.custom_uptime_ratio ?? monitor.custom_uptime_ratios)[0];
   if (ratio !== undefined) return ratio;
-  if (dailyUptime.length === 0) return 0;
+  const availableDays = dailyUptime.filter((day) => day.uptimePercent !== null);
+  if (availableDays.length === 0) return 0;
 
-  const total = dailyUptime.reduce((sum, day) => sum + day.uptimePercent, 0);
-  return Number((total / dailyUptime.length).toFixed(2));
+  const total = availableDays.reduce((sum, day) => sum + (day.uptimePercent ?? 0), 0);
+  return Number((total / availableDays.length).toFixed(2));
 }
 
 function getCurrentStreakSeconds(nowMs: number, monitor: UptimeRobotMonitor) {

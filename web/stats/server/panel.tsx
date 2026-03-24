@@ -19,15 +19,16 @@ export function ServerPanel() {
   const uptimePct = createMemo(() => latest()?.uptimePercent30d ?? 0);
   const version = createMemo(() => latest()?.appVersion ?? "v0.0.0");
   const dailyUptime = createMemo(() => latest()?.dailyUptime ?? []);
+  const daysWithData = createMemo(() => dailyUptime().filter((day) => day.uptimePercent !== null));
   const uptimeSummary = createMemo(() => {
-    const days = dailyUptime();
+    const days = daysWithData();
     const percent = `${uptimePct().toFixed(1)}%`;
     const startDate = days[0]?.date;
     if (!startDate) return `${percent} uptime`;
     return `${percent} since ${startDate}`;
   });
   const uptimeWindow = createMemo(() => {
-    const days = dailyUptime();
+    const days = daysWithData();
     const startDate = days[0]?.date;
     if (!startDate) return "No data";
     const label = days.length === 1 ? "day" : "days";
