@@ -1,219 +1,234 @@
-import { Database } from "bun:sqlite";
 import { version } from "../../package.json";
 import type { ServerInfoStat, UptimeDaySummary } from "@shared/stats/server";
 import type { StatModule } from "@server/stats/types";
-import { getDataPath } from "@server/data-dir";
 
-const HEARTBEAT_INTERVAL_MS = 5_000;
-const RECOMPUTE_INTERVAL_MS = 30_000;
-const SECONDS_PER_DAY = 86_400;
-const HEARTBEAT_PERIOD_S = 5;
-const GAP_TOLERANCE_S = 10;
-const RETENTION_DAYS = 31;
+const UPTIMEROBOT_ENDPOINT = "https://api.uptimerobot.com/v2/getMonitors";
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
+const RETRY_INTERVAL_MS = 60 * 1000;
 const MAX_HISTORY = 10;
-// First calendar day when uptime monitoring is considered valid.
-const UPTIME_MONITORING_START_DATE = new Date(2026, 2, 3);
+const DAYS_IN_WINDOW = 30;
+const MS_PER_DAY = 86_400_000;
+const STATUS_UP = 2;
+const UP_LOG_TYPES = new Set([1, 98]);
 
-type ComputedUptimeDay = UptimeDaySummary & {
-  actualBuckets: number;
-  expectedBuckets: number;
+type UptimeRobotLog = {
+  type?: number;
+  datetime?: number;
 };
 
-function formatDate(date: Date) {
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, "0");
-  const d = `${date.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${d}`;
+type UptimeRobotMonitor = {
+  id?: number;
+  status?: number;
+  custom_uptime_ranges?: string;
+  custom_uptime_ratio?: string;
+  custom_uptime_ratios?: string;
+  logs?: UptimeRobotLog[];
+};
+
+type UptimeRobotResponse = {
+  stat?: string;
+  error?: { message?: string };
+  monitors?: UptimeRobotMonitor[];
+};
+
+function getApiKey() {
+  return Bun.env.UPTIMEROBOT_API_KEY?.trim() || null;
 }
 
-function dayStartUnix(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return Math.floor(d.getTime() / 1000);
+function getMonitorId() {
+  const raw = Bun.env.UPTIMEROBOT_MONITOR_ID?.trim();
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-let db: Database | null = null;
-let insertStmt: ReturnType<Database["prepare"]> | null = null;
-let countBucketRangeStmt: ReturnType<Database["prepare"]> | null = null;
-let firstHeartbeatStmt: ReturnType<Database["prepare"]> | null = null;
-
-function initDb() {
-  db = new Database(getDataPath("uptime.db"));
-  db.run("PRAGMA journal_mode=WAL");
-  db.run("CREATE TABLE IF NOT EXISTS heartbeats (ts INTEGER PRIMARY KEY)");
-
-  insertStmt = db.prepare("INSERT OR IGNORE INTO heartbeats (ts) VALUES (?)");
-  countBucketRangeStmt = db.prepare(
-    `SELECT COUNT(DISTINCT CAST(ts / ${HEARTBEAT_PERIOD_S} AS INTEGER)) as cnt
-     FROM heartbeats
-     WHERE ts >= ? AND ts < ?`,
-  );
-  firstHeartbeatStmt = db.prepare("SELECT MIN(ts) as ts FROM heartbeats");
-}
-
-function recordHeartbeat() {
-  const ts = Math.floor(Date.now() / 1000);
-  insertStmt?.run(ts);
-}
-
-function alignRangeStartToBucket(startUnix: number): number {
-  return Math.ceil(startUnix / HEARTBEAT_PERIOD_S) * HEARTBEAT_PERIOD_S;
-}
-
-function alignRangeEndToBucket(endUnix: number): number {
-  return Math.floor(endUnix / HEARTBEAT_PERIOD_S) * HEARTBEAT_PERIOD_S;
-}
-
-function countBucketsInRange(startUnix: number, endUnix: number): number {
-  const row = countBucketRangeStmt?.get(startUnix, endUnix) as { cnt: number } | undefined;
-  return row?.cnt ?? 0;
-}
-
-function getFirstHeartbeatUnix(): number | null {
-  const row = firstHeartbeatStmt?.get() as { ts: number | null } | undefined;
-  return row?.ts ?? null;
-}
-
-function computeDailyUptime(): ComputedUptimeDay[] {
-  const now = new Date();
-  const nowUnix = Math.floor(now.getTime() / 1000);
-  const configuredStartUnix = dayStartUnix(UPTIME_MONITORING_START_DATE);
-  const firstHeartbeatUnix = getFirstHeartbeatUnix();
-  const uptimeStartUnix = Math.max(configuredStartUnix, firstHeartbeatUnix ?? nowUnix);
-  const days: ComputedUptimeDay[] = [];
-
-  for (let offset = 29; offset >= 0; offset--) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - offset);
-    const dateStr = formatDate(date);
-    const start = dayStartUnix(date);
-    const end = offset === 0 ? nowUnix : start + SECONDS_PER_DAY;
-    if (end <= uptimeStartUnix) continue;
-    const sampleStart = Math.max(start, uptimeStartUnix);
-
-    const alignedStart = alignRangeStartToBucket(sampleStart);
-    const alignedEnd = alignRangeEndToBucket(end);
-    const elapsed = alignedEnd - alignedStart;
-    if (elapsed <= 0) continue;
-
-    const actualBuckets = countBucketsInRange(alignedStart, alignedEnd);
-    const expectedBuckets = elapsed / HEARTBEAT_PERIOD_S;
-    const pct = Math.min(100, Number(((actualBuckets / expectedBuckets) * 100).toFixed(2)));
-
-    days.push({ date: dateStr, uptimePercent: pct, actualBuckets, expectedBuckets });
-  }
-
-  return days;
-}
-
-function computeOverallUptime30d(daily: ComputedUptimeDay[]): number {
-  if (daily.length === 0) return 0;
-  const actualBuckets = daily.reduce((acc, d) => acc + d.actualBuckets, 0);
-  const expectedBuckets = daily.reduce((acc, d) => acc + d.expectedBuckets, 0);
-  if (expectedBuckets <= 0) return 0;
-  return Number(((actualBuckets / expectedBuckets) * 100).toFixed(2));
-}
-
-function scheduleNextHeartbeat() {
-  const now = Date.now();
-  const delay = HEARTBEAT_INTERVAL_MS - (now % HEARTBEAT_INTERVAL_MS) || HEARTBEAT_INTERVAL_MS;
-
-  setTimeout(() => {
-    recordHeartbeat();
-    scheduleNextHeartbeat();
-  }, delay);
-}
-
-function computeCurrentStreak(): number {
-  if (!db) return 0;
-
-  const nowUnix = Math.floor(Date.now() / 1000);
-  const lookback = nowUnix - RETENTION_DAYS * SECONDS_PER_DAY;
-
-  const rows = db
-    .prepare("SELECT ts FROM heartbeats WHERE ts >= ? ORDER BY ts DESC")
-    .all(lookback) as { ts: number }[];
-
-  if (rows.length === 0) return 0;
-
-  let streakEnd = nowUnix;
-  let streakStart = rows[0].ts;
-
-  if (nowUnix - rows[0].ts > GAP_TOLERANCE_S) return 0;
-
-  for (let i = 1; i < rows.length; i++) {
-    const gap = rows[i - 1].ts - rows[i].ts;
-    if (gap > GAP_TOLERANCE_S) break;
-    streakStart = rows[i].ts;
-  }
-
-  return streakEnd - streakStart;
-}
-
-function buildSnapshot(): ServerInfoStat {
-  const daily = computeDailyUptime();
+function createEmptyStat(now = Date.now()): ServerInfoStat {
   return {
-    timestamp: Date.now(),
+    timestamp: now,
     appVersion: version,
-    currentStreakSeconds: computeCurrentStreak(),
-    uptimePercent30d: computeOverallUptime30d(daily),
-    dailyUptime: daily.map(({ date, uptimePercent }) => ({ date, uptimePercent })),
+    currentStreakSeconds: 0,
+    uptimePercent30d: 0,
+    dailyUptime: [],
   };
 }
 
-let latest: ServerInfoStat = {
-  timestamp: Date.now(),
-  appVersion: version,
-  currentStreakSeconds: 0,
-  uptimePercent30d: 0,
-  dailyUptime: [],
-};
+function formatUtcDate(ms: number) {
+  const date = new Date(ms);
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getUtcDayStartMs(ms: number) {
+  const date = new Date(ms);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+function getDailyRanges(nowMs: number) {
+  return Array.from({ length: DAYS_IN_WINDOW }, (_, index) => {
+    const daysAgo = DAYS_IN_WINDOW - index - 1;
+    const startMs = getUtcDayStartMs(nowMs - daysAgo * MS_PER_DAY);
+    const endMs = index === DAYS_IN_WINDOW - 1 ? nowMs : startMs + MS_PER_DAY;
+
+    return {
+      date: formatUtcDate(startMs),
+      startUnix: Math.floor(startMs / 1000),
+      endUnix: Math.floor(endMs / 1000),
+    };
+  });
+}
+
+function parsePercentList(value: string | null | undefined) {
+  if (!value) return [];
+  return value
+    .split("-")
+    .map((part) => Number.parseFloat(part))
+    .filter((part) => Number.isFinite(part))
+    .map((part) => Math.min(100, Math.max(0, Number(part.toFixed(2)))));
+}
+
+function buildRequestBody(nowMs: number) {
+  const body = new URLSearchParams({
+    api_key: getApiKey() ?? "",
+    format: "json",
+    custom_uptime_ratios: `${DAYS_IN_WINDOW}`,
+    custom_uptime_ranges: getDailyRanges(nowMs)
+      .map((range) => `${range.startUnix}_${range.endUnix}`)
+      .join("-"),
+    logs: "1",
+  });
+
+  const monitorId = getMonitorId();
+  if (monitorId !== null) body.set("monitors", `${monitorId}`);
+
+  return body;
+}
+
+function pickMonitor(monitors: UptimeRobotMonitor[]) {
+  const monitorId = getMonitorId();
+  if (monitorId === null) return monitors[0] ?? null;
+  return monitors.find((monitor) => monitor.id === monitorId) ?? null;
+}
+
+async function fetchMonitor(nowMs: number) {
+  const response = await fetch(UPTIMEROBOT_ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: buildRequestBody(nowMs),
+  });
+
+  if (!response.ok) {
+    throw new Error(`UptimeRobot request failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as UptimeRobotResponse;
+  if (payload.stat !== "ok") {
+    throw new Error(payload.error?.message?.trim() || "UptimeRobot API error");
+  }
+
+  const monitor = pickMonitor(payload.monitors ?? []);
+  if (!monitor) throw new Error("No UptimeRobot monitor was returned");
+  return monitor;
+}
+
+function buildDailyUptime(nowMs: number, monitor: UptimeRobotMonitor): UptimeDaySummary[] {
+  const ranges = getDailyRanges(nowMs);
+  const percents = parsePercentList(monitor.custom_uptime_ranges);
+
+  return ranges.map((range, index) => ({
+    date: range.date,
+    uptimePercent: percents[index] ?? 0,
+  }));
+}
+
+function getOverallUptime(dailyUptime: UptimeDaySummary[], monitor: UptimeRobotMonitor) {
+  const ratio = parsePercentList(monitor.custom_uptime_ratio ?? monitor.custom_uptime_ratios)[0];
+  if (ratio !== undefined) return ratio;
+  if (dailyUptime.length === 0) return 0;
+
+  const total = dailyUptime.reduce((sum, day) => sum + day.uptimePercent, 0);
+  return Number((total / dailyUptime.length).toFixed(2));
+}
+
+function getCurrentStreakSeconds(nowMs: number, monitor: UptimeRobotMonitor) {
+  if (monitor.status !== STATUS_UP) return 0;
+
+  const startedAt = (monitor.logs ?? [])
+    .filter((entry) => UP_LOG_TYPES.has(entry.type ?? -1))
+    .map((entry) => entry.datetime)
+    .filter((value): value is number => Number.isFinite(value))
+    .sort((left, right) => right - left)[0];
+
+  if (!startedAt) return 0;
+  return Math.max(0, Math.floor(nowMs / 1000 - startedAt));
+}
+
+function buildSnapshot(nowMs: number, monitor: UptimeRobotMonitor): ServerInfoStat {
+  const dailyUptime = buildDailyUptime(nowMs, monitor);
+
+  return {
+    timestamp: nowMs,
+    appVersion: version,
+    currentStreakSeconds: getCurrentStreakSeconds(nowMs, monitor),
+    uptimePercent30d: getOverallUptime(dailyUptime, monitor),
+    dailyUptime,
+  };
+}
+
+let latest: ServerInfoStat = createEmptyStat();
 let history: ServerInfoStat[] = [];
 let statVersion = 0;
 let started = false;
 
-function performRetentionPurge() {
-  if (!db) return;
-  try {
-    const cutoff = Math.floor(Date.now() / 1000) - RETENTION_DAYS * SECONDS_PER_DAY;
-    db.run("DELETE FROM heartbeats WHERE ts < ?", [cutoff]);
-  } catch (error) {
-    console.error("[server] Retention purge failed", error);
-  }
+function pushSnapshot(snapshot: ServerInfoStat) {
+  latest = snapshot;
+  history.push(snapshot);
+  if (history.length > MAX_HISTORY) history.shift();
+  statVersion++;
 }
 
-const RETENTION_PURGE_INTERVAL_MS = 3_600_000;
+async function refreshServerStats() {
+  const nowMs = Date.now();
+
+  if (!getApiKey()) {
+    pushSnapshot(createEmptyStat(nowMs));
+    return POLL_INTERVAL_MS;
+  }
+
+  try {
+    const monitor = await fetchMonitor(nowMs);
+    pushSnapshot(buildSnapshot(nowMs, monitor));
+    return POLL_INTERVAL_MS;
+  } catch (error) {
+    console.error("[server] Failed to refresh uptime stats", error);
+    pushSnapshot(createEmptyStat(nowMs));
+    return RETRY_INTERVAL_MS;
+  }
+}
 
 export const serverInfoStat: StatModule<ServerInfoStat> = {
   start() {
     if (started) return;
     started = true;
 
-    initDb();
-    performRetentionPurge();
-    recordHeartbeat();
-    latest = buildSnapshot();
-    history.push(latest);
-    statVersion++;
+    const tick = async () => {
+      if (!started) return;
+      const nextDelay = await refreshServerStats();
+      if (!started) return;
+      setTimeout(() => void tick(), nextDelay);
+    };
 
-    scheduleNextHeartbeat();
-    setInterval(performRetentionPurge, RETENTION_PURGE_INTERVAL_MS);
-
-    setInterval(() => {
-      latest = buildSnapshot();
-      history.push(latest);
-      if (history.length > MAX_HISTORY) history.shift();
-      statVersion++;
-    }, RECOMPUTE_INTERVAL_MS);
+    void tick();
   },
   getLatest: () => ({
     ...latest,
-    dailyUptime: latest.dailyUptime.map((d) => ({ ...d })),
+    dailyUptime: latest.dailyUptime.map((day) => ({ ...day })),
   }),
   getHistory: () =>
-    history.map((s) => ({
-      ...s,
-      dailyUptime: s.dailyUptime.map((d) => ({ ...d })),
+    history.map((snapshot) => ({
+      ...snapshot,
+      dailyUptime: snapshot.dailyUptime.map((day) => ({ ...day })),
     })),
   getVersion: () => statVersion,
 };
