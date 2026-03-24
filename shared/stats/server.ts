@@ -6,7 +6,7 @@ const percentNumber = v.pipe(v.number(), v.minValue(0), v.maxValue(100));
 
 export const uptimeDaySummarySchema = v.object({
   date: v.string(),
-  uptimePercent: percentNumber,
+  uptimePercent: v.nullable(percentNumber),
 });
 export type UptimeDaySummary = v.InferOutput<typeof uptimeDaySummarySchema>;
 

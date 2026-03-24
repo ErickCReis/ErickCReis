@@ -1,21 +1,23 @@
 import { createSignal, For } from "solid-js";
 
 type UptimeBarProps = {
-  days: { date: string; uptimePercent: number }[];
+  days: { date: string; uptimePercent: number | null }[];
 };
 
 const COLOR_GREEN = "#34d399";
 const COLOR_YELLOW = "#fbbf24";
 const COLOR_RED = "#f87171";
+const COLOR_GRAY = "rgba(148, 163, 184, 0.28)";
 
-function getBarColor(pct: number) {
+function getBarColor(pct: number | null) {
+  if (pct === null) return COLOR_GRAY;
   if (pct >= 99.5) return COLOR_GREEN;
   if (pct >= 95) return COLOR_YELLOW;
   return COLOR_RED;
 }
 
 export function UptimeBar(props: UptimeBarProps) {
-  const [tooltip, setTooltip] = createSignal<{ date: string; pct: number } | null>(null);
+  const [tooltip, setTooltip] = createSignal<{ date: string; pct: number | null } | null>(null);
 
   return (
     <div class="relative">
@@ -30,7 +32,11 @@ export function UptimeBar(props: UptimeBarProps) {
               }}
               tabIndex={0}
               role="img"
-              aria-label={`${day.date}: ${day.uptimePercent.toFixed(1)}% uptime`}
+              aria-label={
+                day.uptimePercent === null
+                  ? `${day.date}: no uptime data`
+                  : `${day.date}: ${day.uptimePercent.toFixed(1)}% uptime`
+              }
               onMouseEnter={() => setTooltip({ date: day.date, pct: day.uptimePercent })}
               onMouseLeave={() => setTooltip(null)}
               onFocus={() => setTooltip({ date: day.date, pct: day.uptimePercent })}
@@ -47,11 +53,17 @@ export function UptimeBar(props: UptimeBarProps) {
           )}
         </For>
       </div>
-      {tooltip() && (
-        <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
-          {tooltip()!.date} — {tooltip()!.pct.toFixed(1)}%
-        </div>
-      )}
+      {(() => {
+        const activeTooltip = tooltip();
+        if (!activeTooltip) return null;
+
+        return (
+          <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
+            {activeTooltip.date}{" "}
+            {activeTooltip.pct === null ? "— No data" : `— ${activeTooltip.pct.toFixed(1)}%`}
+          </div>
+        );
+      })()}
     </div>
   );
 }
