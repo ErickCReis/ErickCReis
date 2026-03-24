@@ -9,7 +9,7 @@ const MAX_HISTORY = 10;
 const DAYS_IN_WINDOW = 30;
 const MS_PER_DAY = 86_400_000;
 const STATUS_UP = 2;
-const UP_LOG_TYPES = new Set([1, 98]);
+const UP_LOG_TYPES = new Set([2, 98]);
 
 type UptimeRobotLog = {
   type?: number;

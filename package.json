@@ -19,6 +19,7 @@
     "@elysiajs/static": "^1.4.7",
     "@solid-primitives/mouse": "^2.1.6",
     "@solid-primitives/scheduled": "^1.5.3",
+    "@solid-primitives/timer": "^1.4.4",
     "@solid-primitives/tween": "^1.4.1",
     "astro": "6.0.7",
     "clsx": "^2.1.1",

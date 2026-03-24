@@ -1,4 +1,5 @@
 import { createMemo } from "solid-js";
+import { createPolled } from "@solid-primitives/timer";
 import {
   PanelTrigger,
   PanelContent,
@@ -15,11 +16,22 @@ const PRIMARY_COLOR = "#8edec9";
 
 export function ServerPanel() {
   const latest = createMemo(() => serverStore.latest());
-  const streak = createMemo(() => latest()?.currentStreakSeconds ?? 0);
+  const now = createPolled(
+    () => Date.now(),
+    () => (latest()?.currentStreakSeconds ? 1000 : false),
+    Date.now(),
+  );
   const uptimePct = createMemo(() => latest()?.uptimePercent30d ?? 0);
   const version = createMemo(() => latest()?.appVersion ?? "v0.0.0");
   const dailyUptime = createMemo(() => latest()?.dailyUptime ?? []);
   const daysWithData = createMemo(() => dailyUptime().filter((day) => day.uptimePercent !== null));
+  const liveStreak = createMemo(() => {
+    const snapshot = latest();
+    if (!snapshot || snapshot.currentStreakSeconds <= 0) return 0;
+    return (
+      snapshot.currentStreakSeconds + Math.max(0, Math.floor((now() - snapshot.timestamp) / 1000))
+    );
+  });
   const uptimeSummary = createMemo(() => {
     const days = daysWithData();
     const percent = `${uptimePct().toFixed(1)}%`;
@@ -37,7 +49,7 @@ export function ServerPanel() {
 
   return (
     <>
-      <PanelTrigger tag="uptime" current={formatStreak(streak())} />
+      <PanelTrigger tag="uptime" current={formatStreak(liveStreak())} />
       <PanelContent>
         <PanelHeader title="Uptime" />
         <PanelSubtitle>
