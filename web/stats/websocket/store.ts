@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import type { WebSocketStat } from "@shared/stats/websocket";
 
-const MAX_POINTS = 720;
+const MAX_POINTS = 84;
 
 const [latest, setLatest] = createSignal<WebSocketStat | null>(null);
 const [history, setHistory] = createSignal<WebSocketStat[]>([]);

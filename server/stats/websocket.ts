@@ -3,7 +3,7 @@ import type { StatModule } from "@server/stats/types";
 import { getDataPath } from "@server/data-dir";
 
 const SAMPLE_INTERVAL_MS = 5_000;
-const MAX_HISTORY = 720;
+const MAX_HISTORY = 84;
 const HOUR_MS = 3_600_000;
 const PERSIST_INTERVAL_MS = 30_000;
 
