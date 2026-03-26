@@ -1,25 +1,27 @@
 export function formatLastCommit(dateString: string | null): string {
   if (!dateString) return "No commits";
-  const now = new Date();
-  const commitDate = new Date(dateString + "T12:00:00");
-  const todayStr = formatDateISO(now);
-  const yesterdayDate = new Date(now);
-  yesterdayDate.setDate(now.getDate() - 1);
-  const yesterdayStr = formatDateISO(yesterdayDate);
+  const today = startOfLocalDay(new Date());
+  const commitDate = parseISODateAtLocalMidnight(dateString);
+  if (!commitDate) return "Recent";
 
-  if (dateString === todayStr) return "Today";
-  if (dateString === yesterdayStr) return "Yesterday";
-
-  const diffMs = now.getTime() - commitDate.getTime();
+  const diffMs = today.getTime() - commitDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
   return `${diffDays}d ago`;
 }
 
-function formatDateISO(date: Date) {
-  const y = date.getFullYear();
-  const m = `${date.getMonth() + 1}`.padStart(2, "0");
-  const d = `${date.getDate()}`.padStart(2, "0");
-  return `${y}-${m}-${d}`;
+function startOfLocalDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function parseISODateAtLocalMidnight(dateString: string) {
+  const [year, month, day] = dateString.split("-").map((part) => Number.parseInt(part, 10));
+  if (![year, month, day].every(Number.isFinite)) return null;
+  return new Date(year, month - 1, day);
 }
 
 export function formatDayRange(labels: string[]) {
