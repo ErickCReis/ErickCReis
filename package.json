@@ -7,7 +7,7 @@
     "dev:astro": "bun --bun astro dev --host",
     "dev:api": "bun --watch server/index.ts",
     "codex:sync": "bun scripts/codex-sync.ts",
-    "lint": "oxlint --fix --type-aware && oxfmt && tsc --noEmit && astro check",
+    "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
     "build": "bun --bun astro build && bun build ./server/index.ts --compile --outfile myserver",
     "start": "NODE_ENV=production bun server/index.ts"
   },
@@ -33,6 +33,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.2",
     "@types/bun": "^1.3.11",
+    "@typescript/native-preview": "7.0.0-dev.20260320.1",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.56.0",
     "oxlint-tsgolint": "^0.17.1",
