@@ -10,10 +10,10 @@ export async function fetchStatsHistory() {
   const { data, error } = await statsClient.stats.history.get();
   if (error || !data) throw new Error("Failed to fetch stats history");
 
-  systemStore.loadHistory(data.system);
-  serverStore.loadHistory(data.server);
-  websocketStore.loadHistory(data.websocket);
-  spotifyStore.loadHistory(data.spotify);
-  githubStore.loadHistory(data.github);
-  codexStore.loadHistory(data.codex);
+  systemStore.loadHistory(data.system.history, data.system.latest);
+  serverStore.loadHistory(data.server.history, data.server.latest);
+  websocketStore.loadHistory(data.websocket.history, data.websocket.latest);
+  spotifyStore.loadHistory(data.spotify.history, data.spotify.latest);
+  githubStore.loadHistory(data.github.history, data.github.latest);
+  codexStore.loadHistory(data.codex.history, data.codex.latest);
 }
