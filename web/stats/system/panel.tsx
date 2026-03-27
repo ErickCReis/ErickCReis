@@ -11,11 +11,13 @@ import { DualSparkline } from "@web/components/dual-sparkline";
 import { systemStore } from "@web/stats/system/store";
 import { formatPercent } from "@web/stats/system/utils";
 import { createPanelPoints } from "@web/stats/utils";
+import { getMessages, type Locale } from "@web/i18n";
 
 const PRIMARY_COLOR = "#f1c18b";
 const SECONDARY_COLOR = "#9ccfd2";
 
-export function SystemPanel() {
+export function SystemPanel(props: { locale: Locale }) {
+  const t = getMessages(props.locale);
   const cpuSeries = createMemo(() => systemStore.history().map((s) => s.cpuUsagePercent));
   const memorySeries = createMemo(() =>
     systemStore.history().map((s) => s.systemMemoryUsedPercent),
@@ -38,11 +40,11 @@ export function SystemPanel() {
     <>
       <PanelTrigger tag="cpu" current={formatPercent(latestCpu())} />
       <PanelContent>
-        <PanelHeader title="System" />
+        <PanelHeader locale={props.locale} title={t.telemetry.system} />
         <PanelSubtitle>
           <div class="flex justify-between">
-            <span>CPU {formatPercent(latestCpu())}</span>
-            <span>Mem {formatPercent(latestMemPercent())}</span>
+            <span>{t.telemetry.cpu(formatPercent(latestCpu()))}</span>
+            <span>{t.telemetry.mem(formatPercent(latestMemPercent()))}</span>
           </div>
         </PanelSubtitle>
         <PanelChart>
@@ -59,7 +61,7 @@ export function SystemPanel() {
           details={[
             { label: "vCPUs", value: `${cpuCount()}` },
             { label: "RAM", value: totalMemGb() },
-            { label: "Battery", value: battery() },
+            { label: t.telemetry.battery, value: battery() },
           ]}
         />
       </PanelContent>

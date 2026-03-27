@@ -1,0 +1,23 @@
+---
+import ContentIndexPage from "@web/page-templates/content-index-page.astro";
+import { defaultLocale, isLocale, locales, type Locale } from "@web/i18n";
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({
+    params: {
+      locale: locale === defaultLocale ? undefined : locale,
+    },
+    props: {
+      locale,
+    },
+  }));
+}
+
+const { locale } = Astro.props as { locale: Locale };
+
+if (!isLocale(locale)) {
+  throw new Error(`Unsupported locale: ${String(locale)}`);
+}
+---
+
+<ContentIndexPage locale={locale} />

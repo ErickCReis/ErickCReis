@@ -1,36 +1,32 @@
 ---
-import { getCollection, render } from "astro:content";
+import { render, type CollectionEntry } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
-import BaseLayout from "../../layouts/base-layout.astro";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
+import BaseLayout from "@web/layouts/base-layout.astro";
+import { getDateLocale, getLocalizedPath, getMessages, type Locale } from "@web/i18n";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
+interface Props {
+  locale: Locale;
+  post: CollectionEntry<"blog">;
+  slug: string;
+}
+
+const { locale, post, slug } = Astro.props;
+const t = getMessages(locale);
+const dateFormatter = new Intl.DateTimeFormat(getDateLocale(locale), {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
   year: "numeric",
 });
-
-export async function getStaticPaths() {
-  const posts = await getCollection("blog");
-
-  return posts.map((post) => ({
-    params: {
-      slug: post.id,
-    },
-    props: {
-      post,
-    },
-  }));
-}
-
-const { post } = Astro.props;
 const { Content } = await render(post);
 ---
 
 <BaseLayout
   title={`${post.data.title} | Erick Reis`}
   description={post.data.description}
+  lang={locale}
 >
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
@@ -38,16 +34,19 @@ const { Content } = await render(post);
   >
     <article class="space-y-8 py-4">
       <header class="space-y-5">
-        <a
-          href="/content"
-          class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
-        >
-          <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
-          <span>All posts</span>
-        </a>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <a
+            href={getLocalizedPath(locale, "content")}
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
+          >
+            <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
+            <span>{t.content.allPosts}</span>
+          </a>
+          <LocaleSwitcher locale={locale} path="content" />
+        </div>
 
         <section
-          id={`post-header-${post.id}`}
+          id={`post-header-${locale}-${slug}`}
           class="space-y-4"
           transition:name={`post-header-${post.id}`}
         >

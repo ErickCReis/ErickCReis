@@ -8,13 +8,15 @@ import {
   PanelFooter,
 } from "@web/components/stat-panel";
 import { Sparkline } from "@web/components/sparkline";
+import { getMessages, type Locale } from "@web/i18n";
 import { websocketStore } from "@web/stats/websocket/store";
 import { formatConnectionTime } from "@web/stats/websocket/utils";
 import { createPanelPoints, formatCount } from "@web/stats/utils";
 
 const PRIMARY_COLOR = "#9ccfd2";
 
-export function WebSocketPanel() {
+export function WebSocketPanel(props: { locale: Locale }) {
+  const t = getMessages(props.locale);
   const connSeries = createMemo(() => websocketStore.history().map((s) => s.connectedUsers));
   const latestUsers = createMemo(() => websocketStore.latest()?.connectedUsers ?? 0);
   const peakUsers = createMemo(() => websocketStore.latest()?.maxConcurrentUsers ?? 0);
@@ -36,20 +38,20 @@ export function WebSocketPanel() {
     <>
       <PanelTrigger
         tag="live"
-        current={`${formatCount(latestUsers())} user${latestUsers() !== 1 ? "s" : ""}`}
+        current={t.telemetry.userCount(formatCount(latestUsers()), latestUsers())}
       />
       <PanelContent>
-        <PanelHeader title="WebSocket" />
+        <PanelHeader locale={props.locale} title={t.telemetry.websocket} />
         <PanelSubtitle>
-          <span>{formatCount(latestUsers())} connected now</span>
+          <span>{t.telemetry.connectedNow(formatCount(latestUsers()))}</span>
         </PanelSubtitle>
         <PanelChart>
           <Sparkline points={createPanelPoints(connSeries())} color={PRIMARY_COLOR} />
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "Connected", value: formatConnectionTime(connectedMs()) },
-            { label: "Peak", value: `${formatCount(peakUsers())} users` },
+            { label: t.telemetry.connected, value: formatConnectionTime(connectedMs()) },
+            { label: t.telemetry.peak, value: t.telemetry.users(formatCount(peakUsers())) },
           ]}
         />
       </PanelContent>

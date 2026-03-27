@@ -9,6 +9,7 @@ import { ServerPanel } from "@web/stats/server/panel";
 import { WebSocketPanel } from "@web/stats/websocket/panel";
 import { GitHubPanel } from "@web/stats/github/panel";
 import { SpotifyPanel } from "@web/stats/spotify/panel";
+import { getMessages, type Locale } from "@web/i18n";
 
 type PanelMotionSeed = {
   pathIndex: number;
@@ -18,7 +19,11 @@ type PanelMotionSeed = {
   path: string;
 };
 
-const PANEL_CONFIGS: { id: string; primaryColor: string; component: Component }[] = [
+const PANEL_CONFIGS: {
+  id: string;
+  primaryColor: string;
+  component: Component<{ locale: Locale }>;
+}[] = [
   { id: CodexPanel.id, primaryColor: CodexPanel.primaryColor, component: CodexPanel },
   { id: SystemPanel.id, primaryColor: SystemPanel.primaryColor, component: SystemPanel },
   { id: ServerPanel.id, primaryColor: ServerPanel.primaryColor, component: ServerPanel },
@@ -120,9 +125,11 @@ function applyMotionStyle(element: HTMLElement, motionSeed: PanelMotionSeed) {
 }
 
 export function TelemetryBackdrop(props: {
+  locale: Locale;
   onStatsHoverChange?: (isHovering: boolean) => void;
   placement?: "viewport" | "hero";
 }) {
+  const t = getMessages(props.locale);
   const [viewportSize, setViewportSize] = createSignal({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -240,10 +247,10 @@ export function TelemetryBackdrop(props: {
           <button
             type="button"
             class="flex w-full items-center justify-between gap-2 font-mono text-[0.58rem] tracking-[0.12em] text-slate-300/75 uppercase transition-colors duration-200 hover:text-slate-100 focus:text-slate-100"
-            title="Toggle path debug"
+            title={t.telemetry.togglePathDebug}
             onClick={() => setIsPathDebugVisible((current) => !current)}
           >
-            <span>Debug</span>
+            <span>{t.telemetry.debug}</span>
             <span
               class={clsx(
                 "size-1.5 rounded-full border border-slate-200/35",
@@ -325,7 +332,7 @@ export function TelemetryBackdrop(props: {
                     aria-pressed={isPinned()}
                   >
                     <PanelRenderModeProvider mode="trigger">
-                      <StatPanel />
+                      <StatPanel locale={props.locale} />
                     </PanelRenderModeProvider>
                   </button>
                   <div
@@ -340,7 +347,7 @@ export function TelemetryBackdrop(props: {
                     onClick={(event) => event.stopPropagation()}
                   >
                     <PanelRenderModeProvider mode="content">
-                      <StatPanel />
+                      <StatPanel locale={props.locale} />
                     </PanelRenderModeProvider>
                   </div>
                 </PanelProvider>

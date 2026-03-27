@@ -1,53 +1,29 @@
 ---
 import HomeLiveOverlay from "@web/islands/home-live-overlay";
-import BaseLayout from "../layouts/base-layout.astro";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
+import BaseLayout from "@web/layouts/base-layout.astro";
+import { getLocalizedPath, getMessages, type Locale } from "@web/i18n";
 
-const featuredProjects = [
-  {
-    index: "01",
-    name: "glim-node",
-    label: "Toolkit / Backend",
-    summary: "Type-safe tooling for Node.js services.",
-    technologies: ["TypeScript", "Hono", "Node.js", "CLI"],
-    href: "https://github.com/ErickCReis/glim-node",
-  },
-  {
-    index: "02",
-    name: "local-box",
-    label: "Product / Infra",
-    summary: "Self-hosted file sharing and sync experiments.",
-    technologies: ["TypeScript", "React", "TanStack Start", "Convex"],
-    href: "https://github.com/ErickCReis/local-box",
-  },
-  {
-    index: "03",
-    name: "car-league",
-    label: "Game / Multiplayer",
-    summary: "A multiplayer game built around realtime interactions.",
-    technologies: ["TypeScript", "React", "Three.js", "Cloudflare"],
-    href: "https://github.com/ErickCReis/car-league",
-  },
-  {
-    index: "04",
-    name: "tabnews",
-    label: "Contributions",
-    summary:
-      "Open source issues and improvements across frontend, backend and tooling.",
-    technologies: ["Next.js", "React", "Node.js"],
-    href: "https://github.com/filipedeschamps/tabnews.com.br/issues?q=author%3AErickCReis",
-  },
-];
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = getMessages(locale);
+const featuredProjects = t.home.projects;
 ---
 
-<BaseLayout title="Erick Reis | Portfolio">
-  <HomeLiveOverlay client:only="solid-js" />
+<BaseLayout title={t.home.title} lang={locale}>
+  <HomeLiveOverlay client:only="solid-js" locale={locale} />
   <main class="relative z-10">
     <section
       class="relative mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 pt-16 pb-0 sm:px-8 sm:pt-20 md:min-h-dvh"
     >
-      <div
-        class="flex flex-1 items-start pt-6 sm:pt-10 md:items-center md:pt-0"
-      >
+      <div class="flex justify-end">
+        <LocaleSwitcher locale={locale} />
+      </div>
+
+      <div class="flex flex-1 items-start pt-6 sm:pt-10 md:items-center md:pt-0">
         <div class="max-w-3xl space-y-8">
           <div class="space-y-6">
             <h1
@@ -56,17 +32,16 @@ const featuredProjects = [
               Erick Reis
             </h1>
             <p class="max-w-xl text-base leading-8 text-muted-foreground">
-              TypeScript engineer building React and Next.js products,
-              microfrontends, and realtime applications.
+              {t.home.intro}
             </p>
           </div>
 
           <div class="flex flex-wrap gap-3">
             <a
-              href="/content"
+              href={getLocalizedPath(locale, "content")}
               class="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:brightness-110"
             >
-              Content
+              {t.home.contentCta}
             </a>
             <a
               href="https://github.com/erickcreis"
@@ -84,7 +59,7 @@ const featuredProjects = [
         <p
           class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-primary/70"
         >
-          <span>Featured projects</span>
+          <span>{t.home.featuredProjects}</span>
           <span aria-hidden="true" class="text-primary/85">↓</span>
         </p>
       </div>

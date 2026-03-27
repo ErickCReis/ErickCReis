@@ -14,10 +14,12 @@ import {
   formatTokenCount,
   formatGeneratedAt,
 } from "@web/stats/codex/utils";
+import { getMessages, type Locale } from "@web/i18n";
 
 const PRIMARY_COLOR = "#7fb0ff";
 
-export function CodexPanel() {
+export function CodexPanel(props: { locale: Locale }) {
+  const t = getMessages(props.locale);
   const latest = createMemo(() => codexStore.latest());
   const todayTokens = createMemo(() => latest()?.todayTokens ?? 0);
   const totalTokens30d = createMemo(() => latest()?.totalTokens30d ?? 0);
@@ -33,24 +35,24 @@ export function CodexPanel() {
   });
 
   const current = createMemo(() =>
-    latest() ? `${formatCompactTokenCount(todayTokens())} tokens` : "Awaiting sync",
+    latest() ? `${formatCompactTokenCount(todayTokens())} tokens` : t.telemetry.awaitingSync,
   );
 
   return (
     <>
       <PanelTrigger tag="codex" current={current()} />
       <PanelContent>
-        <PanelHeader title="Codex Usage" />
+        <PanelHeader locale={props.locale} title={t.telemetry.codexUsage} />
         <PanelSubtitle>
-          <span>{formatTokenCount(todayTokens())} tokens today</span>
+          <span>{t.telemetry.tokensToday(formatTokenCount(todayTokens()))}</span>
         </PanelSubtitle>
         <PanelChart>
           <BarChart bars={bars()} color={PRIMARY_COLOR} />
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "30d total", value: formatTokenCount(totalTokens30d()) },
-            { label: "Updated", value: formatGeneratedAt(latest()?.generatedAt ?? null) },
+            { label: t.telemetry.total30d, value: formatTokenCount(totalTokens30d()) },
+            { label: t.telemetry.updated, value: formatGeneratedAt(latest()?.generatedAt ?? null) },
           ]}
         />
       </PanelContent>
