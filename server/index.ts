@@ -8,6 +8,7 @@ import { serverInfoStat } from "@server/stats/server";
 import { websocketStat } from "@server/stats/websocket";
 import { spotifyStat } from "@server/stats/spotify";
 import { githubStat } from "@server/stats/github";
+import { buildStatsHistoryResponse } from "@server/stats/history";
 import {
   codexStat,
   parseCodexUsageSyncPayload,
@@ -46,14 +47,7 @@ const app = new Elysia()
   )
   .get("/stats/history", ({ set }) => {
     set.headers["cache-control"] = "no-store";
-    return {
-      system: systemStat.getHistory(),
-      server: serverInfoStat.getHistory(),
-      websocket: websocketStat.getHistory(),
-      spotify: spotifyStat.getHistory(),
-      github: githubStat.getHistory(),
-      codex: codexStat.getHistory(),
-    };
+    return buildStatsHistoryResponse();
   })
   .get("/stats/stream", async function* ({ set }) {
     set.headers["cache-control"] = "no-store";
