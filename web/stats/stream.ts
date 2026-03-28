@@ -5,6 +5,7 @@ import { spotifyStore } from "@web/stats/spotify/store";
 import { githubStore } from "@web/stats/github/store";
 import { codexStore } from "@web/stats/codex/store";
 import { statsClient } from "@web/stats/client";
+import { deserializeStatsStreamEvent } from "@shared/stats/transport";
 
 const storeDispatch: Record<string, (data: never) => void> = {
   system: (d) => systemStore.pushSample(d),
@@ -20,7 +21,15 @@ export async function subscribeStatsStream(signal?: AbortSignal) {
   if (error || !data) throw new Error("Failed to subscribe to stats stream");
 
   for await (const chunk of data) {
-    const push = storeDispatch[chunk.event];
-    if (push) push(chunk.data as never);
+    let decoded;
+    try {
+      decoded = deserializeStatsStreamEvent({ e: chunk.event, d: chunk.data });
+    } catch (error) {
+      console.warn("[stats] Ignoring malformed stream event", error);
+      continue;
+    }
+
+    const push = storeDispatch[decoded.name];
+    if (push) push(decoded.data as never);
   }
 }

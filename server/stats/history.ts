@@ -4,9 +4,10 @@ import { websocketStat } from "@server/stats/websocket";
 import { spotifyStat } from "@server/stats/spotify";
 import { githubStat } from "@server/stats/github";
 import { codexStat } from "@server/stats/codex";
+import { serializeStatsHistoryResponse } from "@shared/stats/transport";
 
 export function buildStatsHistoryResponse() {
-  return {
+  return serializeStatsHistoryResponse({
     system: {
       latest: systemStat.getLatest(),
       history: systemStat.getHistory().map((sample) => ({
@@ -60,5 +61,5 @@ export function buildStatsHistoryResponse() {
         totalTokens30d: sample.totalTokens30d,
       })),
     },
-  };
+  });
 }

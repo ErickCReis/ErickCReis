@@ -5,15 +5,17 @@ import { spotifyStore } from "@web/stats/spotify/store";
 import { githubStore } from "@web/stats/github/store";
 import { codexStore } from "@web/stats/codex/store";
 import { statsClient } from "@web/stats/client";
+import { deserializeStatsHistoryResponse } from "@shared/stats/transport";
 
 export async function fetchStatsHistory() {
   const { data, error } = await statsClient.stats.history.get();
   if (error || !data) throw new Error("Failed to fetch stats history");
+  const decoded = deserializeStatsHistoryResponse(data);
 
-  systemStore.loadHistory(data.system.history, data.system.latest);
-  serverStore.loadHistory(data.server.history, data.server.latest);
-  websocketStore.loadHistory(data.websocket.history, data.websocket.latest);
-  spotifyStore.loadHistory(data.spotify.history, data.spotify.latest);
-  githubStore.loadHistory(data.github.history, data.github.latest);
-  codexStore.loadHistory(data.codex.history, data.codex.latest);
+  systemStore.loadHistory(decoded.system.history, decoded.system.latest);
+  serverStore.loadHistory(decoded.server.history, decoded.server.latest);
+  websocketStore.loadHistory(decoded.websocket.history, decoded.websocket.latest);
+  spotifyStore.loadHistory(decoded.spotify.history, decoded.spotify.latest);
+  githubStore.loadHistory(decoded.github.history, decoded.github.latest);
+  codexStore.loadHistory(decoded.codex.history, decoded.codex.latest);
 }

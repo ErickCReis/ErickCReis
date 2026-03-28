@@ -9,6 +9,7 @@ import { websocketStat } from "@server/stats/websocket";
 import { spotifyStat } from "@server/stats/spotify";
 import { githubStat } from "@server/stats/github";
 import { buildStatsHistoryResponse } from "@server/stats/history";
+import { serializeStatsStreamEvent } from "@shared/stats/transport";
 import {
   codexStat,
   parseCodexUsageSyncPayload,
@@ -61,7 +62,8 @@ const app = new Elysia()
           const v = mod.getVersion();
           if (v > (lastSeen.get(name) ?? 0)) {
             lastSeen.set(name, v);
-            yield sse({ event: name, data: mod.getLatest() });
+            const payload = serializeStatsStreamEvent(name, mod.getLatest());
+            yield sse({ event: payload.e, data: payload.d });
           }
         }
         await Bun.sleep(SSE_POLL_INTERVAL_MS);
