@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createBlogPostViewsStore, createBlogVisitorId } from "@server/content/views";
+import { BLOG_POST_VISITOR_ID_PATTERN } from "@shared/content/views";
+import { createBlogPostViewsStore } from "@server/content/views";
+import { createContentId } from "@server/lib/id";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,9 +29,16 @@ afterEach(() => {
 });
 
 describe("createBlogPostViewsStore", () => {
+  it("creates prefixed visitor ids", () => {
+    const visitorId = createContentId();
+
+    expect(visitorId.startsWith("ct_")).toBe(true);
+    expect(BLOG_POST_VISITOR_ID_PATTERN.test(visitorId)).toBe(true);
+  });
+
   it("increments the first visit from zero to one", () => {
     const store = createMemoryStore();
-    const visitorId = createBlogVisitorId();
+    const visitorId = createContentId();
 
     const result = store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
 
@@ -43,7 +52,7 @@ describe("createBlogPostViewsStore", () => {
 
   it("does not increment for the same visitor within 24 hours", () => {
     const store = createMemoryStore();
-    const visitorId = createBlogVisitorId();
+    const visitorId = createContentId();
 
     store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
     const result = store.registerPostView({
@@ -61,7 +70,7 @@ describe("createBlogPostViewsStore", () => {
 
   it("increments again for the same visitor after 24 hours", () => {
     const store = createMemoryStore();
-    const visitorId = createBlogVisitorId();
+    const visitorId = createContentId();
 
     store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
     const result = store.registerPostView({
@@ -82,12 +91,12 @@ describe("createBlogPostViewsStore", () => {
 
     store.registerPostView({
       slug: "hello-world",
-      visitorId: createBlogVisitorId(),
+      visitorId: createContentId(),
       nowMs: 1_000,
     });
     const result = store.registerPostView({
       slug: "hello-world",
-      visitorId: createBlogVisitorId(),
+      visitorId: createContentId(),
       nowMs: 2_000,
     });
 
@@ -98,8 +107,8 @@ describe("createBlogPostViewsStore", () => {
   it("prunes stale dedupe rows without losing totals", () => {
     const db = new Database(":memory:");
     const store = trackStore(createBlogPostViewsStore({ client: db }));
-    const visitorA = createBlogVisitorId();
-    const visitorB = createBlogVisitorId();
+    const visitorA = createContentId();
+    const visitorB = createContentId();
 
     store.registerPostView({ slug: "hello-world", visitorId: visitorA, nowMs: 1_000 });
     store.registerPostView({ slug: "hello-world", visitorId: visitorB, nowMs: 2_000 });
@@ -137,7 +146,7 @@ describe("createBlogPostViewsStore", () => {
     const store = createMemoryStore();
     const result = store.registerPostView({
       slug: "notes/frontend/state-machines",
-      visitorId: createBlogVisitorId(),
+      visitorId: createContentId(),
       nowMs: 1_000,
     });
 

@@ -4,10 +4,6 @@ import { blogPostViewTotals, blogPostViewVisitors } from "@server/db/schema";
 
 const BLOG_POST_VIEW_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export function createBlogVisitorId() {
-  return crypto.randomUUID().replaceAll("-", "");
-}
-
 export function createBlogPostViewsStore(options: CreateServerDatabaseOptions = {}) {
   const { db, close } = createServerDatabase(options);
 
