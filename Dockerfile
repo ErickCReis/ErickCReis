@@ -15,6 +15,7 @@ WORKDIR /app
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/myserver ./myserver
+COPY --from=build /app/server/db/migrations ./server/db/migrations
 
 ENV NODE_ENV=production
 EXPOSE 3000

@@ -2,7 +2,8 @@
 import { getCollection, render } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
-import BaseLayout from "../../layouts/base-layout.astro";
+import { PostViewCounter } from "@web/islands/post-view-counter";
+import BaseLayout from "@web/layouts/base-layout.astro";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
@@ -51,14 +52,21 @@ const { Content } = await render(post);
           class="space-y-4"
           transition:name={`post-header-${post.id}`}
         >
-          <h1 class="font-serif text-2xl leading-tight tracking-wide md:text-3xl">
+          <h1
+            class="font-serif text-2xl leading-tight tracking-wide md:text-3xl"
+          >
             {post.data.title}
           </h1>
-          <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+          <p
+            class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base"
+          >
             {post.data.description}
           </p>
-          <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+          <div
+            class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase"
+          >
             <span>{dateFormatter.format(post.data.date)}</span>
+            <PostViewCounter client:only="solid-js" slug={post.id} />
           </div>
         </section>
       </header>

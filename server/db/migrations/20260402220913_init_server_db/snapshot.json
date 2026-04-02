@@ -1,0 +1,105 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "dd2764e5-fc37-46e6-af70-bf7fa2eccfd2",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "ddl": [
+    {
+      "name": "blog_post_view_totals",
+      "entityType": "tables"
+    },
+    {
+      "name": "blog_post_view_visitors",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total_views",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at_ms",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "visitor_id",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_counted_at_ms",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "columns": ["slug", "visitor_id"],
+      "nameExplicit": false,
+      "name": "blog_post_view_visitors_pk",
+      "entityType": "pks",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "columns": ["slug"],
+      "nameExplicit": false,
+      "name": "blog_post_view_totals_pk",
+      "table": "blog_post_view_totals",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "last_counted_at_ms",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "blog_post_view_visitors_last_counted_at_idx",
+      "entityType": "indexes",
+      "table": "blog_post_view_visitors"
+    }
+  ],
+  "renames": []
+}

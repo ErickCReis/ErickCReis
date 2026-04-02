@@ -2,19 +2,19 @@ import { treaty } from "@elysiajs/eden";
 import type { App } from "@server/index";
 import type { CursorPayload } from "@shared/cursor";
 
-const client = treaty<App>(
+export const apiClient = treaty<App>(
   process.env.NODE_ENV === "production" ? "https://erickr.dev" : "http://localhost:3000",
   { fetch: { credentials: "include" }, parseDate: false },
 );
 
-let socket: ReturnType<typeof client.live.subscribe> | null = null;
+let socket: ReturnType<typeof apiClient.live.subscribe> | null = null;
 const listeners = new Set<(payload: CursorPayload) => void>();
 let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
 
 function connectSocket() {
   if (socket) return socket;
 
-  const ws = client.live.subscribe();
+  const ws = apiClient.live.subscribe();
 
   ws.subscribe((event) => {
     for (const listener of listeners) {
@@ -68,7 +68,7 @@ export function publishCursor(payload: CursorPayload) {
 }
 
 export async function getCursorIdentity() {
-  const { data, error } = await client.live.id.get();
+  const { data, error } = await apiClient.live.id.get();
   if (error || !data) throw new Error("Failed to fetch cursor identity");
 
   return data;

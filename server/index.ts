@@ -1,6 +1,11 @@
 import { Elysia, sse, status, t } from "elysia";
 import cors from "@elysiajs/cors";
 import { cursorPayloadSchema } from "@shared/cursor";
+import {
+  BLOG_POST_VISITOR_ID_PATTERN,
+  blogPostQueryRequestSchema,
+  blogPostViewIncrementRequestSchema,
+} from "@shared/content/views";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { applySecureHeaders } from "@server/secure-headers";
 import { systemStat } from "@server/stats/system";
@@ -15,14 +20,27 @@ import {
   parseCodexUsageSyncPayload,
   persistCodexUsageSyncPayload,
 } from "@server/stats/codex";
+import { createBlogPostViewsStore, createBlogVisitorId } from "@server/content/views";
 
 const SSE_POLL_INTERVAL_MS = 500;
+const BLOG_VISITOR_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 function createCursorId() {
   return crypto.randomUUID().replaceAll("-", "");
 }
 
 const cursorCookieSchema = t.Cookie({ cursorId: t.Optional(t.String()) }, { httpOnly: true });
+const blogVisitorCookieSchema = t.Cookie(
+  { blogVisitorId: t.Optional(t.RegExp(BLOG_POST_VISITOR_ID_PATTERN)) },
+  {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: BLOG_VISITOR_COOKIE_MAX_AGE_SECONDS,
+    secure: Bun.env.NODE_ENV === "production",
+  },
+);
+const blogPostViewsStore = createBlogPostViewsStore();
 
 const statModules = [
   { name: "system" as const, mod: systemStat },
@@ -50,6 +68,41 @@ const app = new Elysia()
     set.headers["cache-control"] = "no-store";
     return buildStatsHistoryResponse();
   })
+  .get(
+    "/content/views",
+    ({ query, set }) => {
+      set.headers["cache-control"] = "no-store";
+      return blogPostViewsStore.getPostViewCounts(query.slugs);
+    },
+    {
+      query: blogPostQueryRequestSchema,
+    },
+  )
+  .post(
+    "/content/views",
+    ({ body, cookie, set }) => {
+      set.headers["cache-control"] = "no-store";
+      const visitorId = cookie.blogVisitorId.value ?? createBlogVisitorId();
+
+      cookie.blogVisitorId.set({
+        value: visitorId,
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: BLOG_VISITOR_COOKIE_MAX_AGE_SECONDS,
+        secure: Bun.env.NODE_ENV === "production",
+      });
+
+      return blogPostViewsStore.registerPostView({
+        slug: body.slug,
+        visitorId,
+      });
+    },
+    {
+      body: blogPostViewIncrementRequestSchema,
+      cookie: blogVisitorCookieSchema,
+    },
+  )
   .get("/stats/stream", async function* ({ set }) {
     set.headers["cache-control"] = "no-store";
 

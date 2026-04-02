@@ -2,8 +2,9 @@
 import { getCollection } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
-import ContentTelemetryToggle from "@web/islands/content-telemetry-toggle";
-import BaseLayout from "../layouts/base-layout.astro";
+import { ContentViewCountsHydrator } from "@web/islands/content-view-counts-hydrator";
+import { ContentTelemetryToggle } from "@web/islands/content-telemetry-toggle";
+import BaseLayout from "@web/layouts/base-layout.astro";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
@@ -51,32 +52,36 @@ const posts = entries
             No posts published yet.
           </p>
         ) : (
-          <section class="space-y-3" aria-label="Blog posts">
-            {posts.map((post) => (
-              <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
-                <a
-                  href={post.href}
-                  class="group block py-1"
-                >
-                  <section
-                    id={`post-header-${post.id}`}
-                    class="space-y-4"
-                    transition:name={`post-header-${post.id}`}
-                  >
-                    <h2 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
-                      {post.title}
-                    </h2>
-                    <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                      {post.description}
-                    </p>
-                    <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
-                      <span>{dateFormatter.format(post.date)}</span>
-                    </div>
-                  </section>
-                </a>
-              </article>
-            ))}
-          </section>
+          <>
+            <ContentViewCountsHydrator
+              client:only="solid-js"
+              slugs={posts.map((post) => post.id)}
+            />
+            <section class="space-y-3" aria-label="Blog posts">
+              {posts.map((post) => (
+                <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
+                  <a href={post.href} class="group block py-1">
+                    <section
+                      id={`post-header-${post.id}`}
+                      class="space-y-4"
+                      transition:name={`post-header-${post.id}`}
+                    >
+                      <h2 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
+                        {post.title}
+                      </h2>
+                      <p class="max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                        {post.description}
+                      </p>
+                      <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
+                        <span>{dateFormatter.format(post.date)}</span>
+                        <span data-post-view-count={post.id}>-- views</span>
+                      </div>
+                    </section>
+                  </a>
+                </article>
+              ))}
+            </section>
+          </>
         )
       }
     </section>

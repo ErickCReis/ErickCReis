@@ -178,11 +178,7 @@ function dateKeyFromTimestamp(timestamp: string, formatter: Intl.DateTimeFormat)
   return formatter.format(parsedDate);
 }
 
-async function loadDailyUsageFromSessions(
-  codexHome: string,
-  since: string,
-  until: string,
-) {
+async function loadDailyUsageFromSessions(codexHome: string, since: string, until: string) {
   const sessionsDir = path.join(codexHome, DEFAULT_CODEX_SESSIONS_SUBDIR);
   const sessionsDirStat = await stat(sessionsDir).catch(() => null);
   if (sessionsDirStat == null || !sessionsDirStat.isDirectory()) {
