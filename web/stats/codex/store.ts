@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import type { CodexUsageSnapshot } from "@shared/stats/codex";
-import { MAX_POINTS } from "@web/stats/utils";
+
+const MAX_CODEX_HISTORY_POINTS = 30;
 
 type CodexHistoryPoint = Pick<
   CodexUsageSnapshot,
@@ -25,7 +26,7 @@ export const codexStore = {
   history,
   pushSample(data: CodexUsageSnapshot) {
     setLatest(data);
-    setHistory((prev) => [...prev, toHistoryPoint(data)].slice(-MAX_POINTS));
+    setHistory((prev) => [...prev, toHistoryPoint(data)].slice(-MAX_CODEX_HISTORY_POINTS));
   },
   loadHistory(data: CodexHistoryPoint[], latestSample: CodexUsageSnapshot) {
     setLatest(latestSample);
@@ -33,7 +34,9 @@ export const codexStore = {
       const merged = new Map<number, CodexHistoryPoint>();
       for (const sample of prev) merged.set(sample.timestamp, sample);
       for (const sample of data) merged.set(sample.timestamp, sample);
-      return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_POINTS);
+      return [...merged.values()]
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-MAX_CODEX_HISTORY_POINTS);
     });
   },
 };

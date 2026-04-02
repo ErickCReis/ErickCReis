@@ -10,7 +10,7 @@ import {
   type CodexUsageDay,
 } from "@shared/stats/codex";
 
-const DEFAULT_TIMEZONE = "America/Sao_Paulo";
+const CODEX_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_CODEX_HOME = path.join(os.homedir(), ".codex");
 const DEFAULT_CODEX_SESSIONS_SUBDIR = "sessions";
@@ -180,7 +180,6 @@ function dateKeyFromTimestamp(timestamp: string, formatter: Intl.DateTimeFormat)
 
 async function loadDailyUsageFromSessions(
   codexHome: string,
-  timezone: string,
   since: string,
   until: string,
 ) {
@@ -193,7 +192,7 @@ async function loadDailyUsageFromSessions(
   const files = await listJsonlFiles(sessionsDir);
   const dailyUsage = new Map<string, CodexUsageDay>();
   const dateFormatter = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: timezone,
+    timeZone: CODEX_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -334,7 +333,6 @@ function getMachineFingerprint() {
 async function main() {
   const syncUrl = requireEnv("CODEX_SYNC_URL");
   const syncToken = requireEnv("CODEX_SYNC_TOKEN");
-  const timezone = Bun.env.CODEX_SYNC_TIMEZONE?.trim() || DEFAULT_TIMEZONE;
   const windowDays = Number.parseInt(
     Bun.env.CODEX_SYNC_WINDOW_DAYS ?? `${DEFAULT_WINDOW_DAYS}`,
     10,
@@ -342,7 +340,7 @@ async function main() {
   const codexHome = Bun.env.CODEX_HOME?.trim() || DEFAULT_CODEX_HOME;
   const { since, until } = getDateRange(windowDays);
 
-  const dailyUsage = await loadDailyUsageFromSessions(codexHome, timezone, since, until);
+  const dailyUsage = await loadDailyUsageFromSessions(codexHome, since, until);
   const payload = buildSyncPayload(dailyUsage);
 
   const validatedPayload = v.safeParse(codexUsageSyncPayloadSchema, payload);

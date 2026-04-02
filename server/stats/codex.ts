@@ -15,7 +15,13 @@ import { getDataPath } from "@server/data-dir";
 const DEFAULT_STALE_AFTER_MINUTES = 180;
 const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
-const MAX_HISTORY = 84;
+const CODEX_TIMEZONE = "America/Sao_Paulo";
+const CODEX_DATE_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: CODEX_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 const nonNegativeNumber = v.pipe(v.number(), v.minValue(0));
 
 const persistedSourceSchema = v.object({
@@ -41,10 +47,10 @@ function createEmptyStore(): InternalStore {
   return { sources: [] };
 }
 
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
+function formatUtcDate(date: Date) {
+  const year = date.getUTCFullYear();
+  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getUTCDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -55,6 +61,10 @@ function getStaleAfterMs() {
       ? configuredMinutes
       : DEFAULT_STALE_AFTER_MINUTES;
   return Math.floor(minutes * 60_000);
+}
+
+function getTodayDateKey() {
+  return CODEX_DATE_FORMATTER.format(new Date());
 }
 
 function getUsageFilePath() {
@@ -131,15 +141,15 @@ function buildMergedDaily(store: InternalStore) {
 
 function buildWindowedDaily(store: InternalStore) {
   const byDate = new Map(buildMergedDaily(store).map((entry) => [entry.date, entry.day]));
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date(`${getTodayDateKey()}T00:00:00Z`);
 
   return Array.from({ length: MAX_DAILY_POINTS }, (_, index) => {
     const date = new Date(today);
-    date.setDate(today.getDate() - (MAX_DAILY_POINTS - index - 1));
+    date.setUTCDate(today.getUTCDate() - (MAX_DAILY_POINTS - index - 1));
+    const dateKey = formatUtcDate(date);
     return {
-      date: formatDate(date),
-      day: createDay(byDate.get(formatDate(date)) ?? createEmptyDay()),
+      date: dateKey,
+      day: createDay(byDate.get(dateKey) ?? createEmptyDay()),
     };
   });
 }
@@ -202,7 +212,7 @@ function areSnapshotsEqual(current: CodexUsageSnapshot, next: CodexUsageSnapshot
 function markDirty(snapshot = buildSnapshot(latestStore)) {
   latestSnapshot = snapshot;
   history.push(snapshot);
-  if (history.length > MAX_HISTORY) history.shift();
+  if (history.length > MAX_DAILY_POINTS) history.shift();
   version++;
 }
 
