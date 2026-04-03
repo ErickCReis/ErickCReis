@@ -21,11 +21,11 @@ export function ProgressBar(props: ProgressBarProps) {
     <div>
       <div class="h-1 w-full overflow-hidden rounded-full bg-slate-700/40">
         <div
-          class="h-full rounded-full transition-[width] duration-300"
+          class="h-full rounded-full transition-all duration-300"
           style={{ width: `${pct()}%`, "background-color": props.color }}
         />
       </div>
-      <div class="mt-1 flex justify-between font-mono text-[0.5rem] text-slate-300/60">
+      <div class="mt-1 flex justify-between font-mono text-xxs text-slate-300/60">
         <span>{formatDuration(props.progressMs)}</span>
         <span>{formatDuration(props.durationMs)}</span>
       </div>

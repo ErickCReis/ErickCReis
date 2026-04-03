@@ -28,7 +28,7 @@ export function CodexPanel() {
     const d = daily();
     const last7 = d.slice(-7);
     return last7.map((entry) => ({
-      label: entry.date.slice(5).replace("-", "/"),
+      label: entry.date.slice(8),
       value: entry.totalTokens,
     }));
   });
@@ -48,7 +48,7 @@ export function CodexPanel() {
           </span>
         </PanelSubtitle>
         <PanelChart>
-          <BarChart bars={bars()} color={PRIMARY_COLOR} />
+          <BarChart bars={bars()} color={PRIMARY_COLOR} labelFontSize={6} />
         </PanelChart>
         <PanelFooter
           details={[

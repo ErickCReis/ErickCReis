@@ -237,10 +237,10 @@ export function TelemetryBackdrop(props: {
       )}
     >
       <aside class="pointer-events-auto absolute right-0 bottom-5 z-70 translate-x-[calc(100%-0.6rem)] transition-transform duration-300 ease-out hover:translate-x-0 focus-within:translate-x-0">
-        <div class="rounded-l-xl border border-slate-200/20 border-r-0 bg-slate-950/70 px-3 py-2 shadow-[0_8px_24px_rgba(3,8,16,0.34)] backdrop-blur-md">
+        <div class="rounded-l-xl border border-slate-200/20 border-r-0 bg-slate-950/70 px-3 py-2 shadow-2xl backdrop-blur-md">
           <button
             type="button"
-            class="flex w-full items-center justify-between gap-2 font-mono text-[0.58rem] tracking-[0.12em] text-slate-300/75 uppercase transition-colors duration-200 hover:text-slate-100 focus:text-slate-100"
+            class="flex w-full items-center justify-between gap-2 font-mono text-xxs tracking-wider text-slate-300/75 uppercase transition-colors duration-200 hover:text-slate-100 focus:text-slate-100"
             title={t("Toggle path debug")}
             onClick={() => setIsPathDebugVisible((current) => !current)}
           >
@@ -331,7 +331,7 @@ export function TelemetryBackdrop(props: {
                   </button>
                   <div
                     class={clsx(
-                      "absolute z-20 top-7 left-1/2 w-[min(82vw,14.5rem)] min-w-44 -translate-x-1/2 rounded-xl border border-slate-200/15 bg-slate-950/68 p-3 shadow-[0_10px_30px_rgba(3,8,16,0.28)] backdrop-blur-md transition duration-200",
+                      "absolute z-20 top-7 left-1/2 w-56 min-w-44 -translate-x-1/2 rounded-xl border border-slate-200/15 bg-slate-950/68 p-3 shadow-2xl backdrop-blur-md transition duration-200",
                       isActive()
                         ? "pointer-events-auto translate-y-0 opacity-100"
                         : "pointer-events-none translate-y-1 opacity-0",

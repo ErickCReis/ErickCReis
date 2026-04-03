@@ -53,12 +53,6 @@ function formatISODate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatDayLabel(date: Date) {
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${month}/${day}`;
-}
-
 function getRecentDates(totalDays: number) {
   const dates: Date[] = [];
   const now = new Date();
@@ -183,7 +177,7 @@ async function refreshGitHubCommitStats() {
       lastCommitDate: deriveLastCommitDate(commitsLast7Days, last7Dates),
       commitsToday: commitsLast7Days.at(-1) ?? 0,
       commitsLast7Days,
-      commitsLast7DayLabels: last7Dates.map(formatDayLabel),
+      commitsLast7DayLabels: last7Dates.map((date) => date.getDate().toString().padStart(2, "0")),
       commitsThisMonth,
       commitsThisYear,
       fetchedAt: Date.now(),

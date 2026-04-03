@@ -43,7 +43,7 @@ function CursorMarker(props: CursorMarkerProps) {
   return (
     <div
       class={clsx(
-        "absolute top-0 left-0 size-2 rounded-full border shadow-[0_0_0_2px_rgba(8,11,18,0.64)] border-(--cursor-color) bg-(--cursor-color) transform-[translate3d(var(--cursor-x,0px),var(--cursor-y,0px),0)_translate(-50%,-50%)] will-change-transform",
+        "absolute top-0 left-0 size-2 rounded-full border ring-2 ring-slate-950/60 border-(--cursor-color) bg-(--cursor-color) transform-[translate3d(var(--cursor-x,0px),var(--cursor-y,0px),0)_translate(-50%,-50%)] will-change-transform",
         props.smooth
           ? "transition-transform duration-180 linear motion-reduce:transition-none"
           : "transition-none",
@@ -52,7 +52,7 @@ function CursorMarker(props: CursorMarkerProps) {
       style={style()}
     >
       {!props.isStatsHovered ? (
-        <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-[0.5rem] tracking-[0.08em] uppercase">
+        <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-xxs tracking-wide uppercase">
           <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel().slice(0, 4)}</span>
           <span class="text-slate-100/84">{position()}</span>
         </span>

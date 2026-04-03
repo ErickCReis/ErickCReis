@@ -76,7 +76,7 @@ const featuredProjects = [
         <div class="max-w-3xl space-y-8">
           <div class="space-y-6">
             <h1
-              class="max-w-3xl font-serif text-5xl leading-[0.88] tracking-wide md:text-7xl"
+              class="max-w-3xl font-serif text-5xl leading-none tracking-wide md:text-7xl"
             >
               Erick Reis
             </h1>
@@ -111,7 +111,7 @@ const featuredProjects = [
 
       <div class="relative z-10 pt-6 pb-12">
         <p
-          class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.28em] text-primary/70"
+          class="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-primary/70"
         >
           <span>{t(locale, "Featured projects")}</span>
           <span aria-hidden="true" class="text-primary/85">↓</span>
@@ -131,26 +131,26 @@ const featuredProjects = [
                 href={project.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="group grid gap-2 border-b border-white/8 py-5 transition-colors md:grid-cols-[3rem_minmax(0,1fr)]"
+                class="group grid gap-2 border-b border-white/8 py-5 transition-colors md:grid-cols-[2rem_minmax(0,1fr)]"
               >
-                <span class="pt-1 text-xs tracking-[0.24em] text-muted-foreground">
+                <span class="pt-2 text-xs tracking-widest text-muted-foreground md:w-8 md:shrink-0">
                   {project.index}
                 </span>
-                <div class="space-y-2">
+                <div>
                   <div class="flex flex-wrap items-baseline justify-between gap-3">
                     <h2 class="font-serif text-2xl tracking-wide text-foreground transition-colors group-hover:text-primary">
                       {project.name}
                     </h2>
-                    <span class="text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
+                    <span class="text-xxs uppercase tracking-widest text-muted-foreground">
                       {project.label}
                     </span>
                   </div>
-                  <p class="max-w-md text-sm leading-7 text-muted-foreground">
+                  <p class="text-sm leading-7 text-muted-foreground">
                     {project.summary}
                   </p>
-                  <div class="flex flex-wrap gap-2 pt-1">
+                  <div class="flex flex-wrap gap-2 pt-3">
                     {project.technologies.map((technology) => (
-                      <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-secondary-foreground">
+                      <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xxs uppercase tracking-wider text-secondary-foreground">
                         {technology}
                       </span>
                     ))}

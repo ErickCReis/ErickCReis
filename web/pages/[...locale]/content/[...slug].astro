@@ -52,7 +52,7 @@ const { Content } = await render(post);
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
             href={getLocalizedPath(locale, "content")}
-            class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
+            class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xxs tracking-wider uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
             <span>{t(locale, "All posts")}</span>
@@ -76,7 +76,7 @@ const { Content } = await render(post);
             {post.data.description}
           </p>
           <div
-            class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase"
+            class="flex flex-wrap gap-3 font-mono text-xxs tracking-widest text-muted-foreground uppercase"
           >
             <span>{dateFormatter.format(post.data.date)}</span>
             <PostViewCounter client:only="solid-js" slug={post.id} />

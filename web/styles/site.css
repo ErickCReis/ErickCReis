@@ -5,6 +5,8 @@
   --font-sans: var(--font-family-sans), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-family-serif), ui-serif, Georgia, serif;
   --font-mono: var(--font-family-mono), ui-monospace, SFMono-Regular, monospace;
+  --text-xxs: 0.625rem;
+  --text-xxs--line-height: 0.875rem;
 }
 
 @theme inline {

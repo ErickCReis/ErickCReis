@@ -3,6 +3,7 @@ import type { TelemetryPoint } from "@web/types/home";
 type SparklineProps = {
   points: TelemetryPoint[];
   color: string;
+  showYAxis?: boolean;
 };
 
 const VIEWBOX_WIDTH = 100;
@@ -15,7 +16,7 @@ function toPolylinePoints(points: TelemetryPoint[]) {
   }
 
   const values = points.map((point) => point.value);
-  const minValue = Math.min(...values);
+  const minValue = Math.min(0, ...values);
   const maxValue = Math.max(...values);
   const range = maxValue - minValue || 1;
 
@@ -40,6 +41,17 @@ export function Sparkline(props: SparklineProps) {
       viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
       preserveAspectRatio="none"
     >
+      {props.showYAxis ? (
+        <line
+          x1={PADDING}
+          y1={PADDING}
+          x2={PADDING}
+          y2={VIEWBOX_HEIGHT - PADDING}
+          stroke="currentColor"
+          stroke-width="0.6"
+          class="text-slate-400/35"
+        />
+      ) : null}
       <polyline
         fill="none"
         stroke={props.color}

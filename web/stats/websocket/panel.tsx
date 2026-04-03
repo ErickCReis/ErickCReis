@@ -47,7 +47,11 @@ export function WebSocketPanel() {
           </span>
         </PanelSubtitle>
         <PanelChart>
-          <Sparkline points={createPanelPoints(connSeries())} color={PRIMARY_COLOR} />
+          <Sparkline
+            points={createPanelPoints(connSeries())}
+            color={PRIMARY_COLOR}
+            showYAxis={true}
+          />
         </PanelChart>
         <PanelFooter
           details={[

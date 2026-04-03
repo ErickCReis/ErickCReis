@@ -3,6 +3,7 @@ import { For } from "solid-js";
 type BarChartProps = {
   bars: { label: string; value: number }[];
   color: string;
+  labelFontSize?: number;
 };
 
 const VIEWBOX_WIDTH = 100;
@@ -14,6 +15,7 @@ const MIN_BAR_HEIGHT = 1;
 
 export function BarChart(props: BarChartProps) {
   const maxValue = () => Math.max(...props.bars.map((b) => b.value), 1);
+  const labelFontSize = () => props.labelFontSize ?? 3.2;
   const barWidth = () => {
     const count = props.bars.length || 1;
     return (VIEWBOX_WIDTH - BAR_GAP * (count - 1)) / count;
@@ -52,9 +54,8 @@ export function BarChart(props: BarChartProps) {
                 y={VIEWBOX_HEIGHT - 1}
                 text-anchor="middle"
                 fill="currentColor"
-                class="text-slate-400/60"
-                font-size="3.2"
-                font-family="monospace"
+                class="text-slate-400/80"
+                font-size={String(labelFontSize())}
               >
                 {bar.label}
               </text>

@@ -22,11 +22,11 @@ export function UptimeBar(props: UptimeBarProps) {
 
   return (
     <div class="relative">
-      <div class="flex h-4 items-end gap-[1px]">
+      <div class="flex h-4 items-end gap-px">
         <For each={props.days}>
           {(day) => (
             <div
-              class="flex-1 rounded-[1px] transition-opacity hover:opacity-80 focus:opacity-80 focus:outline-none focus:ring-1 focus:ring-slate-400/50"
+              class="flex-1 rounded-sm transition-opacity hover:opacity-80 focus:opacity-80 focus:outline-none focus:ring-1 focus:ring-slate-400/50"
               style={{
                 "background-color": getBarColor(day.uptimePercent),
                 height: "100%",
@@ -59,7 +59,7 @@ export function UptimeBar(props: UptimeBarProps) {
         if (!activeTooltip) return null;
 
         return (
-          <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
+          <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-xxs text-slate-200/80">
             {activeTooltip.date}{" "}
             {activeTooltip.pct === null
               ? `— ${t("No data")}`

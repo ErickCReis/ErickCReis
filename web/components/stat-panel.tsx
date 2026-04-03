@@ -69,7 +69,7 @@ export function PanelTrigger(props: { tag: string; current: string }) {
       />
       <span
         class={clsx(
-          "font-mono text-[0.52rem] tracking-[0.14em] uppercase transition-colors duration-200",
+          "font-mono text-xxs tracking-widest uppercase transition-colors duration-200",
           isActive() ? "text-slate-200/80" : "text-slate-200/45",
         )}
       >
@@ -77,7 +77,7 @@ export function PanelTrigger(props: { tag: string; current: string }) {
       </span>
       <span
         class={clsx(
-          "max-w-36 truncate text-left font-mono text-[0.6rem] tracking-[0.08em] uppercase transition-colors duration-200",
+          "max-w-36 truncate text-left font-mono text-xxs tracking-wide uppercase transition-colors duration-200",
           isActive() ? "text-slate-100/78" : "text-slate-200/28",
         )}
       >
@@ -96,8 +96,8 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
   const { isPinned, onRelease } = usePanelContext();
 
   return (
-    <div class="flex items-center justify-between gap-2">
-      <p class="font-mono text-[0.55rem] tracking-[0.14em] text-slate-300/70 uppercase">
+    <div class="flex min-h-5 items-center justify-between gap-2">
+      <p class="flex min-h-5 items-center font-mono text-xxs tracking-widest text-slate-300/70 uppercase">
         {props.title}
       </p>
       <div class="flex items-center gap-1">
@@ -108,7 +108,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
               target="_blank"
               rel="noopener noreferrer"
               onClick={(event) => event.stopPropagation()}
-              class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
+              class="inline-flex h-6 items-center rounded-md border border-slate-200/20 px-2 font-mono text-xxs tracking-wide text-slate-200/72 uppercase transition-colors hover:text-slate-100"
             >
               {props.actionLabel ?? t("Open")}
             </a>
@@ -121,7 +121,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
               event.stopPropagation();
               onRelease();
             }}
-            class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
+            class="inline-flex h-5 items-center rounded-md border border-slate-200/20 px-1.5 font-mono text-xxs tracking-wide text-slate-200/72 uppercase transition-colors hover:text-slate-100"
           >
             {t("Release")}
           </button>
@@ -133,7 +133,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
 
 export function PanelSubtitle(props: { children: JSX.Element }) {
   return (
-    <div class="mt-1 font-mono text-[0.62rem] tracking-[0.08em] text-slate-100/88 uppercase">
+    <div class="mt-1 font-mono text-xxs tracking-wide text-slate-100/88 uppercase">
       {props.children}
     </div>
   );
@@ -148,7 +148,7 @@ export function PanelFooter(props: { details: TelemetryDetail[] }) {
     <dl class="mt-2 flex flex-col gap-1">
       <For each={props.details}>
         {(detail) => (
-          <div class="flex items-center justify-between gap-2 font-mono text-[0.5rem] tracking-[0.08em] uppercase">
+          <div class="flex items-center justify-between gap-2 font-mono text-xxs tracking-wide uppercase">
             <dt class="text-slate-300/60">{detail.label}</dt>
             <dd class="m-0 text-slate-100/84">{detail.value}</dd>
           </div>

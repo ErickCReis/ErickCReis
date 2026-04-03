@@ -33,18 +33,14 @@ export function GitHubPanel() {
     <>
       <PanelTrigger tag="github" current={formatLastCommit(lastCommitDate())} />
       <PanelContent>
-        <PanelHeader
-          title="Commits"
-          actionUrl={latest()?.username ? `https://github.com/${latest()!.username}` : undefined}
-          actionLabel={t("Profile")}
-        />
+        <PanelHeader title="Commits" />
         <PanelSubtitle>
           <span>
             {formatCount(commitsToday())} {t("commits today")}
           </span>
         </PanelSubtitle>
         <PanelChart>
-          <BarChart bars={bars()} color={PRIMARY_COLOR} />
+          <BarChart bars={bars()} color={PRIMARY_COLOR} labelFontSize={6} />
         </PanelChart>
         <PanelFooter
           details={[

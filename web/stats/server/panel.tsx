@@ -5,7 +5,6 @@ import {
   PanelTrigger,
   PanelContent,
   PanelHeader,
-  PanelSubtitle,
   PanelChart,
   PanelFooter,
 } from "@web/components/stat-panel";
@@ -33,13 +32,6 @@ export function ServerPanel() {
       snapshot.currentStreakSeconds + Math.max(0, Math.floor((now() - snapshot.timestamp) / 1000))
     );
   });
-  const uptimeSummary = createMemo(() => {
-    const days = daysWithData();
-    const percent = `${uptimePct().toFixed(1)}%`;
-    const startDate = days[0]?.date;
-    if (!startDate) return `${percent} ${t("uptime")}`;
-    return `${percent} ${t("uptime since")} ${startDate}`;
-  });
   const uptimeWindow = createMemo(() => {
     const days = daysWithData();
     const startDate = days[0]?.date;
@@ -53,9 +45,6 @@ export function ServerPanel() {
       <PanelTrigger tag="uptime" current={formatStreak(liveStreak())} />
       <PanelContent>
         <PanelHeader title={t("Uptime")} />
-        <PanelSubtitle>
-          <span>{uptimeSummary()}</span>
-        </PanelSubtitle>
         <PanelChart class="h-auto">
           <UptimeBar days={dailyUptime()} />
         </PanelChart>
