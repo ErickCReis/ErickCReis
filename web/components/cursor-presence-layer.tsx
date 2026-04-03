@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import { formatCursorPosition, pickColor } from "@web/lib/cursor";
 import type { CursorState } from "@web/types/home";
 import { For, createMemo, type JSX } from "solid-js";
+import { t } from "virtual:translate";
 
 type CursorPresenceLayerProps = {
   selfId: string | null;
@@ -52,7 +53,7 @@ function CursorMarker(props: CursorMarkerProps) {
     >
       {!props.isStatsHovered ? (
         <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-[0.5rem] tracking-[0.08em] uppercase">
-          <span class="text-slate-300/60">{isSelf() ? "you" : cursorLabel().slice(0, 4)}</span>
+          <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel().slice(0, 4)}</span>
           <span class="text-slate-100/84">{position()}</span>
         </span>
       ) : null}

@@ -2,12 +2,20 @@ import { defineConfig, fontProviders } from "astro/config";
 import mdx from "@astrojs/mdx";
 import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
+import astroTranslate from "./plugins/translate-plugin.ts";
 
 export default defineConfig({
   srcDir: "./web",
   output: "static",
   site: "https://erickr.dev",
-  integrations: [mdx(), solid()],
+  integrations: [
+    mdx(),
+    solid(),
+    astroTranslate({
+      locales: ["en-US", "pt-BR"],
+      defaultLocale: "en-US",
+    }),
+  ],
   devToolbar: {
     enabled: false,
   },

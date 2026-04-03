@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo } from "solid-js";
 import {
   PanelTrigger,
@@ -33,24 +34,26 @@ export function CodexPanel() {
   });
 
   const current = createMemo(() =>
-    latest() ? `${formatCompactTokenCount(todayTokens())} tokens` : "Awaiting sync",
+    latest() ? `${formatCompactTokenCount(todayTokens())} tokens` : t("Awaiting sync"),
   );
 
   return (
     <>
       <PanelTrigger tag="codex" current={current()} />
       <PanelContent>
-        <PanelHeader title="Codex Usage" />
+        <PanelHeader title={t("Codex Usage")} />
         <PanelSubtitle>
-          <span>{formatTokenCount(todayTokens())} tokens today</span>
+          <span>
+            {formatTokenCount(todayTokens())} {t("tokens today")}
+          </span>
         </PanelSubtitle>
         <PanelChart>
           <BarChart bars={bars()} color={PRIMARY_COLOR} />
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "30d total", value: formatTokenCount(totalTokens30d()) },
-            { label: "Updated", value: formatGeneratedAt(latest()?.generatedAt ?? null) },
+            { label: t("30d total"), value: formatTokenCount(totalTokens30d()) },
+            { label: t("Updated"), value: formatGeneratedAt(latest()?.generatedAt ?? null) },
           ]}
         />
       </PanelContent>

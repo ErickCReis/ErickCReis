@@ -1,5 +1,7 @@
+import { getLocale, resolveLocale } from "virtual:translate";
+
 export function formatTokenCount(value: number) {
-  return Math.round(value).toLocaleString();
+  return Math.round(value).toLocaleString(resolveLocale(getLocale()));
 }
 
 export function formatCompactTokenCount(value: number) {
@@ -12,7 +14,7 @@ export function formatCompactTokenCount(value: number) {
 
 export function formatGeneratedAt(value: number | null) {
   if (value == null) return "--:--";
-  return new Date(value).toLocaleTimeString("en-US", {
+  return new Date(value).toLocaleTimeString(resolveLocale(getLocale()), {
     hour: "2-digit",
     minute: "2-digit",
   });

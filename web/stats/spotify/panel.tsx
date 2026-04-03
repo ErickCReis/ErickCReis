@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo, Show } from "solid-js";
 import {
   PanelTrigger,
@@ -15,8 +16,8 @@ const PRIMARY_COLOR = "#1db954";
 
 export function SpotifyPanel() {
   const latest = createMemo(() => spotifyStore.latest());
-  const trackName = createMemo(() => latest()?.trackName ?? "Nothing playing");
-  const artists = createMemo(() => latest()?.artistNames.join(", ") || "No artist");
+  const trackName = createMemo(() => latest()?.trackName ?? t("Nothing playing"));
+  const artists = createMemo(() => latest()?.artistNames.join(", ") || t("No artist"));
   const progressMs = createMemo(() => latest()?.progressMs ?? 0);
   const durationMs = createMemo(() => latest()?.durationMs ?? 0);
 
@@ -29,9 +30,9 @@ export function SpotifyPanel() {
       <PanelTrigger tag="spotify" current={trackName()} />
       <PanelContent>
         <PanelHeader
-          title="Now Playing"
+          title={t("Now Playing")}
           actionUrl={latest()?.trackUrl ?? undefined}
-          actionLabel="Open"
+          actionLabel={t("Open")}
         />
         <PanelSubtitle>
           <span>{artists()}</span>
@@ -42,14 +43,14 @@ export function SpotifyPanel() {
         <Show when={previousTrack()}>
           {(prev) => (
             <p class="mt-1.5 truncate text-[0.48rem] text-slate-300/50">
-              Previously: {prev().name} — {prev().artist}
+              {t("Previously")}: {prev().name} — {prev().artist}
             </p>
           )}
         </Show>
         <PanelFooter
           details={[
-            { label: "Track", value: trackName() },
-            { label: "Artist", value: artists() },
+            { label: t("Track"), value: trackName() },
+            { label: t("Artist"), value: artists() },
           ]}
         />
       </PanelContent>

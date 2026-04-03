@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import {
   PanelTrigger,
@@ -36,20 +37,25 @@ export function WebSocketPanel() {
     <>
       <PanelTrigger
         tag="live"
-        current={`${formatCount(latestUsers())} user${latestUsers() !== 1 ? "s" : ""}`}
+        current={`${formatCount(latestUsers())} ${latestUsers() === 1 ? t("user") : t("users")}`}
       />
       <PanelContent>
-        <PanelHeader title="WebSocket" />
+        <PanelHeader title={t("WebSocket")} />
         <PanelSubtitle>
-          <span>{formatCount(latestUsers())} connected now</span>
+          <span>
+            {formatCount(latestUsers())} {t("connected now")}
+          </span>
         </PanelSubtitle>
         <PanelChart>
           <Sparkline points={createPanelPoints(connSeries())} color={PRIMARY_COLOR} />
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "Connected", value: formatConnectionTime(connectedMs()) },
-            { label: "Peak", value: `${formatCount(peakUsers())} users` },
+            { label: t("Connected"), value: formatConnectionTime(connectedMs()) },
+            {
+              label: t("Peak"),
+              value: `${formatCount(peakUsers())} ${peakUsers() === 1 ? t("user") : t("users")}`,
+            },
           ]}
         />
       </PanelContent>

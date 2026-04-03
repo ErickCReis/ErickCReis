@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
 import { createSignal } from "solid-js";
 import { TelemetryBackdrop } from "@web/components/telemetry-backdrop";
+import { t } from "virtual:translate";
 
 export function ContentTelemetryToggle() {
   const [isStatsBackdropEnabled, setIsStatsBackdropEnabled] = createSignal(true);
@@ -27,7 +28,7 @@ export function ContentTelemetryToggle() {
             isStatsBackdropEnabled() ? "bg-[rgb(142,199,255)]" : "bg-slate-400/60",
           )}
         />
-        Stats {isStatsBackdropEnabled() ? "On" : "Off"}
+        {t("Stats")} {isStatsBackdropEnabled() ? t("On") : t("Off")}
       </button>
     </>
   );

@@ -45,7 +45,7 @@ export function createServerDatabase(options: CreateServerDatabaseOptions = {}) 
   return {
     client,
     db,
-    close() {
+    close: () => {
       client.close();
     },
   };

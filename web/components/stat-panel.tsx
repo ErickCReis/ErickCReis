@@ -1,6 +1,7 @@
 import { clsx } from "clsx";
 import { createContext, For, Show, useContext, type Accessor, type JSX } from "solid-js";
 import type { TelemetryDetail } from "@web/types/home";
+import { t } from "virtual:translate";
 
 const PanelContext = createContext<{
   isActive: Accessor<boolean>;
@@ -109,7 +110,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
               onClick={(event) => event.stopPropagation()}
               class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
             >
-              {props.actionLabel ?? "Open"}
+              {props.actionLabel ?? t("Open")}
             </a>
           )}
         </Show>
@@ -122,7 +123,7 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
             }}
             class="rounded-md border border-slate-200/20 px-2 py-0.5 font-mono text-[0.46rem] tracking-[0.1em] text-slate-200/72 uppercase transition-colors hover:text-slate-100"
           >
-            Release
+            {t("Release")}
           </button>
         </Show>
       </div>

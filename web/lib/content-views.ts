@@ -1,7 +1,8 @@
+import { t } from "virtual:translate";
 import { apiClient } from "@web/lib/api";
 
 export function formatViewCountLabel(viewCount: number) {
-  return `${viewCount} view${viewCount === 1 ? "" : "s"}`;
+  return `${viewCount} ${viewCount === 1 ? t("view") : t("views")}`;
 }
 
 export async function fetchPostViewCounts(slugs: string[]) {

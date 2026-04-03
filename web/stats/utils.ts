@@ -1,3 +1,4 @@
+import { getLocale, resolveLocale } from "virtual:translate";
 import type { TelemetryPoint } from "@web/types/home";
 
 export const MAX_POINTS = 84;
@@ -16,7 +17,7 @@ export function getPrevious(values: number[]) {
 }
 
 export function formatCount(value: number) {
-  return Math.round(value).toLocaleString();
+  return Math.round(value).toLocaleString(resolveLocale(getLocale()));
 }
 
 export function formatSigned(value: number, decimals: number, suffix = "") {

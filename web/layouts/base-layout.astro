@@ -1,8 +1,9 @@
 ---
 import { Font } from "astro:assets";
 import { ClientRouter } from "astro:transitions";
+import { resolveLocale } from "virtual:translate";
 
-import "../styles/site.css";
+import "@web/styles/site.css";
 
 interface Props {
   title: string;
@@ -10,11 +11,12 @@ interface Props {
   lang?: string;
 }
 
-const { title, description, lang = "en" } = Astro.props;
+const { title, description, lang = "en-US" } = Astro.props;
+const locale = resolveLocale(lang);
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={locale}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

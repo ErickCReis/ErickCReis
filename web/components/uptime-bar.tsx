@@ -1,4 +1,5 @@
 import { createSignal, For } from "solid-js";
+import { t } from "virtual:translate";
 
 type UptimeBarProps = {
   days: { date: string; uptimePercent: number | null }[];
@@ -34,8 +35,8 @@ export function UptimeBar(props: UptimeBarProps) {
               role="img"
               aria-label={
                 day.uptimePercent === null
-                  ? `${day.date}: no uptime data`
-                  : `${day.date}: ${day.uptimePercent.toFixed(1)}% uptime`
+                  ? `${day.date}: ${t("no uptime data")}`
+                  : `${day.date}: ${day.uptimePercent.toFixed(1)}% ${t("uptime")}`
               }
               onMouseEnter={() => setTooltip({ date: day.date, pct: day.uptimePercent })}
               onMouseLeave={() => setTooltip(null)}
@@ -60,7 +61,9 @@ export function UptimeBar(props: UptimeBarProps) {
         return (
           <div class="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded border border-slate-200/15 bg-slate-950/90 px-1.5 py-0.5 font-mono text-[0.46rem] text-slate-200/80">
             {activeTooltip.date}{" "}
-            {activeTooltip.pct === null ? "— No data" : `— ${activeTooltip.pct.toFixed(1)}%`}
+            {activeTooltip.pct === null
+              ? `— ${t("No data")}`
+              : `— ${activeTooltip.pct.toFixed(1)}%`}
           </div>
         );
       })()}

@@ -1,15 +1,17 @@
+import { t } from "virtual:translate";
+
 export function formatLastCommit(dateString: string | null): string {
-  if (!dateString) return "No commits";
+  if (!dateString) return t("No commits");
   const today = startOfLocalDay(new Date());
   const commitDate = parseISODateAtLocalMidnight(dateString);
-  if (!commitDate) return "Recent";
+  if (!commitDate) return t("Recent");
 
   const diffMs = today.getTime() - commitDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays <= 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  return `${diffDays}d ago`;
+  if (diffDays <= 0) return t("Today");
+  if (diffDays === 1) return t("Yesterday");
+  return `${diffDays}${t("d ago")}`;
 }
 
 function startOfLocalDay(date: Date) {

@@ -9,6 +9,7 @@ import { ServerPanel } from "@web/stats/server/panel";
 import { WebSocketPanel } from "@web/stats/websocket/panel";
 import { GitHubPanel } from "@web/stats/github/panel";
 import { SpotifyPanel } from "@web/stats/spotify/panel";
+import { t } from "virtual:translate";
 
 type PanelMotionSeed = {
   pathIndex: number;
@@ -240,7 +241,7 @@ export function TelemetryBackdrop(props: {
           <button
             type="button"
             class="flex w-full items-center justify-between gap-2 font-mono text-[0.58rem] tracking-[0.12em] text-slate-300/75 uppercase transition-colors duration-200 hover:text-slate-100 focus:text-slate-100"
-            title="Toggle path debug"
+            title={t("Toggle path debug")}
             onClick={() => setIsPathDebugVisible((current) => !current)}
           >
             <span>Debug</span>

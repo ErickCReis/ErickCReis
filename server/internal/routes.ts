@@ -1,8 +1,5 @@
 import { Elysia, status } from "elysia";
-import {
-  parseCodexUsageSyncPayload,
-  persistCodexUsageSyncPayload,
-} from "@server/stats/codex";
+import { parseCodexUsageSyncPayload, persistCodexUsageSyncPayload } from "@server/stats/codex";
 
 export const internalRoutes = new Elysia({ name: "internal-routes" }).post(
   "/internal/codex/sync",

@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import type { SpotifyNowPlaying } from "@shared/stats/spotify";
 
 type SpotifyTrackHistoryPoint = Pick<SpotifyNowPlaying, "trackId" | "trackName" | "artistNames">;
@@ -19,7 +20,7 @@ export function getPreviousTrack(
     if (s.trackId === currentTrackId) continue;
     return {
       name: s.trackName,
-      artist: s.artistNames.join(", ") || "Unknown artist",
+      artist: s.artistNames.join(", ") || t("Unknown artist"),
     };
   }
   return null;

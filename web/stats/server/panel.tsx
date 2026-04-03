@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo } from "solid-js";
 import { createPolled } from "@solid-primitives/timer";
 import {
@@ -36,14 +37,14 @@ export function ServerPanel() {
     const days = daysWithData();
     const percent = `${uptimePct().toFixed(1)}%`;
     const startDate = days[0]?.date;
-    if (!startDate) return `${percent} uptime`;
-    return `${percent} since ${startDate}`;
+    if (!startDate) return `${percent} ${t("uptime")}`;
+    return `${percent} ${t("uptime since")} ${startDate}`;
   });
   const uptimeWindow = createMemo(() => {
     const days = daysWithData();
     const startDate = days[0]?.date;
-    if (!startDate) return "No data";
-    const label = days.length === 1 ? "day" : "days";
+    if (!startDate) return t("No data");
+    const label = days.length === 1 ? t("day") : t("days");
     return `${startDate} (${days.length} ${label})`;
   });
 
@@ -51,7 +52,7 @@ export function ServerPanel() {
     <>
       <PanelTrigger tag="uptime" current={formatStreak(liveStreak())} />
       <PanelContent>
-        <PanelHeader title="Uptime" />
+        <PanelHeader title={t("Uptime")} />
         <PanelSubtitle>
           <span>{uptimeSummary()}</span>
         </PanelSubtitle>
@@ -60,9 +61,9 @@ export function ServerPanel() {
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "Uptime", value: `${uptimePct().toFixed(1)}%` },
-            { label: "Window", value: uptimeWindow() },
-            { label: "Version", value: version() },
+            { label: t("Uptime"), value: `${uptimePct().toFixed(1)}%` },
+            { label: t("Window"), value: uptimeWindow() },
+            { label: t("Version"), value: version() },
           ]}
         />
       </PanelContent>

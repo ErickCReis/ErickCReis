@@ -2,11 +2,27 @@
 import { getCollection } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
+import { t, locales, defaultLocale, resolveLocale } from "virtual:translate";
+import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import { ContentViewCountsHydrator } from "@web/islands/content-view-counts-hydrator";
 import { ContentTelemetryToggle } from "@web/islands/content-telemetry-toggle";
 import BaseLayout from "@web/layouts/base-layout.astro";
+import { getEntrySlug, getLocalizedPath } from "@web/i18n";
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
+export function getStaticPaths() {
+  return locales.map((locale) => ({
+    params: {
+      locale: locale === defaultLocale ? undefined : locale,
+    },
+    props: {
+      locale,
+    },
+  }));
+}
+
+const { locale } = Astro.props;
+
+const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
@@ -18,14 +34,18 @@ const posts = entries
   .map((entry) => ({
     ...entry.data,
     id: entry.id,
-    href: `/content/${entry.id.split("/").join("/")}`,
+    href: getLocalizedPath(locale, `content/${getEntrySlug(entry)}`),
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
 ---
 
 <BaseLayout
-  title="Content | Erick Reis"
-  description="Notes on frontend engineering, systems work, and the decisions behind the build."
+  title={t(locale, "Content | Erick Reis")}
+  description={t(
+    locale,
+    "Notes on frontend engineering, systems work, and the decisions behind the build.",
+  )}
+  lang={locale}
 >
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
@@ -35,21 +55,27 @@ const posts = entries
       <header class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
-            href="/"
+            href={getLocalizedPath(locale)}
             class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xs tracking-[0.12em] uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
-            <span>Back</span>
+            <span>{t(locale, "Back")}</span>
           </a>
-          <ContentTelemetryToggle client:only="solid-js" />
+
+          <div class="flex items-center gap-3">
+            <LocaleSwitcher locale={locale} path="content" />
+            <ContentTelemetryToggle client:only="solid-js" />
+          </div>
         </div>
-        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">Content</h1>
+        <h1 class="font-serif text-4xl tracking-wide md:text-5xl">
+          {t(locale, "Content")}
+        </h1>
       </header>
 
       {
         posts.length === 0 ? (
           <p class="text-sm text-muted-foreground md:text-base">
-            No posts published yet.
+            {t(locale, "No posts published yet.")}
           </p>
         ) : (
           <>
@@ -57,7 +83,7 @@ const posts = entries
               client:only="solid-js"
               slugs={posts.map((post) => post.id)}
             />
-            <section class="space-y-3" aria-label="Blog posts">
+            <section class="space-y-3" aria-label={t(locale, "Blog posts")}>
               {posts.map((post) => (
                 <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                   <a href={post.href} class="group block py-1">
@@ -74,7 +100,9 @@ const posts = entries
                       </p>
                       <div class="flex flex-wrap gap-3 font-mono text-[0.68rem] tracking-[0.18em] text-muted-foreground uppercase">
                         <span>{dateFormatter.format(post.date)}</span>
-                        <span data-post-view-count={post.id}>-- views</span>
+                        <span data-post-view-count={post.id}>
+                          -- {t(locale, "views")}
+                        </span>
                       </div>
                     </section>
                   </a>

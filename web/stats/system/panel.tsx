@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo } from "solid-js";
 import {
   PanelTrigger,
@@ -38,7 +39,7 @@ export function SystemPanel() {
     <>
       <PanelTrigger tag="cpu" current={formatPercent(latestCpu())} />
       <PanelContent>
-        <PanelHeader title="System" />
+        <PanelHeader title={t("System")} />
         <PanelSubtitle>
           <div class="flex justify-between">
             <span>CPU {formatPercent(latestCpu())}</span>
@@ -59,7 +60,7 @@ export function SystemPanel() {
           details={[
             { label: "vCPUs", value: `${cpuCount()}` },
             { label: "RAM", value: totalMemGb() },
-            { label: "Battery", value: battery() },
+            { label: t("Battery"), value: battery() },
           ]}
         />
       </PanelContent>

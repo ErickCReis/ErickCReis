@@ -1,3 +1,4 @@
+import { t } from "virtual:translate";
 import { createMemo } from "solid-js";
 import {
   PanelTrigger,
@@ -35,18 +36,20 @@ export function GitHubPanel() {
         <PanelHeader
           title="Commits"
           actionUrl={latest()?.username ? `https://github.com/${latest()!.username}` : undefined}
-          actionLabel="Profile"
+          actionLabel={t("Profile")}
         />
         <PanelSubtitle>
-          <span>{formatCount(commitsToday())} commits today</span>
+          <span>
+            {formatCount(commitsToday())} {t("commits today")}
+          </span>
         </PanelSubtitle>
         <PanelChart>
           <BarChart bars={bars()} color={PRIMARY_COLOR} />
         </PanelChart>
         <PanelFooter
           details={[
-            { label: "Month", value: formatCount(latest()?.commitsThisMonth ?? 0) },
-            { label: "Year", value: formatCount(latest()?.commitsThisYear ?? 0) },
+            { label: t("Month"), value: formatCount(latest()?.commitsThisMonth ?? 0) },
+            { label: t("Year"), value: formatCount(latest()?.commitsThisYear ?? 0) },
           ]}
         />
       </PanelContent>
