@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -14,6 +13,7 @@ const CODEX_TIMEZONE = "America/Sao_Paulo";
 const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_CODEX_HOME = path.join(os.homedir(), ".codex");
 const DEFAULT_CODEX_SESSIONS_SUBDIR = "sessions";
+const STABLE_SERVER_SOURCE_ID = "vps-prod";
 
 type RawUsage = {
   input_tokens: number;
@@ -127,6 +127,16 @@ function toDelta(raw: RawUsage): TokenUsageDelta {
   };
 }
 
+function rawUsageFingerprint(raw: RawUsage) {
+  return [
+    raw.input_tokens,
+    raw.cached_input_tokens,
+    raw.output_tokens,
+    raw.reasoning_output_tokens,
+    raw.total_tokens,
+  ].join(":");
+}
+
 function parseDateFromSessionPath(relativePath: string) {
   const normalized = relativePath.replace(/\\/g, "/");
   const match = /^(\d{4})\/(\d{2})\/(\d{2})\//.exec(normalized);
@@ -203,6 +213,7 @@ async function loadDailyUsageFromSessions(codexHome: string, since: string, unti
 
     const fileContents = await Bun.file(filePath).text();
     let previousTotals: RawUsage | null = null;
+    let previousLastUsageFingerprint: string | null = null;
 
     for (const line of fileContents.split(/\r?\n/)) {
       const trimmedLine = line.trim();
@@ -236,13 +247,20 @@ async function loadDailyUsageFromSessions(codexHome: string, since: string, unti
       const lastUsage = normalizeRawUsage(info?.last_token_usage);
       const totalUsage = normalizeRawUsage(info?.total_token_usage);
 
-      let rawUsage = lastUsage;
-      if (rawUsage == null && totalUsage != null) {
+      let rawUsage: RawUsage | null = null;
+      if (totalUsage != null) {
         rawUsage = subtractRawUsage(totalUsage, previousTotals);
+      } else if (lastUsage != null) {
+        const fingerprint = rawUsageFingerprint(lastUsage);
+        if (fingerprint !== previousLastUsageFingerprint) {
+          rawUsage = lastUsage;
+        }
+        previousLastUsageFingerprint = fingerprint;
       }
 
       if (totalUsage != null) {
         previousTotals = totalUsage;
+        previousLastUsageFingerprint = null;
       }
 
       if (rawUsage == null) {
@@ -306,24 +324,17 @@ function buildSyncPayload(dailyUsage: Map<string, CodexUsageDay>): CodexUsageSyn
 }
 
 function getMachineFingerprint() {
-  const hostname = os.hostname().trim() || "codex";
+  if (os.platform() === "linux") {
+    return STABLE_SERVER_SOURCE_ID;
+  }
+
+  const hostname = os.hostname().trim();
   const normalizedHost = hostname
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  const fingerprint = createHash("sha256")
-    .update(
-      JSON.stringify({
-        hostname,
-        platform: os.platform(),
-        arch: os.arch(),
-        homedir: os.homedir(),
-      }),
-    )
-    .digest("hex")
-    .slice(0, 12);
 
-  return `${normalizedHost || "codex"}-${fingerprint}`;
+  return normalizedHost || "local";
 }
 
 async function main() {
