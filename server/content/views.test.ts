@@ -154,6 +154,18 @@ describe("createBlogPostViewsStore", () => {
     expect(result.totalViews).toBe(1);
   });
 
+  it("accepts localized slugs", () => {
+    const store = createMemoryStore();
+    const result = store.registerPostView({
+      slug: "hello-world.pt-BR",
+      visitorId: createContentId(),
+      nowMs: 1_000,
+    });
+
+    expect(result.slug).toBe("hello-world.pt-BR");
+    expect(result.totalViews).toBe(1);
+  });
+
   it("creates the sqlite database file and schema for file-backed stores", async () => {
     const directory = await mkdtemp(join(tmpdir(), "content-views-"));
     const filePath = join(directory, "server.sqlite");

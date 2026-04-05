@@ -1,7 +1,7 @@
 import * as v from "valibot";
 
 export const BLOG_POST_SLUG_MAX_LENGTH = 160;
-export const BLOG_POST_SLUG_PATTERN = /^[a-z0-9]+(?:[/-][a-z0-9]+)*$/;
+export const BLOG_POST_SLUG_PATTERN = /^[A-Za-z0-9]+(?:[./_-][A-Za-z0-9]+)*$/;
 export const BLOG_POST_VIEW_MAX_BATCH_SLUGS = 100;
 export const BLOG_POST_VISITOR_ID_PATTERN = /^ct_[A-Za-z0-9_-]{21}$/;
 
