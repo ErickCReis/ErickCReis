@@ -6,8 +6,9 @@ import { t, locales, defaultLocale, resolveLocale } from "virtual:translate";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import { ContentViewCountsHydrator } from "@web/islands/content-view-counts-hydrator";
 import { ContentTelemetryToggle } from "@web/islands/content-telemetry-toggle";
+import { getBlogEntries, getBlogViewKey } from "@web/lib/blog";
 import BaseLayout from "@web/layouts/base-layout.astro";
-import { getEntrySlug, getLocalizedPath } from "@web/i18n";
+import { getLocalizedPath } from "@web/i18n";
 
 export function getStaticPaths() {
   return locales.map((locale) => ({
@@ -29,12 +30,11 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   year: "numeric",
 });
 
-const entries = await getCollection("blog");
-const posts = entries
-  .map((entry) => ({
+const posts = getBlogEntries(await getCollection("blog"), locale)
+  .map(({ slug, entry }) => ({
     ...entry.data,
-    id: entry.id,
-    href: getLocalizedPath(locale, `content/${getEntrySlug(entry)}`),
+    viewKey: getBlogViewKey(entry),
+    href: getLocalizedPath(locale, `content/${slug}`),
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
 ---
@@ -81,16 +81,16 @@ const posts = entries
           <>
             <ContentViewCountsHydrator
               client:only="solid-js"
-              slugs={posts.map((post) => post.id)}
+              slugs={posts.map((post) => post.viewKey)}
             />
             <section class="space-y-3" aria-label={t(locale, "Blog posts")}>
               {posts.map((post) => (
                 <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
                   <a href={post.href} class="group block py-1">
                     <section
-                      id={`post-header-${post.id}`}
+                      id={`post-header-${post.viewKey}`}
                       class="space-y-4"
-                      transition:name={`post-header-${post.id}`}
+                      transition:name={`post-header-${post.viewKey}`}
                     >
                       <h2 class="font-serif text-2xl leading-tight tracking-wide transition-colors group-hover:text-primary md:text-3xl">
                         {post.title}
@@ -100,7 +100,7 @@ const posts = entries
                       </p>
                       <div class="flex flex-wrap gap-3 font-mono text-xxs tracking-widest text-muted-foreground uppercase">
                         <span>{dateFormatter.format(post.date)}</span>
-                        <span data-post-view-count={post.id}>
+                        <span data-post-view-count={post.viewKey}>
                           -- {t(locale, "views")}
                         </span>
                       </div>

@@ -3,31 +3,19 @@ import { getCollection } from "astro:content";
 import { render } from "astro:content";
 import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
-import { t, locales, defaultLocale, resolveLocale } from "virtual:translate";
+import { t, resolveLocale } from "virtual:translate";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
+import { getBlogEntry, getBlogStaticPaths, getBlogViewKey } from "@web/lib/blog";
 import { PostViewCounter } from "@web/islands/post-view-counter";
 import BaseLayout from "@web/layouts/base-layout.astro";
-import { getEntrySlug, getLocalizedPath } from "@web/i18n";
+import { getLocalizedPath } from "@web/i18n";
 
 export async function getStaticPaths() {
-  const posts = await getCollection("blog");
-
-  return locales.flatMap((locale) =>
-    posts.map((post) => ({
-      params: {
-        locale: locale === defaultLocale ? undefined : locale,
-        slug: getEntrySlug(post),
-      },
-      props: {
-        locale,
-        post,
-        slug: getEntrySlug(post),
-      },
-    })),
-  );
+  return getBlogStaticPaths(await getCollection("blog"));
 }
 
-const { locale, post, slug } = Astro.props;
+const { locale, slug } = Astro.props;
+const post = getBlogEntry(await getCollection("blog"), slug, locale)!;
 
 const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   day: "numeric",
@@ -36,6 +24,7 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   year: "numeric",
 });
 const { Content } = await render(post);
+const viewKey = getBlogViewKey(post);
 ---
 
 <BaseLayout
@@ -63,7 +52,7 @@ const { Content } = await render(post);
         <section
           id={`post-header-${locale}-${slug}`}
           class="space-y-4"
-          transition:name={`post-header-${post.id}`}
+          transition:name={`post-header-${slug}`}
         >
           <h1
             class="font-serif text-2xl leading-tight tracking-wide md:text-3xl"
@@ -79,7 +68,7 @@ const { Content } = await render(post);
             class="flex flex-wrap gap-3 font-mono text-xxs tracking-widest text-muted-foreground uppercase"
           >
             <span>{dateFormatter.format(post.data.date)}</span>
-            <PostViewCounter client:only="solid-js" slug={post.id} />
+            <PostViewCounter client:only="solid-js" slug={viewKey} />
           </div>
         </section>
       </header>
