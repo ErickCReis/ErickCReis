@@ -10,9 +10,31 @@ export const apiClient = treaty<App>(
 let socket: ReturnType<typeof apiClient.live.subscribe> | null = null;
 const listeners = new Set<(payload: CursorPayload) => void>();
 let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
+const RECONNECT_DELAY_MS = 1_000;
+
+function clearReconnectTimeout() {
+  if (!reconnectTimeout) return;
+
+  clearTimeout(reconnectTimeout);
+  reconnectTimeout = undefined;
+}
+
+function scheduleReconnect() {
+  if (reconnectTimeout || listeners.size === 0) {
+    return;
+  }
+
+  reconnectTimeout = setTimeout(() => {
+    reconnectTimeout = undefined;
+    if (listeners.size === 0 || socket) return;
+    connectSocket();
+  }, RECONNECT_DELAY_MS);
+}
 
 function connectSocket() {
   if (socket) return socket;
+
+  clearReconnectTimeout();
 
   const ws = apiClient.live.subscribe();
 
@@ -24,13 +46,11 @@ function connectSocket() {
 
   ws.on("close", () => {
     socket = null;
-    if (listeners.size > 0) {
-      reconnectTimeout = setTimeout(connectSocket, 1000);
-    }
+    scheduleReconnect();
   });
 
   ws.on("error", (error) => {
-    console.error(error);
+    console.error("[live] Cursor socket error", error);
   });
 
   socket = ws;
@@ -49,11 +69,7 @@ export function subscribeCursor(onPayload: (payload: CursorPayload) => void) {
     listeners.delete(onPayload);
 
     if (listeners.size === 0) {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = undefined;
-      }
-
+      clearReconnectTimeout();
       socket?.close();
       socket = null;
     }

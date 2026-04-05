@@ -7,6 +7,8 @@ import { codexStore } from "@web/stats/codex/store";
 import { statsClient } from "@web/stats/client";
 import { deserializeStatsStreamEvent } from "@shared/stats/transport";
 
+const RECONNECT_DELAY_MS = 1_000;
+
 const storeDispatch: Record<string, (data: never) => void> = {
   system: (d) => systemStore.pushSample(d),
   server: (d) => serverStore.pushSample(d),
@@ -17,19 +19,45 @@ const storeDispatch: Record<string, (data: never) => void> = {
 };
 
 export async function subscribeStatsStream(signal?: AbortSignal) {
-  const { data, error } = await statsClient.stats.stream.get({ fetch: { signal } });
-  if (error || !data) throw new Error("Failed to subscribe to stats stream");
-
-  for await (const chunk of data) {
-    let decoded;
+  while (!signal?.aborted) {
     try {
-      decoded = deserializeStatsStreamEvent({ e: chunk.event, d: chunk.data });
+      const { data, error } = await statsClient.stats.stream.get({ fetch: { signal } });
+      if (error || !data) throw new Error("Failed to subscribe to stats stream");
+
+      for await (const chunk of data) {
+        let decoded;
+        try {
+          decoded = deserializeStatsStreamEvent({ e: chunk.event, d: chunk.data });
+        } catch (error) {
+          console.warn("[stats] Ignoring malformed stream event", error);
+          continue;
+        }
+
+        const push = storeDispatch[decoded.name];
+        if (push) push(decoded.data as never);
+      }
     } catch (error) {
-      console.warn("[stats] Ignoring malformed stream event", error);
-      continue;
+      if (signal?.aborted) {
+        return;
+      }
+
+      console.warn("[stats] Stream disconnected, retrying", error);
     }
 
-    const push = storeDispatch[decoded.name];
-    if (push) push(decoded.data as never);
+    if (signal?.aborted) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timeout = window.setTimeout(resolve, RECONNECT_DELAY_MS);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          window.clearTimeout(timeout);
+          resolve();
+        },
+        { once: true },
+      );
+    });
   }
 }

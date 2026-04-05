@@ -1,8 +1,8 @@
 import { clsx } from "clsx";
 import { createSignal, For, onCleanup, onMount, type Component } from "solid-js";
 import { PanelProvider, PanelRenderModeProvider } from "@web/components/stat-panel";
-import { subscribeStatsStream } from "@web/stats/stream";
 import { fetchStatsHistory } from "@web/stats/history";
+import { subscribeStatsStream } from "@web/stats/stream";
 import { CodexPanel } from "@web/stats/codex/panel";
 import { SystemPanel } from "@web/stats/system/panel";
 import { ServerPanel } from "@web/stats/server/panel";
