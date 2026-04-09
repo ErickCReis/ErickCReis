@@ -1,38 +1,28 @@
-import { readdirSync, readFileSync } from "node:fs";
 import os from "node:os";
 import type { SystemStat } from "@shared/stats/system";
+import { getBatteryInfo } from "@server/lib/battery";
 import type { StatModule } from "@server/stats/types";
+import { readTextFile } from "@server/lib/file";
 
 const MAX_HISTORY = 84;
 const SAMPLE_INTERVAL_MS = 1500;
 const MB = 1024 * 1024;
-const BATTERY_SUPPLY_ROOT = Bun.env.BATTERY_SUPPLY_ROOT ?? "/sys/class/power_supply";
-
-type BatteryStatus = "charging" | "discharging" | "full" | "unknown";
-
-function readCgroupFile(path: string): string | null {
-  try {
-    return readFileSync(path, "utf-8").trim();
-  } catch {
-    return null;
-  }
-}
 
 function getCgroupMemoryUsed(): number | null {
-  const v2 = readCgroupFile("/sys/fs/cgroup/memory.current");
+  const v2 = readTextFile("/sys/fs/cgroup/memory.current");
   if (v2) return Number(v2);
 
-  const v1 = readCgroupFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+  const v1 = readTextFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
   if (v1) return Number(v1);
 
   return null;
 }
 
 function getCgroupMemoryLimit(): number | null {
-  const v2 = readCgroupFile("/sys/fs/cgroup/memory.max");
+  const v2 = readTextFile("/sys/fs/cgroup/memory.max");
   if (v2 && v2 !== "max") return Number(v2);
 
-  const v1 = readCgroupFile("/sys/fs/cgroup/memory/memory.limit_in_bytes");
+  const v1 = readTextFile("/sys/fs/cgroup/memory/memory.limit_in_bytes");
   if (v1) {
     const limit = Number(v1);
     // cgroup v1 reports a very large number when unlimited
@@ -43,7 +33,7 @@ function getCgroupMemoryLimit(): number | null {
 }
 
 function getCgroupCpuCount(): number | null {
-  const v2 = readCgroupFile("/sys/fs/cgroup/cpu.max");
+  const v2 = readTextFile("/sys/fs/cgroup/cpu.max");
   if (v2) {
     const [quotaStr, periodStr] = v2.split(" ");
     if (quotaStr !== "max") {
@@ -51,8 +41,8 @@ function getCgroupCpuCount(): number | null {
     }
   }
 
-  const quota = readCgroupFile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
-  const period = readCgroupFile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
+  const quota = readTextFile("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
+  const period = readTextFile("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
   if (quota && period && Number(quota) > 0) {
     return Math.max(1, Math.round(Number(quota) / Number(period)));
   }
@@ -95,38 +85,6 @@ function getMemoryInfo() {
   const totalBytes = cgroupTotal ?? os.totalmem();
 
   return { usedBytes, totalBytes };
-}
-
-function normalizeBatteryStatus(raw: string | null): BatteryStatus {
-  const value = raw?.toLowerCase();
-  if (value === "charging") return "charging";
-  if (value === "discharging") return "discharging";
-  if (value === "full") return "full";
-  return "unknown";
-}
-
-function getBatteryInfo(): { batteryPercent: number | null; batteryStatus: BatteryStatus | null } {
-  let entries: string[] = [];
-  try {
-    entries = readdirSync(BATTERY_SUPPLY_ROOT);
-  } catch {
-    return { batteryPercent: null, batteryStatus: null };
-  }
-
-  const batteryDir = entries.find((entry) => entry.startsWith("BAT"));
-  if (!batteryDir) return { batteryPercent: null, batteryStatus: null };
-
-  const capacityRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/capacity`);
-  const statusRaw = readCgroupFile(`${BATTERY_SUPPLY_ROOT}/${batteryDir}/status`);
-
-  const capacity = capacityRaw == null ? NaN : Number(capacityRaw);
-  return {
-    batteryPercent:
-      Number.isFinite(capacity) && capacity >= 0 && capacity <= 100
-        ? Number(capacity.toFixed(2))
-        : null,
-    batteryStatus: statusRaw == null ? null : normalizeBatteryStatus(statusRaw),
-  };
 }
 
 function sample(): SystemStat {

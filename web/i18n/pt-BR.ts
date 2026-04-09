@@ -78,8 +78,6 @@ const translations = {
   "1o8gs3z": "Anterior",
   // Product / Infra
   "1m9pnb7": "Produto / Infra",
-  // Profile
-  "1kwlci6": "Perfil",
   // Recent
   "0mg65fi": "Recente",
   // Release
@@ -113,8 +111,6 @@ const translations = {
   "1y4vs9l": "uptime",
   // Uptime
   "0ijqnzt": "Uptime",
-  // uptime since
-  "1sof1zv": "de uptime desde",
   // user
   "0qrm3n6": "usuário",
   // users
