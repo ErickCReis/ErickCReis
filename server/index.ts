@@ -5,6 +5,7 @@ import { batteryAlertCron } from "@server/cron/battery-alert";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { internalRoutes } from "@server/internal/routes";
 import { liveRoutes } from "@server/live/routes";
+import { presenceRoutes } from "@server/presence/routes";
 import { applySecureHeaders } from "@server/lib/secure-headers";
 import { startStatsServices, statsRoutes } from "@server/stats/routes";
 
@@ -22,6 +23,7 @@ const app = new Elysia()
     }),
   )
   .use(statsRoutes)
+  .use(presenceRoutes)
   .use(contentRoutes)
   .use(internalRoutes)
   .use(liveRoutes)

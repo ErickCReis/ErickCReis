@@ -1,0 +1,105 @@
+<script is:inline>
+  (() => {
+    if (typeof window === "undefined") return;
+    if (window.__erickSitePresenceTracker) return;
+
+    const HEARTBEAT_INTERVAL_MS = 15000;
+    const SESSION_STORAGE_KEY = "erick:presence:tab-id";
+    const WINDOW_NAME_PREFIX = "erick-presence:";
+
+    const createTabId = () => {
+      if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID();
+      }
+
+      return `tab_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    };
+
+    const getTabId = () => {
+      try {
+        const existing = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (existing) return existing;
+
+        const created = createTabId();
+        window.sessionStorage.setItem(SESSION_STORAGE_KEY, created);
+        return created;
+      } catch {
+        if (window.name.startsWith(WINDOW_NAME_PREFIX)) {
+          return window.name.slice(WINDOW_NAME_PREFIX.length);
+        }
+
+        const created = createTabId();
+        window.name = `${WINDOW_NAME_PREFIX}${created}`;
+        return created;
+      }
+    };
+
+    const tabId = getTabId();
+    const pingUrl = `/presence/ping?tabId=${encodeURIComponent(tabId)}`;
+    const leaveUrl = `/presence/leave?tabId=${encodeURIComponent(tabId)}`;
+
+    const post = (url) => {
+      if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon(url)) {
+        return;
+      }
+
+      void fetch(url, {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+
+    let heartbeatTimer = 0;
+
+    const startHeartbeat = () => {
+      post(pingUrl);
+
+      if (heartbeatTimer !== 0) {
+        window.clearInterval(heartbeatTimer);
+      }
+
+      heartbeatTimer = window.setInterval(() => {
+        post(pingUrl);
+      }, HEARTBEAT_INTERVAL_MS);
+    };
+
+    const stopHeartbeat = () => {
+      if (heartbeatTimer === 0) return;
+      window.clearInterval(heartbeatTimer);
+      heartbeatTimer = 0;
+    };
+
+    const onPageHide = () => {
+      stopHeartbeat();
+      post(leaveUrl);
+    };
+
+    const onPageShow = () => {
+      startHeartbeat();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        post(pingUrl);
+      }
+    };
+
+    startHeartbeat();
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    window.__erickSitePresenceTracker = {
+      stop() {
+        stopHeartbeat();
+        window.removeEventListener("pagehide", onPageHide);
+        window.removeEventListener("pageshow", onPageShow);
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+        post(leaveUrl);
+        delete window.__erickSitePresenceTracker;
+      },
+    };
+  })();
+</script>

@@ -6,6 +6,7 @@ const SAMPLE_INTERVAL_MS = 5_000;
 const MAX_HISTORY = 84;
 const HOUR_MS = 3_600_000;
 const PERSIST_INTERVAL_MS = 30_000;
+const VIEWER_STALE_AFTER_MS = 45_000;
 
 type PersistedData = {
   maxConcurrentUsers: number;
@@ -13,10 +14,10 @@ type PersistedData = {
 };
 
 function getPersistPath() {
-  return getDataPath("websocket-stats-v2.json");
+  return getDataPath("presence-stats-v1.json");
 }
 
-let activeViewers = 0;
+const activeViewerTabs = new Map<string, number>();
 let maxConcurrentUsers = 0;
 let sseStartedAt = Date.now();
 let history: WebSocketStat[] = [];
@@ -24,17 +25,50 @@ let version = 0;
 let started = false;
 let persistedDirty = false;
 
-function getConnectedUsers(): number {
-  return activeViewers;
+function pruneStaleViewerTabs(now = Date.now()): void {
+  const cutoff = now - VIEWER_STALE_AFTER_MS;
+  for (const [tabId, lastSeenAt] of activeViewerTabs) {
+    if (lastSeenAt < cutoff) {
+      activeViewerTabs.delete(tabId);
+    }
+  }
 }
 
-function sample(): WebSocketStat {
+function getConnectedUsers(now = Date.now()): number {
+  pruneStaleViewerTabs(now);
+  return activeViewerTabs.size;
+}
+
+function sample(now = Date.now()): WebSocketStat {
   return {
-    timestamp: Date.now(),
-    connectedUsers: getConnectedUsers(),
+    timestamp: now,
+    connectedUsers: getConnectedUsers(now),
     maxConcurrentUsers,
     connectionStartedAt: sseStartedAt,
   };
+}
+
+function syncPresenceSnapshot(now: number, previousCount: number): void {
+  const connectedUsers = activeViewerTabs.size;
+  let changed = connectedUsers !== previousCount;
+
+  if (connectedUsers > maxConcurrentUsers) {
+    maxConcurrentUsers = connectedUsers;
+    persistedDirty = true;
+    changed = true;
+  }
+
+  if (!changed) {
+    return;
+  }
+
+  latest = {
+    timestamp: now,
+    connectedUsers,
+    maxConcurrentUsers,
+    connectionStartedAt: sseStartedAt,
+  };
+  version++;
 }
 
 async function loadPersisted(): Promise<void> {
@@ -77,8 +111,8 @@ let latest: WebSocketStat = sample();
 
 export const websocketStat: StatModule<WebSocketStat> & {
   start: () => void;
-  addViewer: () => void;
-  removeViewer: () => void;
+  touchViewerTab: (tabId: string, now?: number) => void;
+  removeViewerTab: (tabId: string, now?: number) => void;
 } = {
   start() {
     if (started) return;
@@ -87,7 +121,8 @@ export const websocketStat: StatModule<WebSocketStat> & {
 
     void loadPersisted().then(() => {
       const tick = () => {
-        latest = sample();
+        const now = Date.now();
+        latest = sample(now);
         history.push(latest);
         if (history.length > MAX_HISTORY) history.shift();
 
@@ -107,12 +142,18 @@ export const websocketStat: StatModule<WebSocketStat> & {
     });
   },
 
-  addViewer() {
-    activeViewers++;
+  touchViewerTab(tabId, now = Date.now()) {
+    const previousCount = activeViewerTabs.size;
+    pruneStaleViewerTabs(now);
+    activeViewerTabs.set(tabId, now);
+    syncPresenceSnapshot(now, previousCount);
   },
 
-  removeViewer() {
-    activeViewers = Math.max(0, activeViewers - 1);
+  removeViewerTab(tabId, now = Date.now()) {
+    const previousCount = activeViewerTabs.size;
+    pruneStaleViewerTabs(now);
+    activeViewerTabs.delete(tabId);
+    syncPresenceSnapshot(now, previousCount);
   },
 
   getLatest: () => latest,

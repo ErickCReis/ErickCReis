@@ -29,21 +29,16 @@ export const statsRoutes = new Elysia({ name: "stats-routes" })
 
     const lastSeen = new Map<string, number>();
 
-    websocketStat.addViewer();
-    try {
-      while (true) {
-        for (const { name, mod } of statModules) {
-          const version = mod.getVersion();
-          if (version > (lastSeen.get(name) ?? 0)) {
-            lastSeen.set(name, version);
-            const payload = serializeStatsStreamEvent(name, mod.getLatest());
-            yield sse({ event: payload.e, data: payload.d });
-          }
+    while (true) {
+      for (const { name, mod } of statModules) {
+        const version = mod.getVersion();
+        if (version > (lastSeen.get(name) ?? 0)) {
+          lastSeen.set(name, version);
+          const payload = serializeStatsStreamEvent(name, mod.getLatest());
+          yield sse({ event: payload.e, data: payload.d });
         }
-        await Bun.sleep(SSE_POLL_INTERVAL_MS);
       }
-    } finally {
-      websocketStat.removeViewer();
+      await Bun.sleep(SSE_POLL_INTERVAL_MS);
     }
   });
 

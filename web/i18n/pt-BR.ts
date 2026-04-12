@@ -122,7 +122,7 @@ const translations = {
   // views
   "0m3uvo1": "visualizações",
   // WebSocket
-  "1c3f0mo": "WebSocket",
+  "1c3f0mo": "Presença ao vivo",
   // Window
   "1s8mpdp": "Janela",
   // Year

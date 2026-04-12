@@ -2,6 +2,7 @@
 import { Font } from "astro:assets";
 import { ClientRouter } from "astro:transitions";
 import { resolveLocale } from "virtual:translate";
+import SitePresenceScript from "@web/components/site-presence-script.astro";
 
 import "@web/styles/site.css";
 
@@ -30,6 +31,7 @@ const locale = resolveLocale(lang);
     <ClientRouter />
   </head>
   <body>
+    <SitePresenceScript />
     <div class="site-background" aria-hidden="true"></div>
     <slot />
   </body>
