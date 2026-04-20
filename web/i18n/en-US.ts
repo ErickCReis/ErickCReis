@@ -48,8 +48,7 @@ export const translations = {
   "1ul8gto": "Toolkit / Backend",
   "095ckws": "Track",
   "0iia6gv": "Type-safe tooling for Node.js services.",
-  "0rynbnf":
-    "TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.",
+  "0rynbnf": "TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.",
   "0lmfm5w": "Unknown artist",
   "0miz9ao": "Updated",
   "1y4vs9l": "uptime",

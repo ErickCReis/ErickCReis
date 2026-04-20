@@ -1,5 +1,6 @@
 import { defineConfig, fontProviders } from "astro/config";
 import mdx from "@astrojs/mdx";
+import sitemap from "@astrojs/sitemap";
 import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
 import astroTranslate from "./plugins/translate-plugin.ts";
@@ -9,6 +10,7 @@ export default defineConfig({
   output: "static",
   site: "https://erickr.dev",
   integrations: [
+    sitemap(),
     mdx(),
     solid(),
     astroTranslate({

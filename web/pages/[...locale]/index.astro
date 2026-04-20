@@ -17,6 +17,10 @@ export function getStaticPaths() {
 }
 
 const { locale } = Astro.props;
+const homeDescription = t(
+  locale,
+  "TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.",
+);
 
 const featuredProjects = [
   {
@@ -60,7 +64,11 @@ const featuredProjects = [
 ];
 ---
 
-<BaseLayout title={t(locale, "Erick Reis | Portfolio")} lang={locale}>
+<BaseLayout
+  title={t(locale, "Erick Reis | Portfolio")}
+  description={homeDescription}
+  lang={locale}
+>
   <HomeLiveOverlay client:only="solid-js" />
   <main class="relative z-10">
     <section
@@ -81,12 +89,7 @@ const featuredProjects = [
               Erick Reis
             </h1>
             <p class="max-w-xl text-base leading-8 text-muted-foreground">
-              {
-                t(
-                  locale,
-                  "TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.",
-                )
-              }
+              {homeDescription}
             </p>
           </div>
 
