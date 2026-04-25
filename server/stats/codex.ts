@@ -67,6 +67,16 @@ function getTodayDateKey() {
   return CODEX_DATE_FORMATTER.format(new Date());
 }
 
+function getWindowDateKeys() {
+  const today = new Date(`${getTodayDateKey()}T00:00:00Z`);
+
+  return Array.from({ length: MAX_DAILY_POINTS }, (_, index) => {
+    const date = new Date(today);
+    date.setUTCDate(today.getUTCDate() - (MAX_DAILY_POINTS - index - 1));
+    return formatUtcDate(date);
+  });
+}
+
 function getUsageFilePath() {
   return getDataPath("codex-usage.json");
 }
@@ -99,16 +109,20 @@ function addDayUsage(target: CodexUsageDay, source: CodexUsageDay) {
   target.totalTokens += source.totalTokens;
 }
 
-function normalizeDailyEntries(entries: CodexUsageDatedDay[]) {
+function normalizeDailyEntries(
+  entries: CodexUsageDatedDay[],
+  windowDateSet = new Set(getWindowDateKeys()),
+) {
   const byDate = new Map<string, CodexUsageDay>();
 
   for (const entry of entries) {
+    if (!windowDateSet.has(entry.date)) continue;
+
     byDate.set(entry.date, createDay(entry));
   }
 
   return Array.from(byDate.entries())
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-    .slice(-MAX_DAILY_POINTS)
     .map(([date, day]) => ({ date, day }));
 }
 
@@ -120,11 +134,13 @@ function normalizeSourcePayload(payload: CodexUsageSyncPayload): InternalSourceS
   };
 }
 
-function buildMergedDaily(store: InternalStore) {
+function buildMergedDaily(store: InternalStore, windowDateSet: Set<string>) {
   const byDate = new Map<string, CodexUsageDay>();
 
   for (const source of store.sources) {
     for (const entry of source.daily) {
+      if (!windowDateSet.has(entry.date)) continue;
+
       const existing = byDate.get(entry.date) ?? createEmptyDay();
       if (!byDate.has(entry.date)) {
         byDate.set(entry.date, existing);
@@ -135,18 +151,17 @@ function buildMergedDaily(store: InternalStore) {
 
   return Array.from(byDate.entries())
     .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-    .slice(-MAX_DAILY_POINTS)
     .map(([date, day]) => ({ date, day }));
 }
 
 function buildWindowedDaily(store: InternalStore) {
-  const byDate = new Map(buildMergedDaily(store).map((entry) => [entry.date, entry.day]));
-  const today = new Date(`${getTodayDateKey()}T00:00:00Z`);
+  const windowDateKeys = getWindowDateKeys();
+  const windowDateSet = new Set(windowDateKeys);
+  const byDate = new Map(
+    buildMergedDaily(store, windowDateSet).map((entry) => [entry.date, entry.day]),
+  );
 
-  return Array.from({ length: MAX_DAILY_POINTS }, (_, index) => {
-    const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() - (MAX_DAILY_POINTS - index - 1));
-    const dateKey = formatUtcDate(date);
+  return windowDateKeys.map((dateKey) => {
     return {
       date: dateKey,
       day: createDay(byDate.get(dateKey) ?? createEmptyDay()),
@@ -273,6 +288,15 @@ async function refreshFromDisk(force = false) {
 
 export function parseCodexUsageSyncPayload(input: unknown) {
   return v.safeParse(codexUsageSyncPayloadSchema, input);
+}
+
+export function resetCodexStatForTests() {
+  latestStore = createEmptyStore();
+  latestSnapshot = null;
+  latestFileMtimeMs = null;
+  writeQueue = Promise.resolve();
+  history = [];
+  version = 0;
 }
 
 export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayload) {
