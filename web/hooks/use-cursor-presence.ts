@@ -1,36 +1,39 @@
 import { createMousePosition, getPositionToScreen } from "@solid-primitives/mouse";
 import { throttle } from "@solid-primitives/scheduled";
-import { pickColor } from "@web/lib/cursor";
+import {
+  cursorBytesKey,
+  formatCursorSlot,
+  normalizedCursorToViewportPoint,
+  packCursorPosition,
+} from "@shared/cursor";
+import { pickCursorSlotColor } from "@web/lib/cursor";
+import { publishCursor, subscribeCursor } from "@web/lib/api";
 import type { CursorState } from "@web/types/home";
-import type { CursorPayload } from "@shared/cursor";
-import { getCursorIdentity, publishCursor, subscribeCursor } from "@web/lib/api";
 import { createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
-export function useCursorPresence() {
-  const [cursorsById, setCursorsById] = createSignal<Record<string, CursorState>>({});
-  const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
-  const [selfId, setSelfId] = createSignal<string | null>(null);
-  const mouse = createMousePosition(window, { followTouch: false });
+function getViewport() {
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+}
 
-  const selfColor = createMemo(() => {
-    const id = selfId();
-    return id ? pickColor(id) : undefined;
-  });
+export function useCursorPresence() {
+  const [cursorsBySlot, setCursorsBySlot] = createSignal<Record<number, CursorState>>({});
+  const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
+  const mouse = createMousePosition(window, { followTouch: false });
+  let lastPublishedCursorKey: string | null = null;
 
   const publishCursorPosition = (point: { x: number; y: number }) => {
-    const ownCursorId = selfId();
-    if (!ownCursorId) {
+    const packedPosition = packCursorPosition(point, getViewport());
+    const packedKey = cursorBytesKey(packedPosition);
+    if (packedKey === lastPublishedCursorKey) {
       return;
     }
 
-    const payload: CursorPayload = {
-      id: ownCursorId,
-      x: point.x,
-      y: point.y,
-      color: selfColor(),
-    };
-
-    publishCursor(payload);
+    if (publishCursor(packedPosition)) {
+      lastPublishedCursorKey = packedKey;
+    }
   };
 
   const throttledPublishCursorPosition = throttle(publishCursorPosition, 50);
@@ -50,44 +53,38 @@ export function useCursorPresence() {
   onCleanup(() => throttledPublishCursorPosition.clear());
 
   onMount(() => {
-    const syncSelfId = async () => {
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        try {
-          const { cursorId } = await getCursorIdentity();
-          setSelfId(cursorId);
-          return;
-        } catch {
-          await new Promise<void>((resolve) => {
-            window.setTimeout(resolve, 150);
-          });
-        }
-      }
-
-      console.error("Failed to sync cursor identity from server");
-    };
-
-    void syncSelfId();
-
-    const unsubscribe = subscribeCursor((payload) => {
-      if (payload.id === selfId()) {
+    const unsubscribe = subscribeCursor((event) => {
+      if (event.type === "leave") {
+        setCursorsBySlot((previous) => {
+          const next = { ...previous };
+          delete next[event.slot];
+          return next;
+        });
         return;
       }
 
-      setCursorsById((previous) => ({
+      if (event.type !== "move") {
+        return;
+      }
+
+      const point = normalizedCursorToViewportPoint(event.position, getViewport());
+      setCursorsBySlot((previous) => ({
         ...previous,
-        [payload.id]: {
-          id: payload.id,
-          x: payload.x,
-          y: payload.y,
-          color: payload.color ?? pickColor(payload.id),
+        [event.slot]: {
+          slot: event.slot,
+          label: formatCursorSlot(event.slot),
+          x: point.x,
+          y: point.y,
+          color: pickCursorSlotColor(event.slot),
           updatedAt: Date.now(),
+          isSelf: false,
         },
       }));
     });
 
     const staleInterval = window.setInterval(() => {
       const cutoff = Date.now() - 7000;
-      setCursorsById((previous) =>
+      setCursorsBySlot((previous) =>
         Object.fromEntries(
           Object.entries(previous).filter(([, cursor]) => cursor.updatedAt >= cutoff),
         ),
@@ -101,27 +98,27 @@ export function useCursorPresence() {
   });
 
   const cursors = createMemo(() => {
-    const remoteCursors = Object.values(cursorsById());
+    const remoteCursors = Object.values(cursorsBySlot());
     const localPoint = localSelfPoint();
-    const ownCursorId = selfId();
-    if (!localPoint || !ownCursorId) {
+    if (!localPoint) {
       return remoteCursors;
     }
 
     return [
       ...remoteCursors,
       {
-        id: ownCursorId,
+        slot: null,
+        label: "you",
         x: localPoint.x,
         y: localPoint.y,
-        color: selfColor() ?? pickColor(ownCursorId),
+        color: pickCursorSlotColor(0),
         updatedAt: Date.now(),
+        isSelf: true,
       },
     ];
   });
 
   return {
-    selfId,
     cursors,
   };
 }

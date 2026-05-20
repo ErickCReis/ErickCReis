@@ -1,18 +1,16 @@
 import { clsx } from "clsx";
-import { formatCursorPosition, pickColor } from "@web/lib/cursor";
+import { formatCursorPosition } from "@web/lib/cursor";
 import type { CursorState } from "@web/types/home";
 import { For, createMemo, type JSX } from "solid-js";
 import { t } from "virtual:translate";
 
 type CursorPresenceLayerProps = {
-  selfId: string | null;
   cursors: CursorState[];
   isStatsHovered: boolean;
 };
 
 type CursorMarkerProps = {
   cursor: () => CursorState | undefined;
-  selfId: string | null;
   isStatsHovered: boolean;
   smooth: boolean;
 };
@@ -30,11 +28,11 @@ function CursorMarker(props: CursorMarkerProps) {
     return {
       "--cursor-x": `${x()}px`,
       "--cursor-y": `${y()}px`,
-      "--cursor-color": cursor.color ?? pickColor(cursor.id),
+      "--cursor-color": cursor.color,
     } as JSX.CSSProperties;
   });
-  const cursorLabel = () => props.cursor()?.id ?? "";
-  const isSelf = () => cursorLabel() === props.selfId;
+  const cursorLabel = () => props.cursor()?.label ?? "";
+  const isSelf = () => props.cursor()?.isSelf ?? false;
 
   if (!props.cursor()) {
     return null;
@@ -53,7 +51,7 @@ function CursorMarker(props: CursorMarkerProps) {
     >
       {!props.isStatsHovered ? (
         <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-xxs tracking-wide uppercase">
-          <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel().slice(0, 4)}</span>
+          <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel()}</span>
           <span class="text-slate-100/84">{position()}</span>
         </span>
       ) : null}
@@ -63,9 +61,9 @@ function CursorMarker(props: CursorMarkerProps) {
 
 export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
   const cursorsById = createMemo<Record<string, CursorState>>(() =>
-    Object.fromEntries(props.cursors.map((cursor) => [cursor.id, cursor])),
+    Object.fromEntries(props.cursors.map((cursor) => [cursor.label, cursor])),
   );
-  const cursorIds = createMemo(() => props.cursors.map((cursor) => cursor.id));
+  const cursorIds = createMemo(() => props.cursors.map((cursor) => cursor.label));
 
   return (
     <div class="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
@@ -74,9 +72,8 @@ export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
           return (
             <CursorMarker
               cursor={() => cursorsById()[cursorId]}
-              selfId={props.selfId}
               isStatsHovered={props.isStatsHovered}
-              smooth={cursorId !== props.selfId}
+              smooth={!cursorsById()[cursorId]?.isSelf}
             />
           );
         }}
