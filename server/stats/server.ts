@@ -1,32 +1,20 @@
 import { version } from "../../package.json";
-import type { ServerInfoStat, UptimeDaySummary } from "@shared/stats/server";
+import type { ServerInfoStat } from "@shared/stats/server";
 import type { StatModule } from "@server/stats/types";
+import {
+  buildDailyUptime,
+  DAYS_IN_WINDOW,
+  getCurrentStreakSeconds,
+  getDailyRanges,
+  getOverallUptime,
+  type UptimeRobotMonitor,
+} from "@server/stats/uptime";
 
 const UPTIMEROBOT_ENDPOINT = "https://api.uptimerobot.com/v2/getMonitors";
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const RETRY_INTERVAL_MS = 60 * 1000;
 const MAX_HISTORY = 10;
-const DAYS_IN_WINDOW = 30;
-const MS_PER_DAY = 86_400_000;
-const STATUS_UP = 2;
-const UP_LOG_TYPES = new Set([2, 98]);
-const INTERRUPTION_LOG_TYPES = new Set([1, 99]);
 const STREAK_LOG_LIMIT = 50;
-
-type UptimeRobotLog = {
-  type?: number;
-  datetime?: number;
-};
-
-type UptimeRobotMonitor = {
-  id?: number;
-  status?: number;
-  create_datetime?: number;
-  custom_uptime_ranges?: string;
-  custom_uptime_ratio?: string;
-  custom_uptime_ratios?: string;
-  logs?: UptimeRobotLog[];
-};
 
 type UptimeRobotResponse = {
   stat?: string;
@@ -53,42 +41,6 @@ function createEmptyStat(now = Date.now()): ServerInfoStat {
     uptimePercent30d: 0,
     dailyUptime: [],
   };
-}
-
-function formatUtcDate(ms: number) {
-  const date = new Date(ms);
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getUtcDayStartMs(ms: number) {
-  const date = new Date(ms);
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
-}
-
-function getDailyRanges(nowMs: number) {
-  return Array.from({ length: DAYS_IN_WINDOW }, (_, index) => {
-    const daysAgo = DAYS_IN_WINDOW - index - 1;
-    const startMs = getUtcDayStartMs(nowMs - daysAgo * MS_PER_DAY);
-    const endMs = index === DAYS_IN_WINDOW - 1 ? nowMs : startMs + MS_PER_DAY;
-
-    return {
-      date: formatUtcDate(startMs),
-      startUnix: Math.floor(startMs / 1000),
-      endUnix: Math.floor(endMs / 1000),
-    };
-  });
-}
-
-function parsePercentList(value: string | null | undefined) {
-  if (!value) return [];
-  return value
-    .split("-")
-    .map((part) => Number.parseFloat(part))
-    .filter((part) => Number.isFinite(part))
-    .map((part) => Math.min(100, Math.max(0, Number(part.toFixed(2)))));
 }
 
 function buildRequestBody(nowMs: number) {
@@ -137,56 +89,6 @@ async function fetchMonitor(nowMs: number) {
   return monitor;
 }
 
-function buildDailyUptime(nowMs: number, monitor: UptimeRobotMonitor): UptimeDaySummary[] {
-  const ranges = getDailyRanges(nowMs);
-  const percents = parsePercentList(monitor.custom_uptime_ranges);
-  const createdAtMs = Number.isFinite(monitor.create_datetime)
-    ? Number(monitor.create_datetime) * 1000
-    : null;
-
-  return ranges.map((range, index) => ({
-    date: range.date,
-    uptimePercent:
-      createdAtMs !== null && range.endUnix * 1000 <= createdAtMs ? null : (percents[index] ?? 0),
-  }));
-}
-
-function getOverallUptime(dailyUptime: UptimeDaySummary[], monitor: UptimeRobotMonitor) {
-  const ratio = parsePercentList(monitor.custom_uptime_ratio ?? monitor.custom_uptime_ratios)[0];
-  if (ratio !== undefined) return ratio;
-  const availableDays = dailyUptime.filter((day) => day.uptimePercent !== null);
-  if (availableDays.length === 0) return 0;
-
-  const total = availableDays.reduce((sum, day) => sum + (day.uptimePercent ?? 0), 0);
-  return Number((total / availableDays.length).toFixed(2));
-}
-
-function getCurrentStreakSeconds(nowMs: number, monitor: UptimeRobotMonitor) {
-  if (monitor.status !== STATUS_UP) return 0;
-
-  const logs = (monitor.logs ?? []).filter((entry) => Number.isFinite(entry.datetime));
-  const createdAt = Number.isFinite(monitor.create_datetime)
-    ? Number(monitor.create_datetime)
-    : null;
-
-  const lastRecoveryAt = logs
-    .filter((entry) => UP_LOG_TYPES.has(entry.type ?? -1))
-    .map((entry) => entry.datetime)
-    .filter((value): value is number => Number.isFinite(value))
-    .sort((left, right) => right - left)[0];
-
-  const lastInterruptionAt = logs
-    .filter((entry) => INTERRUPTION_LOG_TYPES.has(entry.type ?? -1))
-    .map((entry) => entry.datetime)
-    .filter((value): value is number => Number.isFinite(value))
-    .sort((left, right) => right - left)[0];
-
-  const startedAt = Math.max(createdAt ?? 0, lastRecoveryAt ?? createdAt ?? 0);
-  if (!startedAt) return 0;
-  if (lastInterruptionAt && lastInterruptionAt > startedAt && !lastRecoveryAt) return 0;
-  return Math.max(0, Math.floor(nowMs / 1000 - startedAt));
-}
-
 function buildSnapshot(nowMs: number, monitor: UptimeRobotMonitor): ServerInfoStat {
   const dailyUptime = buildDailyUptime(nowMs, monitor);
 
@@ -203,6 +105,7 @@ let latest: ServerInfoStat = createEmptyStat();
 let history: ServerInfoStat[] = [];
 let statVersion = 0;
 let started = false;
+let hasSuccessfulFetch = false;
 
 function pushSnapshot(snapshot: ServerInfoStat) {
   latest = snapshot;
@@ -215,6 +118,7 @@ async function refreshServerStats() {
   const nowMs = Date.now();
 
   if (!getApiKey()) {
+    hasSuccessfulFetch = false;
     pushSnapshot(createEmptyStat(nowMs));
     return POLL_INTERVAL_MS;
   }
@@ -222,10 +126,13 @@ async function refreshServerStats() {
   try {
     const monitor = await fetchMonitor(nowMs);
     pushSnapshot(buildSnapshot(nowMs, monitor));
+    hasSuccessfulFetch = true;
     return POLL_INTERVAL_MS;
   } catch (error) {
     console.error("[server] Failed to refresh uptime stats", error);
-    pushSnapshot(createEmptyStat(nowMs));
+    if (!hasSuccessfulFetch) {
+      pushSnapshot(createEmptyStat(nowMs));
+    }
     return RETRY_INTERVAL_MS;
   }
 }
