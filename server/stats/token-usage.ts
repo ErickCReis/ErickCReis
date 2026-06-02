@@ -1,23 +1,24 @@
+import { rmSync } from "node:fs";
 import { rename } from "node:fs/promises";
 import * as v from "valibot";
 import {
-  codexUsageDatedDaySchema,
-  codexUsageSyncPayloadSchema,
-  type CodexUsageDay,
-  type CodexUsageDatedDay,
-  type CodexUsageDailySummary,
-  type CodexUsageSnapshot,
-  type CodexUsageSyncPayload,
-} from "@shared/stats/codex";
+  tokenUsageDatedDaySchema,
+  tokenUsageSyncPayloadSchema,
+  type TokenUsageDay,
+  type TokenUsageDatedDay,
+  type TokenUsageDailySummary,
+  type TokenUsageSnapshot,
+  type TokenUsageSyncPayload,
+} from "@shared/stats/token-usage";
 import type { StatModule } from "@server/stats/types";
 import { getDataPath } from "@server/data-dir";
 
 const DEFAULT_STALE_AFTER_MINUTES = 180;
-const CODEX_USAGE_REFRESH_INTERVAL_MS = 30_000;
+const TOKEN_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
-const CODEX_TIMEZONE = "America/Sao_Paulo";
-const CODEX_DATE_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: CODEX_TIMEZONE,
+const TOKEN_USAGE_TIMEZONE = Bun.env.TOKEN_USAGE_TIMEZONE?.trim() || "America/Sao_Paulo";
+const TOKEN_USAGE_DATE_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: TOKEN_USAGE_TIMEZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
@@ -26,8 +27,9 @@ const nonNegativeNumber = v.pipe(v.number(), v.minValue(0));
 
 const persistedSourceSchema = v.object({
   sourceId: v.pipe(v.string(), v.minLength(1)),
+  providerId: v.pipe(v.string(), v.minLength(1)),
   generatedAt: nonNegativeNumber,
-  daily: v.array(codexUsageDatedDaySchema),
+  daily: v.array(tokenUsageDatedDaySchema),
 });
 
 const persistedStoreSchema = v.object({
@@ -37,8 +39,9 @@ const persistedStoreSchema = v.object({
 
 type InternalSourceStore = {
   sourceId: string;
+  providerId: string;
   generatedAt: number;
-  daily: { date: string; day: CodexUsageDay }[];
+  daily: { date: string; day: TokenUsageDay }[];
 };
 
 type InternalStore = { sources: InternalSourceStore[] };
@@ -55,7 +58,7 @@ function formatUtcDate(date: Date) {
 }
 
 function getStaleAfterMs() {
-  const configuredMinutes = Number.parseFloat(Bun.env.CODEX_STALE_AFTER_MINUTES ?? "");
+  const configuredMinutes = Number.parseFloat(Bun.env.TOKEN_USAGE_STALE_AFTER_MINUTES ?? "");
   const minutes =
     Number.isFinite(configuredMinutes) && configuredMinutes > 0
       ? configuredMinutes
@@ -64,7 +67,7 @@ function getStaleAfterMs() {
 }
 
 function getTodayDateKey() {
-  return CODEX_DATE_FORMATTER.format(new Date());
+  return TOKEN_USAGE_DATE_FORMATTER.format(new Date());
 }
 
 function getWindowDateKeys() {
@@ -78,10 +81,10 @@ function getWindowDateKeys() {
 }
 
 function getUsageFilePath() {
-  return getDataPath("codex-usage.json");
+  return getDataPath("token-usage.json");
 }
 
-function createDay(day: CodexUsageDay): CodexUsageDay {
+function createDay(day: TokenUsageDay): TokenUsageDay {
   return {
     inputTokens: day.inputTokens,
     cachedInputTokens: day.cachedInputTokens,
@@ -91,7 +94,7 @@ function createDay(day: CodexUsageDay): CodexUsageDay {
   };
 }
 
-function createEmptyDay(): CodexUsageDay {
+function createEmptyDay(): TokenUsageDay {
   return createDay({
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -101,7 +104,7 @@ function createEmptyDay(): CodexUsageDay {
   });
 }
 
-function addDayUsage(target: CodexUsageDay, source: CodexUsageDay) {
+function addDayUsage(target: TokenUsageDay, source: TokenUsageDay) {
   target.inputTokens += source.inputTokens;
   target.cachedInputTokens += source.cachedInputTokens;
   target.outputTokens += source.outputTokens;
@@ -110,10 +113,10 @@ function addDayUsage(target: CodexUsageDay, source: CodexUsageDay) {
 }
 
 function normalizeDailyEntries(
-  entries: CodexUsageDatedDay[],
+  entries: TokenUsageDatedDay[],
   windowDateSet = new Set(getWindowDateKeys()),
 ) {
-  const byDate = new Map<string, CodexUsageDay>();
+  const byDate = new Map<string, TokenUsageDay>();
 
   for (const entry of entries) {
     if (!windowDateSet.has(entry.date)) continue;
@@ -126,16 +129,17 @@ function normalizeDailyEntries(
     .map(([date, day]) => ({ date, day }));
 }
 
-function normalizeSourcePayload(payload: CodexUsageSyncPayload): InternalSourceStore {
+function normalizeSourcePayload(payload: TokenUsageSyncPayload): InternalSourceStore {
   return {
     sourceId: payload.sourceId,
+    providerId: payload.providerId,
     generatedAt: payload.generatedAt,
     daily: normalizeDailyEntries(payload.daily),
   };
 }
 
 function buildMergedDaily(store: InternalStore, windowDateSet: Set<string>) {
-  const byDate = new Map<string, CodexUsageDay>();
+  const byDate = new Map<string, TokenUsageDay>();
 
   for (const source of store.sources) {
     for (const entry of source.daily) {
@@ -177,11 +181,11 @@ function getLatestGeneratedAt(store: InternalStore) {
   );
 }
 
-function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
+function buildSnapshot(store: InternalStore): TokenUsageSnapshot {
   const generatedAt = getLatestGeneratedAt(store);
   const mergedDaily = generatedAt === null ? [] : buildWindowedDaily(store);
   const isStale = generatedAt === null || Date.now() - generatedAt > getStaleAfterMs();
-  const dailySummaries: CodexUsageDailySummary[] = mergedDaily.map((e) => ({
+  const dailySummaries: TokenUsageDailySummary[] = mergedDaily.map((e) => ({
     date: e.date,
     totalTokens: e.day.totalTokens,
   }));
@@ -199,15 +203,15 @@ function buildSnapshot(store: InternalStore): CodexUsageSnapshot {
 }
 
 let latestStore: InternalStore = createEmptyStore();
-let latestSnapshot: CodexUsageSnapshot | null = null;
+let latestSnapshot: TokenUsageSnapshot | null = null;
 let latestFileMtimeMs: number | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
-let history: CodexUsageSnapshot[] = [];
+let history: TokenUsageSnapshot[] = [];
 let version = 0;
 let started = false;
 
-function areSnapshotsEqual(current: CodexUsageSnapshot, next: CodexUsageSnapshot) {
+function areSnapshotsEqual(current: TokenUsageSnapshot, next: TokenUsageSnapshot) {
   if (current.generatedAt !== next.generatedAt) return false;
   if (current.isStale !== next.isStale) return false;
   if (current.todayTokens !== next.todayTokens) return false;
@@ -264,6 +268,7 @@ async function refreshFromDisk(force = false) {
       latestStore = {
         sources: persistedStore.output.sources.map((source) => ({
           sourceId: source.sourceId,
+          providerId: source.providerId,
           generatedAt: source.generatedAt,
           daily: normalizeDailyEntries(source.daily),
         })),
@@ -273,7 +278,7 @@ async function refreshFromDisk(force = false) {
       return;
     }
 
-    console.error("[codex] Ignoring invalid usage file payload");
+    console.error("[token-usage] Ignoring invalid usage file payload");
   } catch (error) {
     const nodeError = error as NodeJS.ErrnoException;
     if (nodeError?.code === "ENOENT") {
@@ -282,41 +287,54 @@ async function refreshFromDisk(force = false) {
       refreshDerivedSnapshot();
       return;
     }
-    console.error("[codex] Failed to refresh usage file", error);
+    console.error("[token-usage] Failed to refresh usage file", error);
   }
 }
 
-export function parseCodexUsageSyncPayload(input: unknown) {
-  return v.safeParse(codexUsageSyncPayloadSchema, input);
+export function parseTokenUsageSyncPayload(input: unknown) {
+  return v.safeParse(tokenUsageSyncPayloadSchema, input);
 }
 
-export function resetCodexStatForTests() {
+export function resetTokenUsageStatForTests() {
   latestStore = createEmptyStore();
   latestSnapshot = null;
   latestFileMtimeMs = null;
   writeQueue = Promise.resolve();
   history = [];
   version = 0;
+
+  rmSync(getUsageFilePath(), { force: true });
 }
 
-export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayload) {
-  const normalizedSource = normalizeSourcePayload(payload);
-  const normalized: InternalStore = {
-    sources: [
-      ...latestStore.sources.filter((source) => source.sourceId !== normalizedSource.sourceId),
-      normalizedSource,
-    ].sort((sourceA, sourceB) => sourceA.sourceId.localeCompare(sourceB.sourceId)),
-  };
+export async function persistTokenUsageSyncPayload(payload: TokenUsageSyncPayload) {
   const filePath = getUsageFilePath();
 
   writeQueue = writeQueue
     .catch(() => {})
     .then(async () => {
+      await refreshFromDisk(true);
+
+      const normalizedSource = normalizeSourcePayload(payload);
+      const normalized: InternalStore = {
+        sources: [
+          ...latestStore.sources.filter(
+            (source) =>
+              source.providerId !== normalizedSource.providerId ||
+              source.sourceId !== normalizedSource.sourceId,
+          ),
+          normalizedSource,
+        ].sort(
+          (sourceA, sourceB) =>
+            sourceA.providerId.localeCompare(sourceB.providerId) ||
+            sourceA.sourceId.localeCompare(sourceB.sourceId),
+        ),
+      };
       const tempPath = `${filePath}.${Math.random().toString(36).slice(2)}.${Date.now()}.tmp`;
       const serialized = {
         version: 2 as const,
         sources: normalized.sources.map((source) => ({
           sourceId: source.sourceId,
+          providerId: source.providerId,
           generatedAt: source.generatedAt,
           daily: source.daily.map((entry) => ({ date: entry.date, ...entry.day })),
         })),
@@ -340,13 +358,13 @@ export async function persistCodexUsageSyncPayload(payload: CodexUsageSyncPayloa
   await writeQueue;
 }
 
-export const codexStat: StatModule<CodexUsageSnapshot> = {
+export const tokenUsageStat: StatModule<TokenUsageSnapshot> = {
   start() {
     if (started) return;
     started = true;
 
     void refreshFromDisk(true);
-    setInterval(() => void refreshFromDisk(), CODEX_USAGE_REFRESH_INTERVAL_MS);
+    setInterval(() => void refreshFromDisk(), TOKEN_USAGE_REFRESH_INTERVAL_MS);
   },
   getLatest: () => latestSnapshot ?? buildSnapshot(latestStore),
   getHistory: () => [...history],

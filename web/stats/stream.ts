@@ -3,7 +3,7 @@ import { serverStore } from "@web/stats/server/store";
 import { websocketStore } from "@web/stats/websocket/store";
 import { spotifyStore } from "@web/stats/spotify/store";
 import { githubStore } from "@web/stats/github/store";
-import { codexStore } from "@web/stats/codex/store";
+import { tokenUsageStore } from "@web/stats/token-usage/store";
 import { statsClient } from "@web/stats/client";
 import { deserializeStatsStreamEvent } from "@shared/stats/transport";
 
@@ -15,7 +15,7 @@ const storeDispatch: Record<string, (data: never) => void> = {
   websocket: (d) => websocketStore.pushSample(d),
   spotify: (d) => spotifyStore.pushSample(d),
   github: (d) => githubStore.pushSample(d),
-  codex: (d) => codexStore.pushSample(d),
+  tokenUsage: (d) => tokenUsageStore.pushSample(d),
 };
 
 export async function subscribeStatsStream(signal?: AbortSignal) {

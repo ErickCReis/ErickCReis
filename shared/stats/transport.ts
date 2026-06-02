@@ -1,13 +1,3 @@
-import type { CodexUsageSnapshot } from "@shared/stats/codex";
-import {
-  deserializeCodexHistoryPoint,
-  deserializeCodexUsageSnapshot,
-  serializeCodexHistoryPoint,
-  serializeCodexUsageSnapshot,
-  type CodexHistoryPoint,
-  type CodexHistoryPointTuple,
-  type CodexUsageSnapshotTuple,
-} from "@shared/stats/codex.transport";
 import type { GitHubCommitStats } from "@shared/stats/github";
 import {
   deserializeGitHubCommitStats,
@@ -48,6 +38,16 @@ import {
   type SystemHistoryPointTuple,
   type SystemStatTuple,
 } from "@shared/stats/system.transport";
+import type { TokenUsageSnapshot } from "@shared/stats/token-usage";
+import {
+  deserializeTokenUsageHistoryPoint,
+  deserializeTokenUsageSnapshot,
+  serializeTokenUsageHistoryPoint,
+  serializeTokenUsageSnapshot,
+  type TokenUsageHistoryPoint,
+  type TokenUsageHistoryPointTuple,
+  type TokenUsageSnapshotTuple,
+} from "@shared/stats/token-usage.transport";
 import type { StatEventName } from "@shared/stats/types";
 import type { WebSocketStat } from "@shared/stats/websocket";
 import {
@@ -60,7 +60,7 @@ import {
   type WebSocketStatTuple,
 } from "@shared/stats/websocket.transport";
 
-type StatEventCode = "sy" | "sr" | "ws" | "sp" | "gh" | "cx";
+type StatEventCode = "sy" | "sr" | "ws" | "sp" | "gh" | "tu";
 
 type StatsHistoryItemWire<L, H> = { l: L; h: H[] };
 
@@ -70,7 +70,7 @@ type StatsHistoryResponseWire = {
   ws: StatsHistoryItemWire<WebSocketStatTuple, WebSocketHistoryPointTuple>;
   sp: StatsHistoryItemWire<SpotifyNowPlayingTuple, SpotifyHistoryPointTuple>;
   gh: StatsHistoryItemWire<GitHubCommitStatsTuple, GitHubHistoryPointTuple>;
-  cx: StatsHistoryItemWire<CodexUsageSnapshotTuple, CodexHistoryPointTuple>;
+  tu: StatsHistoryItemWire<TokenUsageSnapshotTuple, TokenUsageHistoryPointTuple>;
 };
 
 type StatsHistoryResponse = {
@@ -79,7 +79,7 @@ type StatsHistoryResponse = {
   websocket: { latest: WebSocketStat; history: WebSocketHistoryPoint[] };
   spotify: { latest: SpotifyNowPlaying; history: SpotifyHistoryPoint[] };
   github: { latest: GitHubCommitStats; history: GitHubHistoryPoint[] };
-  codex: { latest: CodexUsageSnapshot; history: CodexHistoryPoint[] };
+  tokenUsage: { latest: TokenUsageSnapshot; history: TokenUsageHistoryPoint[] };
 };
 
 type StatsStreamEventWire = {
@@ -90,7 +90,7 @@ type StatsStreamEventWire = {
     | WebSocketStatTuple
     | SpotifyNowPlayingTuple
     | GitHubCommitStatsTuple
-    | CodexUsageSnapshotTuple;
+    | TokenUsageSnapshotTuple;
 };
 
 type StatsStreamEvent = {
@@ -101,7 +101,7 @@ type StatsStreamEvent = {
     | WebSocketStat
     | SpotifyNowPlaying
     | GitHubCommitStats
-    | CodexUsageSnapshot;
+    | TokenUsageSnapshot;
 };
 
 const statEventCodes = {
@@ -110,7 +110,7 @@ const statEventCodes = {
   websocket: "ws",
   spotify: "sp",
   github: "gh",
-  codex: "cx",
+  tokenUsage: "tu",
 } as const satisfies Record<StatEventName, StatEventCode>;
 
 const statEventNames = {
@@ -119,7 +119,7 @@ const statEventNames = {
   ws: "websocket",
   sp: "spotify",
   gh: "github",
-  cx: "codex",
+  tu: "tokenUsage",
 } as const satisfies Record<StatEventCode, StatEventName>;
 
 export function serializeStatsHistoryResponse(
@@ -146,9 +146,9 @@ export function serializeStatsHistoryResponse(
       l: serializeGitHubCommitStats(data.github.latest),
       h: data.github.history.map(serializeGitHubHistoryPoint),
     },
-    cx: {
-      l: serializeCodexUsageSnapshot(data.codex.latest),
-      h: data.codex.history.map(serializeCodexHistoryPoint),
+    tu: {
+      l: serializeTokenUsageSnapshot(data.tokenUsage.latest),
+      h: data.tokenUsage.history.map(serializeTokenUsageHistoryPoint),
     },
   };
 }
@@ -177,9 +177,9 @@ export function deserializeStatsHistoryResponse(
       latest: deserializeGitHubCommitStats(wire.gh.l),
       history: wire.gh.h.map(deserializeGitHubHistoryPoint),
     },
-    codex: {
-      latest: deserializeCodexUsageSnapshot(wire.cx.l),
-      history: wire.cx.h.map(deserializeCodexHistoryPoint),
+    tokenUsage: {
+      latest: deserializeTokenUsageSnapshot(wire.tu.l),
+      history: wire.tu.h.map(deserializeTokenUsageHistoryPoint),
     },
   };
 }
@@ -192,7 +192,7 @@ export function serializeStatsStreamEvent(
     | WebSocketStat
     | SpotifyNowPlaying
     | GitHubCommitStats
-    | CodexUsageSnapshot,
+    | TokenUsageSnapshot,
 ): StatsStreamEventWire {
   switch (name) {
     case "system":
@@ -205,10 +205,10 @@ export function serializeStatsStreamEvent(
       return { e: statEventCodes[name], d: serializeSpotifyNowPlaying(data as SpotifyNowPlaying) };
     case "github":
       return { e: statEventCodes[name], d: serializeGitHubCommitStats(data as GitHubCommitStats) };
-    case "codex":
+    case "tokenUsage":
       return {
         e: statEventCodes[name],
-        d: serializeCodexUsageSnapshot(data as CodexUsageSnapshot),
+        d: serializeTokenUsageSnapshot(data as TokenUsageSnapshot),
       };
   }
 }
@@ -240,10 +240,10 @@ export function deserializeStatsStreamEvent(wire: { e: string; d: unknown }): St
         name: statEventNames[wire.e],
         data: deserializeGitHubCommitStats(wire.d as GitHubCommitStatsTuple),
       };
-    case "cx":
+    case "tu":
       return {
         name: statEventNames[wire.e],
-        data: deserializeCodexUsageSnapshot(wire.d as CodexUsageSnapshotTuple),
+        data: deserializeTokenUsageSnapshot(wire.d as TokenUsageSnapshotTuple),
       };
   }
 

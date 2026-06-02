@@ -6,7 +6,7 @@
     "dev": "bun run --parallel dev:astro dev:api",
     "dev:astro": "bun --bun astro dev --host",
     "dev:api": "bun --watch server/index.ts",
-    "codex:sync": "bun scripts/codex-sync.ts",
+    "tokens:sync": "bun scripts/token-usage-sync.ts",
     "db:generate": "drizzle-kit generate",
     "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
     "build": "bun --bun astro build && bun build ./server/index.ts --compile --outfile myserver",

@@ -3,7 +3,7 @@ import { createSignal, For, onCleanup, onMount, type Component } from "solid-js"
 import { PanelProvider, PanelRenderModeProvider } from "@web/components/stat-panel";
 import { fetchStatsHistory } from "@web/stats/history";
 import { subscribeStatsStream } from "@web/stats/stream";
-import { CodexPanel } from "@web/stats/codex/panel";
+import { TokenUsagePanel } from "@web/stats/token-usage/panel";
 import { SystemPanel } from "@web/stats/system/panel";
 import { ServerPanel } from "@web/stats/server/panel";
 import { WebSocketPanel } from "@web/stats/websocket/panel";
@@ -20,7 +20,11 @@ type PanelMotionSeed = {
 };
 
 const PANEL_CONFIGS: { id: string; primaryColor: string; component: Component }[] = [
-  { id: CodexPanel.id, primaryColor: CodexPanel.primaryColor, component: CodexPanel },
+  {
+    id: TokenUsagePanel.id,
+    primaryColor: TokenUsagePanel.primaryColor,
+    component: TokenUsagePanel,
+  },
   { id: SystemPanel.id, primaryColor: SystemPanel.primaryColor, component: SystemPanel },
   { id: ServerPanel.id, primaryColor: ServerPanel.primaryColor, component: ServerPanel },
   { id: WebSocketPanel.id, primaryColor: WebSocketPanel.primaryColor, component: WebSocketPanel },

@@ -1,1 +1,1 @@
-export type StatEventName = "system" | "server" | "websocket" | "spotify" | "github" | "codex";
+export type StatEventName = "system" | "server" | "websocket" | "spotify" | "github" | "tokenUsage";

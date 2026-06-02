@@ -3,16 +3,19 @@ import * as v from "valibot";
 const nonNegativeNumber = v.pipe(v.number(), v.minValue(0));
 const isoDateString = v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/));
 
-export const codexUsageDaySchema = v.object({
+export const tokenUsageProviderIdSchema = v.pipe(v.string(), v.minLength(1));
+export type TokenUsageProviderId = v.InferOutput<typeof tokenUsageProviderIdSchema>;
+
+export const tokenUsageDaySchema = v.object({
   inputTokens: nonNegativeNumber,
   cachedInputTokens: nonNegativeNumber,
   outputTokens: nonNegativeNumber,
   reasoningOutputTokens: nonNegativeNumber,
   totalTokens: nonNegativeNumber,
 });
-export type CodexUsageDay = v.InferOutput<typeof codexUsageDaySchema>;
+export type TokenUsageDay = v.InferOutput<typeof tokenUsageDaySchema>;
 
-export const codexUsageDatedDaySchema = v.object({
+export const tokenUsageDatedDaySchema = v.object({
   date: isoDateString,
   inputTokens: nonNegativeNumber,
   cachedInputTokens: nonNegativeNumber,
@@ -20,28 +23,29 @@ export const codexUsageDatedDaySchema = v.object({
   reasoningOutputTokens: nonNegativeNumber,
   totalTokens: nonNegativeNumber,
 });
-export type CodexUsageDatedDay = v.InferOutput<typeof codexUsageDatedDaySchema>;
+export type TokenUsageDatedDay = v.InferOutput<typeof tokenUsageDatedDaySchema>;
 
-export const codexUsageDailySummarySchema = v.object({
+export const tokenUsageDailySummarySchema = v.object({
   date: isoDateString,
   totalTokens: nonNegativeNumber,
 });
-export type CodexUsageDailySummary = v.InferOutput<typeof codexUsageDailySummarySchema>;
+export type TokenUsageDailySummary = v.InferOutput<typeof tokenUsageDailySummarySchema>;
 
-export const codexUsageSnapshotSchema = v.object({
+export const tokenUsageSnapshotSchema = v.object({
   timestamp: nonNegativeNumber,
   generatedAt: v.nullable(nonNegativeNumber),
   isStale: v.boolean(),
   todayTokens: nonNegativeNumber,
   totalTokens30d: nonNegativeNumber,
-  daily: v.array(codexUsageDailySummarySchema),
+  daily: v.array(tokenUsageDailySummarySchema),
 });
-export type CodexUsageSnapshot = v.InferOutput<typeof codexUsageSnapshotSchema>;
+export type TokenUsageSnapshot = v.InferOutput<typeof tokenUsageSnapshotSchema>;
 
-export const codexUsageSyncPayloadSchema = v.object({
+export const tokenUsageSyncPayloadSchema = v.object({
   sourceId: v.pipe(v.string(), v.minLength(1)),
+  providerId: tokenUsageProviderIdSchema,
   generatedAt: nonNegativeNumber,
-  daily: v.array(codexUsageDatedDaySchema),
+  daily: v.array(tokenUsageDatedDaySchema),
   totals: v.optional(v.nullable(v.object({ totalTokens: nonNegativeNumber }))),
 });
-export type CodexUsageSyncPayload = v.InferOutput<typeof codexUsageSyncPayloadSchema>;
+export type TokenUsageSyncPayload = v.InferOutput<typeof tokenUsageSyncPayloadSchema>;

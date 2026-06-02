@@ -9,17 +9,17 @@ import {
   PanelFooter,
 } from "@web/components/stat-panel";
 import { BarChart } from "@web/components/bar-chart";
-import { codexStore } from "@web/stats/codex/store";
+import { tokenUsageStore } from "@web/stats/token-usage/store";
 import {
   formatCompactTokenCount,
   formatTokenCount,
   formatGeneratedAt,
-} from "@web/stats/codex/utils";
+} from "@web/stats/token-usage/utils";
 
 const PRIMARY_COLOR = "#7fb0ff";
 
-export function CodexPanel() {
-  const latest = createMemo(() => codexStore.latest());
+export function TokenUsagePanel() {
+  const latest = createMemo(() => tokenUsageStore.latest());
   const todayTokens = createMemo(() => latest()?.todayTokens ?? 0);
   const totalTokens30d = createMemo(() => latest()?.totalTokens30d ?? 0);
   const daily = createMemo(() => latest()?.daily ?? []);
@@ -39,9 +39,9 @@ export function CodexPanel() {
 
   return (
     <>
-      <PanelTrigger tag="codex" current={current()} />
+      <PanelTrigger tag="tokens" current={current()} />
       <PanelContent>
-        <PanelHeader title={t("Codex Usage")} />
+        <PanelHeader title={t("Token Usage")} />
         <PanelSubtitle>
           <span>
             {formatTokenCount(todayTokens())} {t("tokens today")}
@@ -61,5 +61,5 @@ export function CodexPanel() {
   );
 }
 
-CodexPanel.primaryColor = PRIMARY_COLOR;
-CodexPanel.id = "codex" as const;
+TokenUsagePanel.primaryColor = PRIMARY_COLOR;
+TokenUsagePanel.id = "tokenUsage" as const;

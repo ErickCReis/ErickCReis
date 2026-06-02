@@ -70,7 +70,7 @@ describe("buildDailyUptime", () => {
     });
 
     expect(daily.at(-1)).toEqual({
-      date: ranges.at(-1)?.date,
+      date: ranges[ranges.length - 1]!.date,
       uptimePercent: 95.83,
     });
   });

@@ -3,7 +3,7 @@ import { serverInfoStat } from "@server/stats/server";
 import { websocketStat } from "@server/stats/websocket";
 import { spotifyStat } from "@server/stats/spotify";
 import { githubStat } from "@server/stats/github";
-import { codexStat } from "@server/stats/codex";
+import { tokenUsageStat } from "@server/stats/token-usage";
 import { serializeStatsHistoryResponse } from "@shared/stats/transport";
 
 export function buildStatsHistoryResponse() {
@@ -51,9 +51,9 @@ export function buildStatsHistoryResponse() {
         commitsThisYear: sample.commitsThisYear,
       })),
     },
-    codex: {
-      latest: codexStat.getLatest(),
-      history: codexStat.getHistory().map((sample) => ({
+    tokenUsage: {
+      latest: tokenUsageStat.getLatest(),
+      history: tokenUsageStat.getHistory().map((sample) => ({
         timestamp: sample.timestamp,
         generatedAt: sample.generatedAt,
         isStale: sample.isStale,

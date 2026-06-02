@@ -1,7 +1,7 @@
 import { Elysia, sse } from "elysia";
 import { serializeStatsStreamEvent } from "@shared/stats/transport";
 import { buildStatsHistoryResponse } from "@server/stats/history";
-import { codexStat } from "@server/stats/codex";
+import { tokenUsageStat } from "@server/stats/token-usage";
 import { githubStat } from "@server/stats/github";
 import { serverInfoStat } from "@server/stats/server";
 import { spotifyStat } from "@server/stats/spotify";
@@ -16,7 +16,7 @@ const statModules = [
   { name: "websocket" as const, mod: websocketStat },
   { name: "spotify" as const, mod: spotifyStat },
   { name: "github" as const, mod: githubStat },
-  { name: "codex" as const, mod: codexStat },
+  { name: "tokenUsage" as const, mod: tokenUsageStat },
 ];
 
 export const statsRoutes = new Elysia({ name: "stats-routes" })
@@ -48,5 +48,5 @@ export function startStatsServices() {
   websocketStat.start();
   spotifyStat.start();
   githubStat.start();
-  codexStat.start();
+  tokenUsageStat.start();
 }

@@ -3,7 +3,7 @@ import { serverStore } from "@web/stats/server/store";
 import { websocketStore } from "@web/stats/websocket/store";
 import { spotifyStore } from "@web/stats/spotify/store";
 import { githubStore } from "@web/stats/github/store";
-import { codexStore } from "@web/stats/codex/store";
+import { tokenUsageStore } from "@web/stats/token-usage/store";
 import { statsClient } from "@web/stats/client";
 import { deserializeStatsHistoryResponse } from "@shared/stats/transport";
 
@@ -17,5 +17,5 @@ export async function fetchStatsHistory() {
   websocketStore.loadHistory(decoded.websocket.history, decoded.websocket.latest);
   spotifyStore.loadHistory(decoded.spotify.history, decoded.spotify.latest);
   githubStore.loadHistory(decoded.github.history, decoded.github.latest);
-  codexStore.loadHistory(decoded.codex.history, decoded.codex.latest);
+  tokenUsageStore.loadHistory(decoded.tokenUsage.history, decoded.tokenUsage.latest);
 }

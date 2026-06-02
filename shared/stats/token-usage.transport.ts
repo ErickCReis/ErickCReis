@@ -1,11 +1,11 @@
-import type { CodexUsageSnapshot } from "@shared/stats/codex";
+import type { TokenUsageSnapshot } from "@shared/stats/token-usage";
 
-export type CodexHistoryPoint = Pick<
-  CodexUsageSnapshot,
+export type TokenUsageHistoryPoint = Pick<
+  TokenUsageSnapshot,
   "timestamp" | "generatedAt" | "isStale" | "todayTokens" | "totalTokens30d"
 >;
 
-export type CodexUsageSnapshotTuple = [
+export type TokenUsageSnapshotTuple = [
   number,
   number | null,
   boolean,
@@ -14,9 +14,9 @@ export type CodexUsageSnapshotTuple = [
   Array<[string, number]>,
 ];
 
-export type CodexHistoryPointTuple = [number, number | null, boolean, number, number];
+export type TokenUsageHistoryPointTuple = [number, number | null, boolean, number, number];
 
-export function serializeCodexUsageSnapshot(sample: CodexUsageSnapshot): CodexUsageSnapshotTuple {
+export function serializeTokenUsageSnapshot(sample: TokenUsageSnapshot): TokenUsageSnapshotTuple {
   return [
     sample.timestamp,
     sample.generatedAt,
@@ -27,7 +27,7 @@ export function serializeCodexUsageSnapshot(sample: CodexUsageSnapshot): CodexUs
   ];
 }
 
-export function deserializeCodexUsageSnapshot(tuple: CodexUsageSnapshotTuple): CodexUsageSnapshot {
+export function deserializeTokenUsageSnapshot(tuple: TokenUsageSnapshotTuple): TokenUsageSnapshot {
   return {
     timestamp: tuple[0],
     generatedAt: tuple[1],
@@ -38,7 +38,9 @@ export function deserializeCodexUsageSnapshot(tuple: CodexUsageSnapshotTuple): C
   };
 }
 
-export function serializeCodexHistoryPoint(sample: CodexHistoryPoint): CodexHistoryPointTuple {
+export function serializeTokenUsageHistoryPoint(
+  sample: TokenUsageHistoryPoint,
+): TokenUsageHistoryPointTuple {
   return [
     sample.timestamp,
     sample.generatedAt,
@@ -48,7 +50,9 @@ export function serializeCodexHistoryPoint(sample: CodexHistoryPoint): CodexHist
   ];
 }
 
-export function deserializeCodexHistoryPoint(tuple: CodexHistoryPointTuple): CodexHistoryPoint {
+export function deserializeTokenUsageHistoryPoint(
+  tuple: TokenUsageHistoryPointTuple,
+): TokenUsageHistoryPoint {
   return {
     timestamp: tuple[0],
     generatedAt: tuple[1],

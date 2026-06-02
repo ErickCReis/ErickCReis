@@ -17,8 +17,8 @@ const translations = {
   "10mxooe": "Bateria",
   // Blog posts
   "19dpkpu": "Posts do blog",
-  // Codex Usage
-  "03mjxer": "Uso do Codex",
+  // Token Usage
+  "17ay5xd": "Uso de Tokens",
   // commits today
   "13e5i5c": "commits hoje",
   // Connected
@@ -58,7 +58,8 @@ const translations = {
   // no uptime data
   "0qeh3am": "sem dados de uptime",
   // Notes on frontend engineering, systems work, and the decisions behind the build.
-  "0a3w29t": "Notas sobre engenharia frontend, sistemas e as decisões por trás da construção do site.",
+  "0a3w29t":
+    "Notas sobre engenharia frontend, sistemas e as decisões por trás da construção do site.",
   // Nothing playing
   "0vgq4zc": "Nada tocando",
   // Now Playing
@@ -100,7 +101,8 @@ const translations = {
   // Type-safe tooling for Node.js services.
   "0iia6gv": "Ferramentas type-safe para serviços Node.js.",
   // TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.
-  "0rynbnf": "Engenheiro TypeScript construindo produtos em React e Next.js, microfrontends e aplicações em tempo real.",
+  "0rynbnf":
+    "Engenheiro TypeScript construindo produtos em React e Next.js, microfrontends e aplicações em tempo real.",
   // Unknown artist
   "0lmfm5w": "Artista desconhecido",
   // Updated
