@@ -94,24 +94,6 @@ function createDay(day: TokenUsageDay): TokenUsageDay {
   };
 }
 
-function createEmptyDay(): TokenUsageDay {
-  return createDay({
-    inputTokens: 0,
-    cachedInputTokens: 0,
-    outputTokens: 0,
-    reasoningOutputTokens: 0,
-    totalTokens: 0,
-  });
-}
-
-function addDayUsage(target: TokenUsageDay, source: TokenUsageDay) {
-  target.inputTokens += source.inputTokens;
-  target.cachedInputTokens += source.cachedInputTokens;
-  target.outputTokens += source.outputTokens;
-  target.reasoningOutputTokens += source.reasoningOutputTokens;
-  target.totalTokens += source.totalTokens;
-}
-
 function normalizeDailyEntries(
   entries: TokenUsageDatedDay[],
   windowDateSet = new Set(getWindowDateKeys()),
@@ -138,39 +120,35 @@ function normalizeSourcePayload(payload: TokenUsageSyncPayload): InternalSourceS
   };
 }
 
-function buildMergedDaily(store: InternalStore, windowDateSet: Set<string>) {
-  const byDate = new Map<string, TokenUsageDay>();
+function getProviderIds(store: InternalStore) {
+  return Array.from(new Set(store.sources.map((source) => source.providerId))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+}
+
+// Per window date, the total tokens broken down by provider id.
+function buildWindowedDailyByProvider(store: InternalStore) {
+  const windowDateKeys = getWindowDateKeys();
+  const windowDateSet = new Set(windowDateKeys);
+  const byDate = new Map<string, Map<string, number>>();
 
   for (const source of store.sources) {
     for (const entry of source.daily) {
       if (!windowDateSet.has(entry.date)) continue;
 
-      const existing = byDate.get(entry.date) ?? createEmptyDay();
-      if (!byDate.has(entry.date)) {
-        byDate.set(entry.date, existing);
-      }
-      addDayUsage(existing, entry.day);
+      const providerTotals = byDate.get(entry.date) ?? new Map<string, number>();
+      if (!byDate.has(entry.date)) byDate.set(entry.date, providerTotals);
+      providerTotals.set(
+        source.providerId,
+        (providerTotals.get(source.providerId) ?? 0) + entry.day.totalTokens,
+      );
     }
   }
 
-  return Array.from(byDate.entries())
-    .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-    .map(([date, day]) => ({ date, day }));
-}
-
-function buildWindowedDaily(store: InternalStore) {
-  const windowDateKeys = getWindowDateKeys();
-  const windowDateSet = new Set(windowDateKeys);
-  const byDate = new Map(
-    buildMergedDaily(store, windowDateSet).map((entry) => [entry.date, entry.day]),
-  );
-
-  return windowDateKeys.map((dateKey) => {
-    return {
-      date: dateKey,
-      day: createDay(byDate.get(dateKey) ?? createEmptyDay()),
-    };
-  });
+  return windowDateKeys.map((date) => ({
+    date,
+    byProvider: byDate.get(date) ?? new Map<string, number>(),
+  }));
 }
 
 function getLatestGeneratedAt(store: InternalStore) {
@@ -183,14 +161,19 @@ function getLatestGeneratedAt(store: InternalStore) {
 
 function buildSnapshot(store: InternalStore): TokenUsageSnapshot {
   const generatedAt = getLatestGeneratedAt(store);
-  const mergedDaily = generatedAt === null ? [] : buildWindowedDaily(store);
+  const providers = generatedAt === null ? [] : getProviderIds(store);
+  const windowedDaily = generatedAt === null ? [] : buildWindowedDailyByProvider(store);
   const isStale = generatedAt === null || Date.now() - generatedAt > getStaleAfterMs();
-  const dailySummaries: TokenUsageDailySummary[] = mergedDaily.map((e) => ({
-    date: e.date,
-    totalTokens: e.day.totalTokens,
-  }));
-  const todayTokens = mergedDaily.at(-1)?.day.totalTokens ?? 0;
-  const totalTokens30d = mergedDaily.reduce((sum, e) => sum + e.day.totalTokens, 0);
+  const dailySummaries: TokenUsageDailySummary[] = windowedDaily.map((entry) => {
+    const byProvider = providers.map((providerId) => entry.byProvider.get(providerId) ?? 0);
+    return {
+      date: entry.date,
+      totalTokens: byProvider.reduce((sum, value) => sum + value, 0),
+      byProvider,
+    };
+  });
+  const todayTokens = dailySummaries.at(-1)?.totalTokens ?? 0;
+  const totalTokens30d = dailySummaries.reduce((sum, entry) => sum + entry.totalTokens, 0);
 
   return {
     timestamp: Date.now(),
@@ -198,6 +181,7 @@ function buildSnapshot(store: InternalStore): TokenUsageSnapshot {
     isStale,
     todayTokens,
     totalTokens30d,
+    providers,
     daily: dailySummaries,
   };
 }
@@ -216,6 +200,10 @@ function areSnapshotsEqual(current: TokenUsageSnapshot, next: TokenUsageSnapshot
   if (current.isStale !== next.isStale) return false;
   if (current.todayTokens !== next.todayTokens) return false;
   if (current.totalTokens30d !== next.totalTokens30d) return false;
+  if (current.providers.length !== next.providers.length) return false;
+  if (current.providers.some((providerId, index) => providerId !== next.providers[index])) {
+    return false;
+  }
   if (current.daily.length !== next.daily.length) return false;
 
   for (let index = 0; index < current.daily.length; index += 1) {
@@ -223,6 +211,9 @@ function areSnapshotsEqual(current: TokenUsageSnapshot, next: TokenUsageSnapshot
     const nextEntry = next.daily[index];
     if (currentEntry?.date !== nextEntry?.date) return false;
     if (currentEntry?.totalTokens !== nextEntry?.totalTokens) return false;
+    if (currentEntry?.byProvider.some((value, i) => value !== nextEntry?.byProvider[i])) {
+      return false;
+    }
   }
 
   return true;

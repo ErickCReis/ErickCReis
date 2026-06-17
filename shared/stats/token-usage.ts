@@ -28,6 +28,8 @@ export type TokenUsageDatedDay = v.InferOutput<typeof tokenUsageDatedDaySchema>;
 export const tokenUsageDailySummarySchema = v.object({
   date: isoDateString,
   totalTokens: nonNegativeNumber,
+  // Per-provider totals, aligned by index with the snapshot's `providers` list.
+  byProvider: v.array(nonNegativeNumber),
 });
 export type TokenUsageDailySummary = v.InferOutput<typeof tokenUsageDailySummarySchema>;
 
@@ -37,6 +39,8 @@ export const tokenUsageSnapshotSchema = v.object({
   isStale: v.boolean(),
   todayTokens: nonNegativeNumber,
   totalTokens30d: nonNegativeNumber,
+  // Provider ids present across all sources, sorted; indexes into daily byProvider.
+  providers: v.array(tokenUsageProviderIdSchema),
   daily: v.array(tokenUsageDailySummarySchema),
 });
 export type TokenUsageSnapshot = v.InferOutput<typeof tokenUsageSnapshotSchema>;

@@ -1,5 +1,21 @@
 import { getLocale, resolveLocale } from "virtual:translate";
 
+const PROVIDER_META: Record<string, { label: string; color: string }> = {
+  claude: { label: "Claude", color: "#cc785c" },
+  codex: { label: "Codex", color: "#10a37f" },
+  pi: { label: "Pi", color: "#a78bfa" },
+};
+const FALLBACK_PROVIDER_COLORS = ["#7fb0ff", "#f59e0b", "#ef4444", "#22d3ee", "#e879f9"];
+
+export function getProviderMeta(providerId: string, index: number) {
+  return (
+    PROVIDER_META[providerId] ?? {
+      label: providerId,
+      color: FALLBACK_PROVIDER_COLORS[index % FALLBACK_PROVIDER_COLORS.length] ?? "#7fb0ff",
+    }
+  );
+}
+
 export function formatTokenCount(value: number) {
   return Math.round(value).toLocaleString(resolveLocale(getLocale()));
 }

@@ -17,14 +17,14 @@ const PRIMARY_COLOR = "#8ec7ff";
 
 export function GitHubPanel() {
   const latest = createMemo(() => githubStore.latest());
-  const commitsLast7Days = createMemo(() => latest()?.commitsLast7Days ?? []);
-  const commitsLast7DayLabels = createMemo(() => latest()?.commitsLast7DayLabels ?? []);
+  const commitsLast30Days = createMemo(() => latest()?.commitsLast30Days ?? []);
+  const commitsLast30DayLabels = createMemo(() => latest()?.commitsLast30DayLabels ?? []);
   const commitsToday = createMemo(() => latest()?.commitsToday ?? 0);
   const lastCommitDate = createMemo(() => latest()?.lastCommitDate ?? null);
 
   const bars = createMemo(() =>
-    commitsLast7Days().map((value, i) => ({
-      label: commitsLast7DayLabels()[i] ?? "",
+    commitsLast30Days().map((value, i) => ({
+      label: commitsLast30DayLabels()[i] ?? "",
       value,
     })),
   );
@@ -40,7 +40,7 @@ export function GitHubPanel() {
           </span>
         </PanelSubtitle>
         <PanelChart>
-          <BarChart bars={bars()} color={PRIMARY_COLOR} labelFontSize={6} />
+          <BarChart bars={bars()} color={PRIMARY_COLOR} showLabels={false} />
         </PanelChart>
         <PanelFooter
           details={[

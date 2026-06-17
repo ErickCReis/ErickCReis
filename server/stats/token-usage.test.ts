@@ -73,8 +73,17 @@ describe("tokenUsageStat", () => {
     expect(snapshot.totalTokens30d).toBe(5_000);
     expect(snapshot.todayTokens).toBe(3_000);
     expect(snapshot.daily).toHaveLength(30);
-    expect(snapshot.daily[0]).toEqual({ date: "2026-03-27", totalTokens: 2_000 });
-    expect(snapshot.daily.at(-1)).toEqual({ date: "2026-04-25", totalTokens: 3_000 });
+    expect(snapshot.providers).toEqual(["test"]);
+    expect(snapshot.daily[0]).toEqual({
+      date: "2026-03-27",
+      totalTokens: 2_000,
+      byProvider: [2_000],
+    });
+    expect(snapshot.daily.at(-1)).toEqual({
+      date: "2026-04-25",
+      totalTokens: 3_000,
+      byProvider: [3_000],
+    });
     expect(snapshot.daily.some((entry) => entry.date === "2026-03-26")).toBe(false);
     expect(snapshot.daily.some((entry) => entry.date === "2026-04-26")).toBe(false);
   });
@@ -94,6 +103,24 @@ describe("tokenUsageStat", () => {
     expect(findDailyTotal("2026-04-24")).toBe(400);
     expect(snapshot.todayTokens).toBe(600);
     expect(snapshot.totalTokens30d).toBe(1_000);
+  });
+
+  it("breaks down daily totals by provider, sorted and index-aligned", async () => {
+    setSystemTime(new Date("2026-04-25T15:00:00.000Z"));
+
+    await tokenUsageStats.persistTokenUsageSyncPayload(
+      payload("codex-laptop", Date.now() - 1_000, [day("2026-04-25", 200)]),
+    );
+    await tokenUsageStats.persistTokenUsageSyncPayload(
+      payload("claude-laptop", Date.now(), [day("2026-04-25", 500)]),
+    );
+
+    const snapshot = tokenUsageStats.tokenUsageStat.getLatest();
+    const today = snapshot.daily.at(-1);
+
+    expect(snapshot.providers).toEqual(["claude", "codex"]);
+    expect(today?.totalTokens).toBe(700);
+    expect(today?.byProvider).toEqual([500, 200]);
   });
 
   it("replaces an existing source instead of double-counting it", async () => {

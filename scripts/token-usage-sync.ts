@@ -391,6 +391,85 @@ async function loadDailyUsageFromPiSessions(config: ProviderConfig, since: strin
   return dailyUsage;
 }
 
+function normalizeClaudeUsage(value: unknown): RawUsage | null {
+  const record = asRecord(value);
+  if (record == null) {
+    return null;
+  }
+
+  // Claude's `input_tokens` excludes cached tokens, which are billed separately
+  // via cache_read_input_tokens (cache hits) and cache_creation_input_tokens
+  // (cache writes). Fold both into the input total so it lines up with how the
+  // other providers report a single inclusive input figure.
+  const uncachedInput = ensureNumber(record.input_tokens);
+  const cacheRead = ensureNumber(record.cache_read_input_tokens);
+  const cacheCreation = ensureNumber(record.cache_creation_input_tokens);
+  const output = ensureNumber(record.output_tokens);
+  const inputTokens = uncachedInput + cacheRead + cacheCreation;
+
+  return {
+    input_tokens: inputTokens,
+    cached_input_tokens: cacheRead,
+    output_tokens: output,
+    reasoning_output_tokens: 0,
+    total_tokens: inputTokens + output,
+  };
+}
+
+async function loadDailyUsageFromClaudeSessions(
+  config: ProviderConfig,
+  since: string,
+  until: string,
+) {
+  const sessionsDirStat = await stat(config.sessionsDir).catch(() => null);
+  if (sessionsDirStat == null || !sessionsDirStat.isDirectory()) {
+    return new Map<string, TokenUsageDay>();
+  }
+
+  const files = await listJsonlFiles(config.sessionsDir);
+  const dailyUsage = new Map<string, TokenUsageDay>();
+  const dateFormatter = getDateFormatter();
+  const seenMessageIds = new Set<string>();
+
+  for (const filePath of files) {
+    const fileContents = await Bun.file(filePath).text();
+
+    for (const line of fileContents.split(/\r?\n/)) {
+      const trimmedLine = line.trim();
+      if (trimmedLine === "") continue;
+
+      let parsedEntry: unknown;
+      try {
+        parsedEntry = JSON.parse(trimmedLine) as unknown;
+      } catch {
+        continue;
+      }
+
+      const entryRecord = asRecord(parsedEntry);
+      if (entryRecord == null || entryRecord.type !== "assistant") continue;
+
+      const message = asRecord(entryRecord.message);
+      if (message?.role !== "assistant") continue;
+
+      // The same assistant response can reappear across resumed session files;
+      // dedupe by its API message id so usage is only counted once.
+      const messageId = typeof message.id === "string" ? message.id : null;
+      if (messageId != null) {
+        if (seenMessageIds.has(messageId)) continue;
+        seenMessageIds.add(messageId);
+      }
+
+      const usage = normalizeClaudeUsage(message.usage);
+      const timestamp = getEntryTimestamp(entryRecord);
+      if (usage == null || timestamp == null) continue;
+
+      addUsageToDailyMap(dailyUsage, toDelta(usage), timestamp, since, until, dateFormatter);
+    }
+  }
+
+  return dailyUsage;
+}
+
 const providers = {
   pi: {
     id: "pi",
@@ -403,6 +482,12 @@ const providers = {
     defaultHome: path.join(os.homedir(), ".codex"),
     getDefaultSessionsDir: (home) => path.join(home, DEFAULT_SESSIONS_SUBDIR),
     loadDailyUsage: loadDailyUsageFromCodexSessions,
+  },
+  claude: {
+    id: "claude",
+    defaultHome: path.join(os.homedir(), ".claude"),
+    getDefaultSessionsDir: (home) => path.join(home, "projects"),
+    loadDailyUsage: loadDailyUsageFromClaudeSessions,
   },
 } satisfies Record<string, ProviderDefinition>;
 

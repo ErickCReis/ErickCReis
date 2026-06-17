@@ -11,7 +11,8 @@ export type TokenUsageSnapshotTuple = [
   boolean,
   number,
   number,
-  Array<[string, number]>,
+  string[],
+  Array<[string, number, number[]]>,
 ];
 
 export type TokenUsageHistoryPointTuple = [number, number | null, boolean, number, number];
@@ -23,7 +24,8 @@ export function serializeTokenUsageSnapshot(sample: TokenUsageSnapshot): TokenUs
     sample.isStale,
     sample.todayTokens,
     sample.totalTokens30d,
-    sample.daily.map((day) => [day.date, day.totalTokens]),
+    sample.providers,
+    sample.daily.map((day) => [day.date, day.totalTokens, day.byProvider]),
   ];
 }
 
@@ -34,7 +36,8 @@ export function deserializeTokenUsageSnapshot(tuple: TokenUsageSnapshotTuple): T
     isStale: tuple[2],
     todayTokens: tuple[3],
     totalTokens30d: tuple[4],
-    daily: tuple[5].map(([date, totalTokens]) => ({ date, totalTokens })),
+    providers: tuple[5],
+    daily: tuple[6].map(([date, totalTokens, byProvider]) => ({ date, totalTokens, byProvider })),
   };
 }
 

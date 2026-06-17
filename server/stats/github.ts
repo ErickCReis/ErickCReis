@@ -1,15 +1,45 @@
-import type { GitHubCommitStats } from "@shared/stats/github";
+import * as v from "valibot";
+import { gitHubCommitStatsSchema, type GitHubCommitStats } from "@shared/stats/github";
 import type { StatModule } from "@server/stats/types";
 import { getDataPath } from "@server/data-dir";
 
-const GITHUB_COMMIT_SEARCH_ENDPOINT = "https://api.github.com/search/commits";
+const GITHUB_GRAPHQL_ENDPOINT = "https://api.github.com/graphql";
 const GITHUB_POLL_INTERVAL_MS = 30 * 60 * 1000;
 const GITHUB_RATE_LIMIT_FALLBACK_MS = 15 * 60 * 1000;
 const DEFAULT_GITHUB_USERNAME = "ErickCReis";
 const MAX_HISTORY = 84;
+const DAILY_WINDOW_DAYS = 30;
 
-type GitHubSearchResponse = {
-  total_count?: number;
+const CONTRIBUTIONS_QUERY = `query($login: String!, $from: DateTime!, $to: DateTime!) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
+      contributionCalendar {
+        totalContributions
+        weeks {
+          contributionDays {
+            date
+            contributionCount
+          }
+        }
+      }
+    }
+  }
+}`;
+
+type ContributionDay = { date: string; contributionCount: number };
+
+type GitHubGraphQLResponse = {
+  data?: {
+    user?: {
+      contributionsCollection?: {
+        contributionCalendar?: {
+          totalContributions?: number;
+          weeks?: { contributionDays?: ContributionDay[] }[];
+        };
+      };
+    };
+  };
+  errors?: { message?: string }[];
 };
 
 class GitHubRateLimitError extends Error {
@@ -38,8 +68,8 @@ function createEmptyStats(username: string): GitHubCommitStats {
     username,
     lastCommitDate: null,
     commitsToday: 0,
-    commitsLast7Days: Array.from({ length: 7 }, () => 0),
-    commitsLast7DayLabels: Array.from({ length: 7 }, () => "--/--"),
+    commitsLast30Days: Array.from({ length: DAILY_WINDOW_DAYS }, () => 0),
+    commitsLast30DayLabels: Array.from({ length: DAILY_WINDOW_DAYS }, () => "--/--"),
     commitsThisMonth: 0,
     commitsThisYear: 0,
     fetchedAt: Date.now(),
@@ -74,21 +104,28 @@ function getRateLimitRetryAfterMs(response: Response) {
   return GITHUB_RATE_LIMIT_FALLBACK_MS;
 }
 
-async function fetchGitHubCommitCount(username: string, from: string, to: string) {
-  const query = `author:${username} author-date:${from}..${to}`;
-  const url = new URL(GITHUB_COMMIT_SEARCH_ENDPOINT);
-  url.searchParams.set("q", query);
-  url.searchParams.set("per_page", "1");
-
-  const headers: Record<string, string> = {
-    accept: "application/vnd.github.cloak-preview+json",
-    "user-agent": "erickcreis-site-telemetry",
-  };
-
+async function fetchContributionDays(
+  username: string,
+  from: string,
+  to: string,
+): Promise<ContributionDay[]> {
   const token = getGitHubToken();
-  if (token) headers.authorization = `Bearer ${token}`;
+  if (!token) {
+    throw new Error("GitHub GraphQL API requires GITHUB_TOKEN");
+  }
 
-  const response = await fetch(url, { headers });
+  const response = await fetch(GITHUB_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "user-agent": "erickcreis-site-telemetry",
+    },
+    body: JSON.stringify({
+      query: CONTRIBUTIONS_QUERY,
+      variables: { login: username, from, to },
+    }),
+  });
 
   if (response.status === 403 || response.status === 429) {
     const remaining = response.headers.get("x-ratelimit-remaining");
@@ -99,27 +136,33 @@ async function fetchGitHubCommitCount(username: string, from: string, to: string
 
   if (!response.ok) {
     const responseText = await response.text();
-    throw new Error(`GitHub commit search failed (${response.status}): ${responseText}`);
+    throw new Error(`GitHub GraphQL request failed (${response.status}): ${responseText}`);
   }
 
-  const payload = (await response.json()) as GitHubSearchResponse;
-  return Number.isFinite(payload.total_count) ? Number(payload.total_count) : 0;
+  const payload = (await response.json()) as GitHubGraphQLResponse;
+  if (payload.errors?.length) {
+    throw new Error(`GitHub GraphQL errors: ${JSON.stringify(payload.errors)}`);
+  }
+
+  const weeks = payload.data?.user?.contributionsCollection?.contributionCalendar?.weeks ?? [];
+  return weeks.flatMap((week) => week.contributionDays ?? []);
 }
 
-function deriveLastCommitDate(commitsLast7Days: number[], last7Dates: Date[]): string | null {
-  for (let i = commitsLast7Days.length - 1; i >= 0; i--) {
-    if (commitsLast7Days[i] > 0) return formatISODate(last7Dates[i]);
+function deriveLastCommitDate(byDate: Map<string, number>): string | null {
+  let latestDate: string | null = null;
+  for (const [date, count] of byDate) {
+    if (count > 0 && (latestDate == null || date > latestDate)) latestDate = date;
   }
-  return null;
+  return latestDate;
 }
 
 async function loadCache(): Promise<GitHubCommitStats | null> {
   const file = Bun.file(getCachePath());
   try {
     if (!(await file.exists())) return null;
-    const data = (await file.json()) as GitHubCommitStats;
-    if (!data.fetchedAt) return null;
-    return data;
+    const parsed = v.safeParse(gitHubCommitStatsSchema, await file.json());
+    if (!parsed.success || !parsed.output.fetchedAt) return null;
+    return parsed.output;
   } catch {
     return null;
   }
@@ -155,29 +198,43 @@ async function refreshGitHubCommitStats() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const yearStart = `${currentYear}-01-01`;
-  const monthStart = `${currentYear}-${`${now.getMonth() + 1}`.padStart(2, "0")}-01`;
+  const monthStart = formatISODate(new Date(currentYear, now.getMonth(), 1));
   const today = formatISODate(now);
 
-  const last7Dates = getRecentDates(7);
-  const dailyRanges = last7Dates.map((date) => {
-    const value = formatISODate(date);
-    return { from: value, to: value };
-  });
-
   try {
-    const [commitsThisYear, commitsThisMonth, ...commitsLast7Days] = await Promise.all([
-      fetchGitHubCommitCount(username, yearStart, today),
-      fetchGitHubCommitCount(username, monthStart, today),
-      ...dailyRanges.map((range) => fetchGitHubCommitCount(username, range.from, range.to)),
-    ]);
+    // One GraphQL call returns the full year-to-date contribution calendar; we
+    // derive the 30-day window, today, month, and year totals from it locally.
+    const days = await fetchContributionDays(
+      username,
+      `${yearStart}T00:00:00Z`,
+      now.toISOString(),
+    );
+    const byDate = new Map<string, number>();
+    for (const day of days) {
+      if (day.date >= yearStart && day.date <= today) {
+        byDate.set(day.date, (byDate.get(day.date) ?? 0) + (day.contributionCount ?? 0));
+      }
+    }
+
+    const last30Dates = getRecentDates(DAILY_WINDOW_DAYS);
+    const commitsLast30Days = last30Dates.map((date) => byDate.get(formatISODate(date)) ?? 0);
+
+    let commitsThisMonth = 0;
+    let commitsThisYear = 0;
+    for (const [date, count] of byDate) {
+      commitsThisYear += count;
+      if (date >= monthStart) commitsThisMonth += count;
+    }
 
     const stats: GitHubCommitStats = {
       isConfigured: true,
       username,
-      lastCommitDate: deriveLastCommitDate(commitsLast7Days, last7Dates),
-      commitsToday: commitsLast7Days.at(-1) ?? 0,
-      commitsLast7Days,
-      commitsLast7DayLabels: last7Dates.map((date) => date.getDate().toString().padStart(2, "0")),
+      lastCommitDate: deriveLastCommitDate(byDate),
+      commitsToday: byDate.get(today) ?? 0,
+      commitsLast30Days,
+      commitsLast30DayLabels: last30Dates.map((date) =>
+        date.getDate().toString().padStart(2, "0"),
+      ),
       commitsThisMonth,
       commitsThisYear,
       fetchedAt: Date.now(),
@@ -241,8 +298,8 @@ export const githubStat: StatModule<GitHubCommitStats> = {
   getLatest() {
     return {
       ...latest,
-      commitsLast7Days: [...latest.commitsLast7Days],
-      commitsLast7DayLabels: [...latest.commitsLast7DayLabels],
+      commitsLast30Days: [...latest.commitsLast30Days],
+      commitsLast30DayLabels: [...latest.commitsLast30DayLabels],
     };
   },
   getHistory: () => [...history],
