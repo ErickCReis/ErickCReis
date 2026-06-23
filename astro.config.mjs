@@ -4,6 +4,7 @@ import sitemap from "@astrojs/sitemap";
 import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
 import astroTranslate from "./plugins/translate-plugin.ts";
+import staticMermaid from "./plugins/remark-static-mermaid.ts";
 
 export default defineConfig({
   srcDir: "./web",
@@ -11,7 +12,9 @@ export default defineConfig({
   site: "https://erickr.dev",
   integrations: [
     sitemap(),
-    mdx(),
+    mdx({
+      remarkPlugins: [staticMermaid],
+    }),
     solid(),
     astroTranslate({
       locales: ["en-US", "pt-BR"],
