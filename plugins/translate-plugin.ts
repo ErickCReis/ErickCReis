@@ -207,22 +207,50 @@ function createVirtualModuleSource(options: {
   ].join("\n");
 }
 
-function createDefaultCatalog(sourceStrings: string[]): Record<string, string> {
-  return Object.fromEntries(
-    sourceStrings.map((value) => [hashTranslationKey(value), value] as const),
-  );
+function createDefaultCatalog(
+  sourceStrings: string[],
+  existingCatalog: Record<string, string> = {},
+): Record<string, string> {
+  const nextEntries = sourceStrings.map((value) => [hashTranslationKey(value), value] as const);
+  const nextHashes = new Set(nextEntries.map(([hash]) => hash));
+  const catalog: Record<string, string> = {};
+
+  for (const [hash, value] of Object.entries(existingCatalog)) {
+    if (nextHashes.has(hash)) {
+      catalog[hash] = value;
+    }
+  }
+
+  for (const [hash, value] of nextEntries) {
+    if (!(hash in catalog)) {
+      catalog[hash] = value;
+    }
+  }
+
+  return catalog;
 }
 
 function createLocaleCatalogSkeleton(
   sourceStrings: string[],
   existingCatalog: TranslationCatalog,
 ): TranslationCatalog {
-  return Object.fromEntries(
-    sourceStrings.map((value) => {
-      const hash = hashTranslationKey(value);
-      return [hash, hash in existingCatalog ? existingCatalog[hash] : null] as const;
-    }),
-  );
+  const nextHashes = sourceStrings.map(hashTranslationKey);
+  const nextHashSet = new Set(nextHashes);
+  const catalog: TranslationCatalog = {};
+
+  for (const [hash, value] of Object.entries(existingCatalog)) {
+    if (nextHashSet.has(hash)) {
+      catalog[hash] = value;
+    }
+  }
+
+  for (const hash of nextHashes) {
+    if (!(hash in catalog)) {
+      catalog[hash] = null;
+    }
+  }
+
+  return catalog;
 }
 
 function serializeTsObject(entries: readonly (readonly [string, string | null])[]): string {
@@ -230,12 +258,22 @@ function serializeTsObject(entries: readonly (readonly [string, string | null])[
     return "{}";
   }
 
-  return `{\n${entries
-    .map(
-      ([key, value]) =>
-        `  ${JSON.stringify(key)}: ${value === null ? "null" : JSON.stringify(value)},`,
-    )
-    .join("\n")}\n}`;
+  return `{\n${entries.map(([key, value]) => serializeTsProperty(key, value)).join("\n")}\n}`;
+}
+
+function serializeTsProperty(key: string, value: string | null): string {
+  if (value === null) {
+    return `  ${JSON.stringify(key)}: null,`;
+  }
+
+  const serializedValue = JSON.stringify(value);
+  const inline = `  ${JSON.stringify(key)}: ${serializedValue},`;
+
+  if (inline.length <= 100) {
+    return inline;
+  }
+
+  return `  ${JSON.stringify(key)}:\n    ${serializedValue},`;
 }
 
 function createDefaultModule(catalog: Record<string, string>): string {
@@ -269,9 +307,10 @@ function createLocaleModule(
       : `{\n${entries
           .map(
             ([hash, value]) =>
-              `  // ${toCommentText(defaultCatalog[hash] ?? hash)}\n  ${JSON.stringify(hash)}: ${
-                value === null ? "null" : JSON.stringify(value)
-              },`,
+              `  // ${toCommentText(defaultCatalog[hash] ?? hash)}\n${serializeTsProperty(
+                hash,
+                value,
+              )}`,
           )
           .join("\n")}\n}`;
 
@@ -489,14 +528,14 @@ export default function astroTranslate({
       "astro:build:done": async () => {
         const sourceStrings = collector.values();
         const generatedDirPath = resolve(rootDir, generatedDir);
-        const defaultCatalog = createDefaultCatalog(sourceStrings);
+        const defaultCatalogPath = resolve(generatedDirPath, `${defaultLocale}.ts`);
+        const existingDefaultCatalog = normalizeLocaleCatalog(
+          await importModuleIfExists(defaultCatalogPath),
+        ) as Record<string, string>;
+        const defaultCatalog = createDefaultCatalog(sourceStrings, existingDefaultCatalog);
 
         await mkdir(generatedDirPath, { recursive: true });
-        await writeFile(
-          resolve(generatedDirPath, `${defaultLocale}.ts`),
-          createDefaultModule(defaultCatalog),
-          "utf8",
-        );
+        await writeFile(defaultCatalogPath, createDefaultModule(defaultCatalog), "utf8");
 
         for (const locale of locales) {
           if (locale === defaultLocale) {
