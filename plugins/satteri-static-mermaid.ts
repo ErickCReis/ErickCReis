@@ -1,12 +1,5 @@
+import { defineMdastPlugin } from "satteri";
 import type mermaidModule from "isomorphic-mermaid";
-
-type MarkdownNode = {
-  type: string;
-  lang?: string;
-  meta?: string;
-  value?: string;
-  children?: MarkdownNode[];
-};
 
 type Mermaid = typeof mermaidModule;
 
@@ -73,25 +66,27 @@ async function renderMermaid(source: string, id: string, meta?: string) {
   return `<figure class="${getDiagramClassName(meta)}">${svg}</figure>`;
 }
 
-async function transformMermaidCodeBlocks(node: MarkdownNode, nextId: () => string): Promise<void> {
-  if (!node.children) return;
-
-  for (const child of node.children) {
-    if (child.type === "code" && child.lang === "mermaid" && typeof child.value === "string") {
-      child.type = "html";
-      child.value = await renderMermaid(child.value, nextId(), child.meta);
-      delete child.lang;
-      delete child.meta;
-      continue;
-    }
-
-    await transformMermaidCodeBlocks(child, nextId);
-  }
-}
-
+// Sätteri (Astro 7's default Markdown processor) plugin. The `code` visitor
+// matches ```mermaid fenced blocks and returns the rendered SVG via the
+// `rawHtml` escape hatch, replacing the code node at build time. Async visitors
+// are supported, so mermaid's async render works directly. Exported as a
+// factory so each compile gets a fresh diagram counter.
 export default function staticMermaid() {
-  return async (tree: MarkdownNode) => {
-    let diagramIndex = 0;
-    await transformMermaidCodeBlocks(tree, () => `mermaid-${diagramIndex++}`);
-  };
+  let diagramIndex = 0;
+
+  return defineMdastPlugin({
+    name: "static-mermaid",
+    async code(node) {
+      if (node.lang !== "mermaid" || typeof node.value !== "string") {
+        return;
+      }
+
+      const html = await renderMermaid(
+        node.value,
+        `mermaid-${diagramIndex++}`,
+        node.meta ?? undefined,
+      );
+      return { rawHtml: html };
+    },
+  });
 }

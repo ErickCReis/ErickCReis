@@ -204,11 +204,7 @@ async function refreshGitHubCommitStats() {
   try {
     // One GraphQL call returns the full year-to-date contribution calendar; we
     // derive the 30-day window, today, month, and year totals from it locally.
-    const days = await fetchContributionDays(
-      username,
-      `${yearStart}T00:00:00Z`,
-      now.toISOString(),
-    );
+    const days = await fetchContributionDays(username, `${yearStart}T00:00:00Z`, now.toISOString());
     const byDate = new Map<string, number>();
     for (const day of days) {
       if (day.date >= yearStart && day.date <= today) {
@@ -232,9 +228,7 @@ async function refreshGitHubCommitStats() {
       lastCommitDate: deriveLastCommitDate(byDate),
       commitsToday: byDate.get(today) ?? 0,
       commitsLast30Days,
-      commitsLast30DayLabels: last30Dates.map((date) =>
-        date.getDate().toString().padStart(2, "0"),
-      ),
+      commitsLast30DayLabels: last30Dates.map((date) => date.getDate().toString().padStart(2, "0")),
       commitsThisMonth,
       commitsThisYear,
       fetchedAt: Date.now(),

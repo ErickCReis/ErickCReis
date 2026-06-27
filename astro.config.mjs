@@ -1,20 +1,27 @@
 import { defineConfig, fontProviders } from "astro/config";
+import { satteri } from "@astrojs/markdown-satteri";
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
 import astroTranslate from "./plugins/translate-plugin.ts";
-import staticMermaid from "./plugins/remark-static-mermaid.ts";
+import staticMermaid from "./plugins/satteri-static-mermaid.ts";
 
 export default defineConfig({
   srcDir: "./web",
   output: "static",
   site: "https://erickr.dev",
+  // Astro 7's default Rust-based Markdown processor. Its native mdast plugin API
+  // runs the build-time mermaid transform (see plugins/satteri-static-mermaid.ts).
+  // MDX extends this config by default, so .mdx content uses it too.
+  markdown: {
+    processor: satteri({
+      mdastPlugins: [staticMermaid()],
+    }),
+  },
   integrations: [
     sitemap(),
-    mdx({
-      remarkPlugins: [staticMermaid],
-    }),
+    mdx(),
     solid(),
     astroTranslate({
       locales: ["en-US", "pt-BR"],
