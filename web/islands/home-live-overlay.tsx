@@ -4,17 +4,13 @@ import { TelemetryBackdrop } from "@web/components/telemetry-backdrop";
 import { useCursorPresence } from "@web/hooks/use-cursor-presence";
 
 export function HomeLiveOverlay() {
-  const { selfId, cursors } = useCursorPresence();
+  const { cursors } = useCursorPresence();
   const [isStatsHovered, setIsStatsHovered] = createSignal(false);
 
   return (
     <>
       <TelemetryBackdrop placement="hero" onStatsHoverChange={setIsStatsHovered} />
-      <CursorPresenceLayer
-        selfId={selfId()}
-        cursors={cursors()}
-        isStatsHovered={isStatsHovered()}
-      />
+      <CursorPresenceLayer cursors={cursors()} isStatsHovered={isStatsHovered()} />
     </>
   );
 }
