@@ -13,6 +13,7 @@ export function useCursorPresence() {
   const [localSelfPoint, setLocalSelfPoint] = createSignal<DocumentCursorPoint | null>(null);
   const [selfId, setSelfId] = createSignal<string | null>(null);
   const mouse = createMousePosition(window, { followTouch: false });
+  let localViewportPoint: DocumentCursorPoint | null = null;
 
   const selfColor = createMemo(() => {
     const id = selfId();
@@ -36,6 +37,10 @@ export function useCursorPresence() {
   };
 
   const throttledPublishCursorPosition = throttle(publishCursorPosition, 50);
+  const updateLocalCursorPosition = (point: DocumentCursorPoint) => {
+    setLocalSelfPoint(point);
+    throttledPublishCursorPosition(point);
+  };
 
   createEffect(() => {
     const x = mouse.x;
@@ -44,14 +49,32 @@ export function useCursorPresence() {
       return;
     }
 
-    const point = { x, y };
-    setLocalSelfPoint(point);
-    throttledPublishCursorPosition(point);
+    const point =
+      mouse.sourceType === "touch" ? { x: x + window.scrollX, y: y + window.scrollY } : { x, y };
+
+    localViewportPoint = {
+      x: point.x - window.scrollX,
+      y: point.y - window.scrollY,
+    };
+    updateLocalCursorPosition(point);
   });
 
   onCleanup(() => throttledPublishCursorPosition.clear());
 
   onMount(() => {
+    const handleScroll = () => {
+      if (!localViewportPoint) {
+        return;
+      }
+
+      updateLocalCursorPosition({
+        x: localViewportPoint.x + window.scrollX,
+        y: localViewportPoint.y + window.scrollY,
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     const syncSelfId = async () => {
       for (let attempt = 0; attempt < 10; attempt += 1) {
         try {
@@ -97,6 +120,7 @@ export function useCursorPresence() {
     }, 2200);
 
     onCleanup(() => {
+      window.removeEventListener("scroll", handleScroll);
       unsubscribe();
       window.clearInterval(staleInterval);
     });
