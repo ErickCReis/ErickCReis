@@ -133,14 +133,10 @@ const translations = {
   "0meb4bg": "você",
   // Available tags
   "0tregpd": "Tags disponíveis",
-  // Clear
-  "01aeugy": "Limpar",
   // Filter posts by tag
   "1gz1za9": "Filtrar posts por tag",
   // No posts found for this tag.
   "1y72wx0": "Nenhum post encontrado para esta tag.",
-  // Search tags
-  "18zln7i": "Buscar tags",
   // Tags
   "0wy2g8w": "Tags",
 } satisfies TranslationOverrides;
