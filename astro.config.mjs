@@ -4,6 +4,7 @@ import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import solid from "@astrojs/solid-js";
 import tailwindcss from "@tailwindcss/vite";
+import astroOgSeo from "astro-og-seo";
 import astroTranslate from "./plugins/translate-plugin.ts";
 import staticMermaid from "./plugins/satteri-static-mermaid.ts";
 
@@ -27,9 +28,20 @@ export default defineConfig({
       locales: ["en-US", "pt-BR"],
       defaultLocale: "en-US",
     }),
+    astroOgSeo({
+      siteName: "Erick Reis",
+      toolbar: { enabled: true },
+      image: {
+        stylesheet: "@web/styles/og-image.css",
+        outputDir: "_og",
+        width: 1200,
+        height: 630,
+        format: "png",
+      },
+    }),
   ],
   devToolbar: {
-    enabled: false,
+    enabled: true,
   },
   fonts: [
     {

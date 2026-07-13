@@ -1,0 +1,29 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  locale: string;
+  type: "website" | "article";
+  publishedTime?: Date | string;
+}
+
+const { title, description, locale, type, publishedTime } = Astro.props;
+const cleanTitle = title.replace(/\s+\|\s+Erick Reis$/, "");
+const truncate = (value: string, length: number) => value.length > length ? `${value.slice(0, length - 1).trimEnd()}…` : value;
+const date = publishedTime
+  ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(publishedTime))
+  : undefined;
+const compact = cleanTitle.length > 70 || (description?.length ?? 0) > 120;
+---
+
+<div class:list={["og-card", { "og-card--compact": compact }]}>
+  <div class="og-card__signal">ERICKR.DEV <span>{type === "article" ? "Article signal" : "Build-time Open Graph"}</span></div>
+  <div class="og-card__panel">
+    <h1 class="og-card__title">{truncate(cleanTitle, type === "article" ? 108 : 88)}</h1>
+    {description && <p class="og-card__description">{truncate(description, type === "article" ? 188 : 168)}</p>}
+  </div>
+  <div class="og-card__footer">
+    <div class="og-card__chips">{date && <span class="og-card__chip">{date}</span>}<span class="og-card__chip">{locale}</span><span class="og-card__chip">{type}</span></div>
+    <span class="og-card__brand">Erick Reis</span>
+  </div>
+</div>
