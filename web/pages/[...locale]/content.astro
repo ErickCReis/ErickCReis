@@ -78,29 +78,28 @@ const contentPath = getLocalizedPath(locale, "content");
 
         {
           tags.length > 0 && (
-            <section class="space-y-3" data-tag-filter>
-              <p class="font-mono text-xxs tracking-widest text-muted-foreground uppercase">
-                {t(locale, "Filter posts by tag")}
-              </p>
-              <nav class="flex flex-wrap gap-2" aria-label={t(locale, "Available tags")}>
+            <nav
+              class="relative z-40 flex flex-wrap gap-2"
+              aria-label={t(locale, "Available tags")}
+              data-tag-filter
+            >
+              <a
+                href={contentPath}
+                data-tag-link=""
+                class="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 font-mono text-xxs text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/60 hover:text-foreground"
+              >
+                {t(locale, "All posts")}
+              </a>
+              {tags.map((tag) => (
                 <a
-                  href={contentPath}
-                  data-tag-link=""
-                  class="rounded-full border border-border/70 px-2.5 py-1 font-mono text-xxs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+                  href={`${contentPath}?tag=${encodeURIComponent(tag)}`}
+                  data-tag-link={tag}
+                  class="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 font-mono text-xxs text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/60 hover:text-foreground"
                 >
-                  {t(locale, "All posts")}
+                  #{tag}
                 </a>
-                {tags.map((tag) => (
-                  <a
-                    href={`${contentPath}?tag=${encodeURIComponent(tag)}`}
-                    data-tag-link={tag}
-                    class="rounded-full border border-border/70 px-2.5 py-1 font-mono text-xxs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
-                  >
-                    #{tag}
-                  </a>
-                ))}
-              </nav>
-            </section>
+              ))}
+            </nav>
           )
         }
       </header>

@@ -133,8 +133,6 @@ const translations = {
   "0meb4bg": "você",
   // Available tags
   "0tregpd": "Tags disponíveis",
-  // Filter posts by tag
-  "1gz1za9": "Filtrar posts por tag",
   // No posts found for this tag.
   "1y72wx0": "Nenhum post encontrado para esta tag.",
   // Tags
