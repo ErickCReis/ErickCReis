@@ -15,6 +15,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.bun-build
+.playwright-cli/
 
 # environment variables
 .env
