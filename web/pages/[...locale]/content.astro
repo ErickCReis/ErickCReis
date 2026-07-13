@@ -37,6 +37,10 @@ const posts = getBlogEntries(await getCollection("blog"), locale)
     href: getLocalizedPath(locale, `content/${slug}`),
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+const tags = [...new Set(posts.flatMap((post) => post.tags))].sort((a, b) =>
+  a.localeCompare(b),
+);
 ---
 
 <BaseLayout
@@ -70,6 +74,51 @@ const posts = getBlogEntries(await getCollection("blog"), locale)
         <h1 class="font-serif text-4xl tracking-wide md:text-5xl">
           {t(locale, "Content")}
         </h1>
+
+        {
+          tags.length > 0 && (
+            <form class="space-y-3" role="search" data-tag-search>
+              <label
+                for="tag-search"
+                class="block font-mono text-xxs tracking-widest text-muted-foreground uppercase"
+              >
+                {t(locale, "Filter posts by tag")}
+              </label>
+              <div class="flex max-w-md gap-2">
+                <input
+                  id="tag-search"
+                  name="tag"
+                  type="search"
+                  list="blog-tags"
+                  autocomplete="off"
+                  placeholder={t(locale, "Search tags")}
+                  class="min-w-0 flex-1 rounded-full border border-border/70 bg-transparent px-4 py-2 font-mono text-xs outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                />
+                <button
+                  type="button"
+                  data-tag-clear
+                  class="hidden rounded-full border border-border/70 px-4 py-2 font-mono text-xxs tracking-wider uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
+                >
+                  {t(locale, "Clear")}
+                </button>
+              </div>
+              <datalist id="blog-tags">
+                {tags.map((tag) => <option value={tag} />)}
+              </datalist>
+              <div class="flex flex-wrap gap-2" aria-label={t(locale, "Available tags")}>
+                {tags.map((tag) => (
+                  <a
+                    href={`?tag=${encodeURIComponent(tag)}`}
+                    data-tag-link={tag}
+                    class="rounded-full border border-border/70 px-2.5 py-1 font-mono text-xxs text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+                  >
+                    #{tag}
+                  </a>
+                ))}
+              </div>
+            </form>
+          )
+        }
       </header>
 
       {
@@ -83,9 +132,13 @@ const posts = getBlogEntries(await getCollection("blog"), locale)
               client:only="solid-js"
               slugs={posts.map((post) => post.viewKey)}
             />
-            <section class="space-y-3" aria-label={t(locale, "Blog posts")}>
+            <section class="space-y-3" aria-label={t(locale, "Blog posts")} data-post-list>
               {posts.map((post) => (
-                <article class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0">
+                <article
+                  class="border-b border-border/60 pb-4 last:border-b-0 last:pb-0"
+                  data-post
+                  data-tags={JSON.stringify(post.tags)}
+                >
                   <a href={post.href} class="group block py-1">
                     <section
                       id={`post-header-${post.viewKey}`}
@@ -104,10 +157,21 @@ const posts = getBlogEntries(await getCollection("blog"), locale)
                           -- {t(locale, "views")}
                         </span>
                       </div>
+                      <div class="flex flex-wrap gap-2" aria-label={t(locale, "Tags")}>
+                        {post.tags.map((tag) => (
+                          <span class="font-mono text-xxs text-primary">#{tag}</span>
+                        ))}
+                      </div>
                     </section>
                   </a>
                 </article>
               ))}
+              <p
+                class="hidden py-4 text-sm text-muted-foreground md:text-base"
+                data-tag-empty
+              >
+                {t(locale, "No posts found for this tag.")}
+              </p>
             </section>
           </>
         )
@@ -115,3 +179,73 @@ const posts = getBlogEntries(await getCollection("blog"), locale)
     </section>
   </main>
 </BaseLayout>
+
+<script>
+  document.addEventListener("astro:page-load", () => {
+    const form = document.querySelector<HTMLFormElement>("[data-tag-search]");
+    const input = form?.querySelector<HTMLInputElement>("input[name='tag']");
+    const clearButton = form?.querySelector<HTMLButtonElement>("[data-tag-clear]");
+    const posts = [...document.querySelectorAll<HTMLElement>("[data-post]")];
+    const emptyState = document.querySelector<HTMLElement>("[data-tag-empty]");
+    const tagLinks = [...document.querySelectorAll<HTMLAnchorElement>("[data-tag-link]")];
+
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+
+    function applyTagFilter(value: string, updateUrl = true) {
+      const query = normalize(value);
+      let visiblePosts = 0;
+
+      for (const post of posts) {
+        const tags = JSON.parse(post.dataset.tags ?? "[]") as string[];
+        const visible = !query || tags.some((tag) => normalize(tag).includes(query));
+        post.classList.toggle("hidden", !visible);
+        visiblePosts += Number(visible);
+      }
+
+      emptyState?.classList.toggle("hidden", visiblePosts > 0);
+      clearButton?.classList.toggle("hidden", !query);
+
+      for (const link of tagLinks) {
+        link.setAttribute(
+          "aria-current",
+          normalize(link.dataset.tagLink ?? "") === query ? "true" : "false",
+        );
+        link.classList.toggle(
+          "border-primary",
+          normalize(link.dataset.tagLink ?? "") === query,
+        );
+        link.classList.toggle(
+          "text-foreground",
+          normalize(link.dataset.tagLink ?? "") === query,
+        );
+      }
+
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        if (query) {
+          url.searchParams.set("tag", value.trim());
+        } else {
+          url.searchParams.delete("tag");
+        }
+        window.history.replaceState({}, "", url);
+      }
+    }
+
+    if (form && input) {
+      const initialTag = new URL(window.location.href).searchParams.get("tag") ?? "";
+      input.value = initialTag;
+      applyTagFilter(initialTag, false);
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        applyTagFilter(input.value);
+      });
+      input.addEventListener("input", () => applyTagFilter(input.value));
+      clearButton?.addEventListener("click", () => {
+        input.value = "";
+        applyTagFilter("");
+        input.focus();
+      });
+    }
+  });
+</script>

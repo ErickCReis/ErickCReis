@@ -64,6 +64,12 @@ export const translations = {
   "05xgri4": "Year",
   "14z5arr": "Yesterday",
   "0meb4bg": "you",
+  "0tregpd": "Available tags",
+  "01aeugy": "Clear",
+  "1gz1za9": "Filter posts by tag",
+  "1y72wx0": "No posts found for this tag.",
+  "18zln7i": "Search tags",
+  "0wy2g8w": "Tags",
 } as const;
 
 export type TranslationHash = keyof typeof translations;

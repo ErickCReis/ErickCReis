@@ -25,6 +25,7 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
 });
 const { Content } = await render(post);
 const viewKey = getBlogViewKey(post);
+const contentPath = getLocalizedPath(locale, "content");
 ---
 
 <BaseLayout
@@ -73,6 +74,16 @@ const viewKey = getBlogViewKey(post);
           >
             <span>{dateFormatter.format(post.data.date)}</span>
             <PostViewCounter client:only="solid-js" slug={viewKey} />
+          </div>
+          <div class="flex flex-wrap gap-2" aria-label={t(locale, "Tags")}>
+            {post.data.tags.map((tag) => (
+              <a
+                href={`${contentPath}?tag=${encodeURIComponent(tag)}`}
+                class="rounded-full border border-border/70 px-2.5 py-1 font-mono text-xxs text-primary transition-colors hover:border-primary/60 hover:text-foreground"
+              >
+                #{tag}
+              </a>
+            ))}
           </div>
         </section>
       </header>
