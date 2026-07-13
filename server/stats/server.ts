@@ -15,12 +15,26 @@ const POLL_INTERVAL_MS = 5 * 60 * 1000;
 const RETRY_INTERVAL_MS = 60 * 1000;
 const MAX_HISTORY = 10;
 const STREAK_LOG_LIMIT = 50;
+const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
 
 type UptimeRobotResponse = {
   stat?: string;
   error?: { message?: string };
   monitors?: UptimeRobotMonitor[];
 };
+
+type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+
+class UptimeRobotRequestError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "UptimeRobotRequestError";
+  }
+}
 
 function getApiKey() {
   return Bun.env.UPTIMEROBOT_API_KEY?.trim() || null;
@@ -68,25 +82,74 @@ function pickMonitor(monitors: UptimeRobotMonitor[]) {
   return monitors.find((monitor) => monitor.id === monitorId) ?? null;
 }
 
-async function fetchMonitor(nowMs: number) {
-  const response = await fetch(UPTIMEROBOT_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: buildRequestBody(nowMs),
-  });
-
-  if (!response.ok) {
-    throw new Error(`UptimeRobot request failed (${response.status})`);
+async function requestMonitor(nowMs: number, fetchFn: FetchFn) {
+  let response: Response;
+  try {
+    response = await fetchFn(UPTIMEROBOT_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "cache-control": "no-cache",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: buildRequestBody(nowMs),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (error) {
+    throw new UptimeRobotRequestError(
+      `UptimeRobot request failed: ${error instanceof Error ? error.message : String(error)}`,
+      true,
+    );
   }
 
-  const payload = (await response.json()) as UptimeRobotResponse;
+  if (!response.ok) {
+    const detail = (await response.text()).trim().slice(0, 500);
+    throw new UptimeRobotRequestError(
+      `UptimeRobot request failed (${response.status})${detail ? `: ${detail}` : ""}`,
+      response.status === 429 || response.status >= 500,
+    );
+  }
+
+  let payload: UptimeRobotResponse;
+  try {
+    payload = (await response.json()) as UptimeRobotResponse;
+  } catch (error) {
+    throw new UptimeRobotRequestError(
+      `UptimeRobot returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      true,
+    );
+  }
   if (payload.stat !== "ok") {
-    throw new Error(payload.error?.message?.trim() || "UptimeRobot API error");
+    throw new UptimeRobotRequestError(
+      payload.error?.message?.trim() || "UptimeRobot API error",
+      false,
+    );
   }
 
   const monitor = pickMonitor(payload.monitors ?? []);
   if (!monitor) throw new Error("No UptimeRobot monitor was returned");
   return monitor;
+}
+
+export async function fetchMonitor(
+  nowMs: number,
+  fetchFn: FetchFn = fetch,
+  sleep: (ms: number) => Promise<unknown> = Bun.sleep,
+) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await requestMonitor(nowMs, fetchFn);
+    } catch (error) {
+      const retryDelay = REQUEST_RETRY_DELAYS_MS[attempt];
+      if (
+        !(error instanceof UptimeRobotRequestError) ||
+        !error.retryable ||
+        retryDelay === undefined
+      ) {
+        throw error;
+      }
+      await sleep(retryDelay);
+    }
+  }
 }
 
 function buildSnapshot(nowMs: number, monitor: UptimeRobotMonitor): ServerInfoStat {
