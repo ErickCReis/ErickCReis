@@ -30,4 +30,5 @@ pnpm-debug.log*
 .env
 myserver
 data/
-web/content/draft/
+web/content/draft/*
+!web/content/draft/README.md

@@ -30,7 +30,9 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   year: "numeric",
 });
 
-const posts = getBlogEntries(await getCollection("blog"), locale)
+const posts = getBlogEntries(await getCollection("blog"), locale, {
+  includeScheduled: import.meta.env.DEV,
+})
   .map(({ slug, entry }) => ({
     ...entry.data,
     viewKey: getBlogViewKey(entry),

@@ -11,11 +11,15 @@ import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
 
 export async function getStaticPaths() {
-  return getBlogStaticPaths(await getCollection("blog"));
+  return getBlogStaticPaths(await getCollection("blog"), {
+    includeScheduled: import.meta.env.DEV,
+  });
 }
 
 const { locale, slug } = Astro.props;
-const post = getBlogEntry(await getCollection("blog"), slug, locale)!;
+const post = getBlogEntry(await getCollection("blog"), slug, locale, {
+  includeScheduled: import.meta.env.DEV,
+})!;
 
 const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   day: "numeric",

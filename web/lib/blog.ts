@@ -1,7 +1,12 @@
 import type { CollectionEntry } from "astro:content";
 import { defaultLocale, locales, resolveLocale } from "virtual:translate";
+import { filterPublishedEntries } from "@web/lib/blog-publication";
 
 export type BlogEntry = CollectionEntry<"blog">;
+export type BlogVisibilityOptions = {
+  includeScheduled?: boolean;
+  now?: Date;
+};
 
 const localeSuffixes = locales
   .filter((locale) => locale !== defaultLocale)
@@ -28,20 +33,30 @@ export function getBlogViewKey(entry: BlogEntry) {
   return getSourceName(entry);
 }
 
-export function getBlogEntry(entries: readonly BlogEntry[], slug: string, locale: string) {
+export function getBlogEntry(
+  entries: readonly BlogEntry[],
+  slug: string,
+  locale: string,
+  options: BlogVisibilityOptions = {},
+) {
   const normalizedLocale = resolveLocale(locale);
+  const visibleEntries = filterPublishedEntries(entries, options);
 
   return (
-    entries.find((entry) => getSourceName(entry) === `${slug}.${normalizedLocale}`) ??
-    entries.find((entry) => getSourceName(entry) === slug)
+    visibleEntries.find((entry) => getSourceName(entry) === `${slug}.${normalizedLocale}`) ??
+    visibleEntries.find((entry) => getSourceName(entry) === slug)
   );
 }
 
-export function getBlogEntries(entries: readonly BlogEntry[], locale: string) {
+export function getBlogEntries(
+  entries: readonly BlogEntry[],
+  locale: string,
+  options: BlogVisibilityOptions = {},
+) {
   const normalizedLocale = resolveLocale(locale);
   const postsBySlug = new Map<string, BlogEntry>();
 
-  for (const entry of entries) {
+  for (const entry of filterPublishedEntries(entries, options)) {
     const slug = getBlogSlug(entry);
 
     if (!postsBySlug.has(slug) || getSourceName(entry) === `${slug}.${normalizedLocale}`) {
@@ -52,8 +67,11 @@ export function getBlogEntries(entries: readonly BlogEntry[], locale: string) {
   return [...postsBySlug.entries()].map(([slug, entry]) => ({ slug, entry }));
 }
 
-export function getBlogStaticPaths(entries: readonly BlogEntry[]) {
-  const slugs = [...new Set(entries.map(getBlogSlug))];
+export function getBlogStaticPaths(
+  entries: readonly BlogEntry[],
+  options: BlogVisibilityOptions = {},
+) {
+  const slugs = [...new Set(filterPublishedEntries(entries, options).map(getBlogSlug))];
 
   return locales.flatMap((locale) =>
     slugs.map((slug) => ({
