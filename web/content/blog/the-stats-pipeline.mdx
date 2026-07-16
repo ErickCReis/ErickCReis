@@ -5,6 +5,8 @@ date: "2026-08-01"
 tags: [telemetry, sse, architecture]
 ---
 
+import { StatsPipelineLab } from "@web/features/blog-series/labs/stats-pipeline-lab";
+
 The [Spotify and GitHub panels](/content/personal-telemetry-from-spotify-and-github) have different credentials, polling intervals, cache policies, and empty states. Their components do not know any of that.
 
 That is the job of the stats pipeline.
@@ -73,6 +75,8 @@ for (const { name, mod } of statModules) {
 ```
 
 The 500-millisecond loop does not make slow sources poll faster. It only notices their versions. It also coalesces multiple source changes that happen between checks into the newest snapshot, which is appropriate for a live dashboard: the browser needs the current value, not an audit log of every intermediate mutation.
+
+<StatsPipelineLab client:visible locale="en-US" />
 
 If the stream ends, the client waits one second and subscribes again while the island is mounted. An `AbortController` ends that loop when Astro navigation removes the overlay. The next SSE response has a fresh `lastSeen` map, so it emits the current versions again without a resume-token protocol.
 

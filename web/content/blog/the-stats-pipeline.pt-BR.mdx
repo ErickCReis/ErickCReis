@@ -5,6 +5,8 @@ date: "2026-08-01"
 tags: [telemetria, sse, arquitetura]
 ---
 
+import { StatsPipelineLab } from "@web/features/blog-series/labs/stats-pipeline-lab";
+
 Os [painéis do Spotify e do GitHub](/pt-BR/content/personal-telemetry-from-spotify-and-github) têm credenciais, intervalos de polling, políticas de cache e estados vazios diferentes. Seus componentes não sabem nada disso.
 
 Esse é o trabalho do pipeline de estatísticas.
@@ -73,6 +75,8 @@ for (const { name, mod } of statModules) {
 ```
 
 O loop de 500 milissegundos não faz as fontes lentas consultarem suas APIs mais depressa. Ele apenas observa suas versões. Também combina várias mudanças ocorridas entre duas verificações no retrato mais recente, o que é adequado para um painel ao vivo: o navegador precisa do valor atual, não de um log de auditoria de cada mutação intermediária.
+
+<StatsPipelineLab client:visible locale="pt-BR" />
 
 Se o fluxo termina, o cliente espera um segundo e assina novamente enquanto a ilha continua montada. Um `AbortController` encerra esse loop quando a navegação do Astro remove a camada interativa. A nova resposta SSE começa com um mapa `lastSeen` vazio, então emite novamente as versões atuais sem precisar de um protocolo com token de retomada.
 
