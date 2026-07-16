@@ -1,254 +1,203 @@
-import { createMemo, createSignal } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { For, Show, createMemo, createSignal } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type RuntimeVantageLabProps = {
-  locale?: LabLocale;
-};
+type RuntimeVantageLabProps = { locale?: LabLocale };
+type Scope = "process" | "cgroup" | "host" | "outside";
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Choose the observer before reading the number",
-    description:
-      "Change container and host conditions. The displayed value is only meaningful when its measurement boundary is named.",
-    cpu: "Process CPU against cgroup capacity",
-    processCpu: "CPU time used in a 1.5 s sample",
-    cpuQuota: "Available vCPUs",
-    cpuUsage: "Reported CPU",
-    cpuHint: "process.cpuUsage ÷ elapsed time ÷ available CPUs",
-    memory: "Memory boundary",
-    cgroupAvailable: "Finite cgroup memory files are available",
-    cgroupUsed: "Container memory used",
-    cgroupLimit: "Container memory limit",
-    memoryUsage: "Reported memory",
-    cgroupSource: "cgroup current ÷ cgroup limit",
-    hostSource: "host used ÷ host total fallback",
-    hostContext: "Host context: 8 GB used of 16 GB",
-    outside: "Host and outside observers",
-    batteryMounted: "Host power_supply is mounted read-only",
-    publicReachable: "Public route is reachable",
-    battery: "Battery",
-    uptime: "Public uptime",
-    processAge: "Process age",
-    batteryValue: "64% · discharging",
-    unavailable: "n/a",
-    reachable: "36 h reachable streak",
-    down: "0 s · public path is down",
-    alive: "7 days · process still alive",
-    takeawayUp:
-      "The process, cgroup, host mount, and external monitor agree only because each answers a different operational question.",
-    takeawayDown:
-      "A live process does not prove public availability. The external observer catches failures in DNS, tunnel, network, container, or HTTP routing.",
+    label: "Runtime observer lens",
+    scopes: { process: "process", cgroup: "cgroup", host: "host", outside: "outside" },
+    work: "CPU ms / 1.5 s",
+    cpus: "vCPU",
+    used: "memory used",
+    limit: "limit",
+    battery: "battery mount",
+    public: "public route",
+    mounted: "mounted",
+    hidden: "hidden",
+    reachable: "reachable",
+    down: "down",
+    processAge: "process 7d",
+    units: { process: "CPU", cgroup: "memory", host: "battery", outside: "uptime" },
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Escolha o observador antes de interpretar o número",
-    description:
-      "Altere as condições do container e do host. O valor exibido só ganha significado quando a fronteira da medição é identificada.",
-    cpu: "CPU do processo contra a capacidade do cgroup",
-    processCpu: "Tempo de CPU usado em uma amostra de 1,5 s",
-    cpuQuota: "vCPUs disponíveis",
-    cpuUsage: "CPU informada",
-    cpuHint: "process.cpuUsage ÷ tempo transcorrido ÷ CPUs disponíveis",
-    memory: "Fronteira da memória",
-    cgroupAvailable: "Arquivos de memória com limite finito estão disponíveis",
-    cgroupUsed: "Memória usada pelo container",
-    cgroupLimit: "Limite de memória do container",
-    memoryUsage: "Memória informada",
-    cgroupSource: "uso atual do cgroup ÷ limite do cgroup",
-    hostSource: "fallback de memória usada ÷ total do host",
-    hostContext: "Contexto do host: 8 GB usados de 16 GB",
-    outside: "Observadores do host e externos",
-    batteryMounted: "power_supply do host está montado como somente leitura",
-    publicReachable: "Caminho público está acessível",
-    battery: "Bateria",
-    uptime: "Uptime público",
-    processAge: "Idade do processo",
-    batteryValue: "64% · descarregando",
-    unavailable: "n/a",
-    reachable: "36 h de sequência acessível",
-    down: "0 s · caminho público está fora do ar",
-    alive: "7 dias · processo ainda está vivo",
-    takeawayUp:
-      "Processo, cgroup, montagem do host e monitor externo só concordam porque cada um responde a uma pergunta operacional diferente.",
-    takeawayDown:
-      "Um processo vivo não prova disponibilidade pública. O observador externo captura falhas em DNS, túnel, rede, container ou roteamento HTTP.",
+    label: "Lente dos observadores do runtime",
+    scopes: { process: "processo", cgroup: "cgroup", host: "host", outside: "externo" },
+    work: "ms de CPU / 1,5 s",
+    cpus: "vCPU",
+    used: "memória usada",
+    limit: "limite",
+    battery: "montagem da bateria",
+    public: "rota pública",
+    mounted: "montada",
+    hidden: "oculta",
+    reachable: "acessível",
+    down: "fora do ar",
+    processAge: "processo 7d",
+    units: { process: "CPU", cgroup: "memória", host: "bateria", outside: "uptime" },
   },
 } as const;
 
-const SAMPLE_MS = 1500;
-const HOST_USED_MB = 8 * 1024;
-const HOST_TOTAL_MB = 16 * 1024;
+const scopes: Scope[] = ["process", "cgroup", "host", "outside"];
 
 export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const [processCpuMs, setProcessCpuMs] = createSignal(900);
+  const [scope, setScope] = createSignal<Scope>("process");
+  const [cpuMs, setCpuMs] = createSignal(900);
   const [cpuCount, setCpuCount] = createSignal(1);
-  const [hasCgroupMemory, setHasCgroupMemory] = createSignal(true);
-  const [cgroupUsedMb, setCgroupUsedMb] = createSignal(640);
-  const [cgroupLimitMb, setCgroupLimitMb] = createSignal(1024);
+  const [memoryUsed, setMemoryUsed] = createSignal(640);
+  const [memoryLimit, setMemoryLimit] = createSignal(1024);
   const [batteryMounted, setBatteryMounted] = createSignal(true);
-  const [publicReachable, setPublicReachable] = createSignal(true);
+  const [publicRoute, setPublicRoute] = createSignal(true);
 
-  const cpuPercent = createMemo(() =>
-    Math.min(100, Math.max(0, (processCpuMs() / (SAMPLE_MS * cpuCount())) * 100)),
+  const cpuPercent = createMemo(() => Math.min(100, (cpuMs() / (1500 * cpuCount())) * 100));
+  const memoryPercent = createMemo(() => (memoryUsed() / memoryLimit()) * 100);
+  const gaugePercent = createMemo(() => {
+    if (scope() === "process") return cpuPercent();
+    if (scope() === "cgroup") return memoryPercent();
+    if (scope() === "host") return batteryMounted() ? 64 : 0;
+    return publicRoute() ? 100 : 0;
+  });
+  const gaugeValue = createMemo(() => {
+    if (scope() === "process") return `${cpuPercent().toFixed(1)}%`;
+    if (scope() === "cgroup") return `${memoryUsed()} / ${memoryLimit()} MB`;
+    if (scope() === "host") return batteryMounted() ? "64%" : "n/a";
+    return publicRoute() ? "36 h" : "DOWN";
+  });
+  const gaugeUnit = createMemo(() => {
+    return text().units[scope()];
+  });
+  const gaugeColor = createMemo(() =>
+    scope() === "outside" && !publicRoute() ? "#fb7185" : "#fbbf24",
   );
-  const effectiveMemory = createMemo(() =>
-    hasCgroupMemory()
-      ? { used: Math.min(cgroupUsedMb(), cgroupLimitMb()), total: cgroupLimitMb() }
-      : { used: HOST_USED_MB, total: HOST_TOTAL_MB },
-  );
-  const memoryPercent = createMemo(() => (effectiveMemory().used / effectiveMemory().total) * 100);
 
   return (
-    <ConceptLab
-      id="runtime-vantage"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <div class="grid gap-4 lg:grid-cols-2">
-          <LabCard title={text().cpu} accent="amber">
-            <div class="space-y-3">
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().processCpu}</span>
-                  <output>{processCpuMs()} ms</output>
+    <LabFrame id="runtime-vantage" label={text().label} class="mx-auto max-w-lg">
+      <div class="rounded-[2.5rem] border border-amber-200/15 bg-[radial-gradient(circle_at_center,rgba(251,191,36,0.08),transparent_55%),#090a0c] p-4 shadow-2xl shadow-amber-950/20">
+        <div class="relative grid grid-cols-4 gap-1 before:absolute before:top-1/2 before:right-5 before:left-5 before:h-px before:bg-amber-200/10">
+          <For each={scopes}>
+            {(choice) => (
+              <button
+                type="button"
+                onClick={() => setScope(choice)}
+                aria-pressed={scope() === choice}
+                class={`relative z-10 mx-auto grid size-12 place-items-center rounded-full border font-mono text-[8px] transition ${
+                  scope() === choice
+                    ? "border-amber-300 bg-amber-300 text-slate-950"
+                    : "border-slate-700 bg-slate-950 text-slate-500"
+                }`}
+              >
+                {text().scopes[choice]}
+              </button>
+            )}
+          </For>
+        </div>
+
+        <div class="my-4 grid place-items-center">
+          <div
+            class="grid size-36 place-items-center rounded-full p-[7px] transition-all duration-300"
+            style={`background:conic-gradient(${gaugeColor()} ${gaugePercent()}%,rgba(51,65,85,.35) 0)`}
+          >
+            <div class="grid size-full place-items-center rounded-full bg-[#090a0c] text-center">
+              <output class="px-2 font-mono text-lg text-amber-100" aria-live="polite">
+                {gaugeValue()}
+                <span class="mt-1 block text-[9px] tracking-[0.18em] text-slate-600 uppercase">
+                  {gaugeUnit()}
+                </span>
+              </output>
+            </div>
+          </div>
+        </div>
+
+        <div class="min-h-12 rounded-2xl bg-slate-950/55 px-3 py-2">
+          <Show when={scope() === "process"}>
+            <div class="grid grid-cols-[1fr_auto] items-center gap-3">
+              <label class="font-mono text-[9px] text-slate-500">
+                <span class="flex justify-between">
+                  <span>{text().work}</span>
+                  <output>{cpuMs()}</output>
                 </span>
                 <input
                   type="range"
                   min="0"
                   max="6000"
                   step="100"
-                  value={processCpuMs()}
-                  onInput={(event) => setProcessCpuMs(event.currentTarget.valueAsNumber)}
-                  class="mt-2 w-full accent-amber-400"
+                  value={cpuMs()}
+                  onInput={(event) => setCpuMs(event.currentTarget.valueAsNumber)}
+                  class="w-full accent-amber-400"
                 />
               </label>
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().cpuQuota}</span>
-                  <output>{cpuCount()}</output>
-                </span>
-                <input
-                  type="range"
-                  min="1"
-                  max="4"
-                  value={cpuCount()}
-                  onInput={(event) => setCpuCount(event.currentTarget.valueAsNumber)}
-                  class="mt-2 w-full accent-amber-400"
-                />
-              </label>
-              <LabMetric
-                label={text().cpuUsage}
-                value={`${cpuPercent().toFixed(1)}%`}
-                hint={text().cpuHint}
-              />
+              <button
+                type="button"
+                onClick={() => setCpuCount((value) => (value === 4 ? 1 : value + 1))}
+                class="rounded bg-amber-300/10 px-2 py-1 font-mono text-[9px] text-amber-200"
+              >
+                {cpuCount()} {text().cpus}
+              </button>
             </div>
-          </LabCard>
+          </Show>
 
-          <LabCard title={text().memory} accent="blue">
-            <div class="space-y-3">
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().cgroupAvailable}</span>
-                <input
-                  type="checkbox"
-                  checked={hasCgroupMemory()}
-                  onChange={(event) => setHasCgroupMemory(event.currentTarget.checked)}
-                  class="size-4 accent-blue-400"
-                />
-              </label>
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().cgroupUsed}</span>
-                  <output>{cgroupUsedMb()} MB</output>
+          <Show when={scope() === "cgroup"}>
+            <div class="grid grid-cols-[1fr_auto] items-center gap-3">
+              <label class="font-mono text-[9px] text-slate-500">
+                <span class="flex justify-between">
+                  <span>{text().used}</span>
+                  <output>{memoryUsed()} MB</output>
                 </span>
                 <input
                   type="range"
                   min="0"
-                  max={cgroupLimitMb()}
+                  max={memoryLimit()}
                   step="64"
-                  value={Math.min(cgroupUsedMb(), cgroupLimitMb())}
-                  onInput={(event) => setCgroupUsedMb(event.currentTarget.valueAsNumber)}
-                  disabled={!hasCgroupMemory()}
-                  class="mt-2 w-full accent-blue-400 disabled:opacity-35"
+                  value={memoryUsed()}
+                  onInput={(event) => setMemoryUsed(event.currentTarget.valueAsNumber)}
+                  class="w-full accent-amber-400"
                 />
               </label>
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().cgroupLimit}</span>
-                  <output>{cgroupLimitMb()} MB</output>
-                </span>
-                <input
-                  type="range"
-                  min="512"
-                  max="4096"
-                  step="512"
-                  value={cgroupLimitMb()}
-                  onInput={(event) => {
-                    const nextLimit = event.currentTarget.valueAsNumber;
-                    setCgroupLimitMb(nextLimit);
-                    setCgroupUsedMb((current) => Math.min(current, nextLimit));
-                  }}
-                  disabled={!hasCgroupMemory()}
-                  class="mt-2 w-full accent-blue-400 disabled:opacity-35"
-                />
-              </label>
-              <LabMetric
-                label={text().memoryUsage}
-                value={`${effectiveMemory().used} / ${effectiveMemory().total} MB · ${memoryPercent().toFixed(1)}%`}
-                hint={hasCgroupMemory() ? text().cgroupSource : text().hostSource}
-              />
-              <p class="text-xxs text-slate-500">{text().hostContext}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = memoryLimit() === 2048 ? 512 : memoryLimit() + 512;
+                  setMemoryLimit(next);
+                  setMemoryUsed((value) => Math.min(value, next));
+                }}
+                class="rounded bg-amber-300/10 px-2 py-1 font-mono text-[9px] text-amber-200"
+              >
+                {text().limit} {memoryLimit()}
+              </button>
             </div>
-          </LabCard>
+          </Show>
+
+          <Show when={scope() === "host"}>
+            <button
+              type="button"
+              onClick={() => setBatteryMounted((value) => !value)}
+              class="flex w-full items-center justify-between font-mono text-[9px] text-slate-400"
+            >
+              <span>{text().battery}</span>
+              <span class={batteryMounted() ? "text-amber-200" : "text-slate-600"}>
+                {batteryMounted() ? text().mounted : text().hidden}
+              </span>
+            </button>
+          </Show>
+
+          <Show when={scope() === "outside"}>
+            <button
+              type="button"
+              onClick={() => setPublicRoute((value) => !value)}
+              class="flex w-full items-center justify-between font-mono text-[9px] text-slate-400"
+            >
+              <span>{text().public}</span>
+              <span class={publicRoute() ? "text-emerald-200" : "text-rose-200"}>
+                {publicRoute() ? text().reachable : text().down}
+              </span>
+              <span class="text-slate-700">{text().processAge}</span>
+            </button>
+          </Show>
         </div>
-
-        <LabCard title={text().outside} accent="emerald">
-          <div class="space-y-3">
-            <div class="grid gap-2 sm:grid-cols-2">
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().batteryMounted}</span>
-                <input
-                  type="checkbox"
-                  checked={batteryMounted()}
-                  onChange={(event) => setBatteryMounted(event.currentTarget.checked)}
-                  class="size-4 accent-emerald-400"
-                />
-              </label>
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().publicReachable}</span>
-                <input
-                  type="checkbox"
-                  checked={publicReachable()}
-                  onChange={(event) => setPublicReachable(event.currentTarget.checked)}
-                  class="size-4 accent-emerald-400"
-                />
-              </label>
-            </div>
-            <div class="grid gap-2 sm:grid-cols-3" aria-live="polite">
-              <LabMetric
-                label={text().battery}
-                value={batteryMounted() ? text().batteryValue : text().unavailable}
-              />
-              <LabMetric
-                label={text().uptime}
-                value={publicReachable() ? text().reachable : text().down}
-              />
-              <LabMetric label={text().processAge} value={text().alive} />
-            </div>
-          </div>
-        </LabCard>
-
-        <p
-          class="rounded-lg border border-slate-200/10 bg-slate-900/45 px-3 py-2.5 text-sm leading-relaxed text-slate-200/80"
-          aria-live="polite"
-        >
-          {publicReachable() ? text().takeawayUp : text().takeawayDown}
-        </p>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
