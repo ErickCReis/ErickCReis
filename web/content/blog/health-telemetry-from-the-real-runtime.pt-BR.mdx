@@ -5,6 +5,8 @@ date: "2026-08-15"
 tags: [telemetria, containers, operações]
 ---
 
+import { RuntimeVantageLab } from "@web/features/blog-series/labs/runtime-vantage-lab";
+
 O [post anterior](/pt-BR/content/shipping-astro-from-a-bun-server) colocou os arquivos do Astro e o servidor Bun dentro de um único container. Quando esse container se tornou a unidade de produção, uma pergunta simples deixou de ter uma resposta simples: quando o site exibe a “saúde do sistema”, qual sistema está descrevendo?
 
 CPU pode significar o notebook inteiro, a capacidade permitida ao container ou o próprio processo do servidor. A memória informada por `node:os` pode descrever o host mesmo quando o processo está restrito por um cgroup. O notebook tem bateria, mas o container não consegue enxergá-la sem que esse detalhe do host seja exposto de propósito. O tempo de vida do processo não diz se o domínio público estava acessível.
@@ -79,6 +81,8 @@ O arquivo [`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/bl
 Os dias anteriores à criação do monitor permanecem como `null` em vez de se tornarem períodos com zero por cento de disponibilidade. Entre dois retratos do servidor, o painel do Solid avança localmente uma sequência bem-sucedida a cada segundo, fazendo o contador visível se mover sem consultar a API externa a cada segundo.
 
 A requisição tem um timeout de 15 segundos e novas tentativas curtas após falhas de rede, respostas `429` e erros do servidor. Se essas tentativas falharem depois que o módulo já obteve um monitor válido, ele mantém o último retrato bem-sucedido e tenta o ciclo de polling novamente após um minuto. Uma indisponibilidade da API de monitoramento não deve reescrever imediatamente como zero a última disponibilidade conhecida do site.
+
+<RuntimeVantageLab client:visible locale="pt-BR" />
 
 ## De estatística visível a sinal acionável
 

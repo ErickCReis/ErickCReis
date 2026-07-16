@@ -5,6 +5,8 @@ date: "2026-08-15"
 tags: [telemetry, containers, operations]
 ---
 
+import { RuntimeVantageLab } from "@web/features/blog-series/labs/runtime-vantage-lab";
+
 The [previous post](/content/shipping-astro-from-a-bun-server) put Astro's files and the Bun server inside one container. Once that container became the production unit, a simple question stopped having a simple answer: when the site displays “system health,” which system is it describing?
 
 CPU can mean the whole laptop, the container's allowance, or the server process itself. Memory reported by `node:os` may describe the host even when the process is constrained by a cgroup. The laptop has a battery, but the container cannot see it unless that host detail is deliberately exposed. Process uptime says nothing about whether the public domain was reachable.
@@ -79,6 +81,8 @@ The original uptime value was close to a process timer. That can say how long th
 Days before the monitor was created remain `null` instead of becoming zero-percent outages. Between server snapshots, the Solid panel advances a successful streak locally once per second, so the visible timer moves without polling the external API every second.
 
 The request has a 15-second timeout and short retries after network failures, `429` responses, and server errors. If those attempts fail after the module has already fetched a valid monitor, it keeps the last successful snapshot and tries the polling cycle again after one minute. An outage in the monitoring API should not immediately rewrite the site's last known availability as zero.
+
+<RuntimeVantageLab client:visible locale="en-US" />
 
 ## From a visible stat to an actionable signal
 
