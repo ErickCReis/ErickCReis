@@ -1,243 +1,151 @@
-import { createMemo, createSignal, Show } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { For, createMemo, createSignal } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type SourceId = "spotify" | "github";
-type SpotifyScenario = "playing" | "idle" | "rate-limited";
-
-type SourcePolicyLabProps = {
-  locale?: LabLocale;
-};
+type SourcePolicyLabProps = { locale?: LabLocale };
+type SpotifyState = "playing" | "idle" | "limited";
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Give each source its own clock",
-    description:
-      "Change source conditions and observe the collection decision. A shared panel shape does not require a shared polling or persistence policy.",
-    source: "Telemetry source",
-    sources: { spotify: "Spotify playback", github: "GitHub contributions" },
-    conditions: "Source conditions",
-    spotifyScenarios: {
-      playing: "Track playing",
-      idle: "Nothing playing",
-      "rate-limited": "429 + Retry-After: 42",
-    },
-    cacheAge: "Disk cache age",
-    cacheFresh: "Fresh enough for startup",
-    cacheStale: "Expired at 30 minutes",
-    githubRateLimit: "Request is rate-limited without a reset header",
-    decision: "Collector decision",
-    requestNow: "Request now",
-    nextRequest: "Next request",
-    restartState: "State after restart",
-    yes: "yes",
-    no: "no",
-    seconds: "seconds",
-    minutes: "minutes",
-    spotifyRestart: "Empty playback snapshot; history was process-local.",
-    githubRestartFresh: "Load the validated disk cache immediately.",
-    githubRestartStale: "Start empty and refresh the upstream API.",
-    explanations: {
-      spotifyPlaying:
-        "Active playback changes quickly, so the collector checks every 2.5 seconds and keeps progress believable.",
-      spotifyIdle:
-        "An empty state changes less urgently, so the same module backs off to 15 seconds.",
-      spotifyRate:
-        "The provider's Retry-After value overrides the normal playback interval. No new empty snapshot replaces the current one.",
-      githubFresh:
-        "A cache younger than 30 minutes supplies the panel and delays the request until that snapshot expires.",
-      githubRefresh:
-        "An expired cache is not used as the current panel value, so the collector requests a fresh year-to-date calendar now.",
-      githubRate:
-        "The failed request schedules another attempt after the rate-limit delay instead of polling on the normal 30-minute clock.",
-    },
+    label: "Independent source clocks",
+    spotify: "Spotify",
+    github: "GitHub",
+    states: { playing: "playing", idle: "idle", limited: "429" },
+    age: "cache age",
+    cached: "cached",
+    fetch: "GET now",
+    rate: "429",
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Dê a cada fonte o próprio relógio",
-    description:
-      "Altere as condições das fontes e observe a decisão de coleta. Um formato comum de painel não exige a mesma política de polling ou persistência.",
-    source: "Fonte de telemetria",
-    sources: { spotify: "Reprodução do Spotify", github: "Contribuições do GitHub" },
-    conditions: "Condições da fonte",
-    spotifyScenarios: {
-      playing: "Faixa tocando",
-      idle: "Nada tocando",
-      "rate-limited": "429 + Retry-After: 42",
-    },
-    cacheAge: "Idade do cache em disco",
-    cacheFresh: "Novo o bastante para iniciar",
-    cacheStale: "Expira aos 30 minutos",
-    githubRateLimit: "A requisição é limitada sem um cabeçalho de reset",
-    decision: "Decisão do coletor",
-    requestNow: "Requisitar agora",
-    nextRequest: "Próxima requisição",
-    restartState: "Estado após reiniciar",
-    yes: "sim",
-    no: "não",
-    seconds: "segundos",
-    minutes: "minutos",
-    spotifyRestart: "Retrato de reprodução vazio; o histórico vivia no processo.",
-    githubRestartFresh: "Carrega imediatamente o cache validado do disco.",
-    githubRestartStale: "Começa vazio e atualiza a partir da API externa.",
-    explanations: {
-      spotifyPlaying:
-        "A reprodução ativa muda depressa, então o coletor consulta a cada 2,5 segundos e mantém o progresso convincente.",
-      spotifyIdle:
-        "Um estado vazio muda com menos urgência, então o mesmo módulo recua para 15 segundos.",
-      spotifyRate:
-        "O valor de Retry-After do provedor substitui o intervalo normal. Nenhum novo retrato vazio apaga o valor atual.",
-      githubFresh:
-        "Um cache com menos de 30 minutos preenche o painel e adia a consulta até o retrato expirar.",
-      githubRefresh:
-        "Um cache vencido não vira o valor atual do painel, então o coletor pede agora um novo calendário desde o início do ano.",
-      githubRate:
-        "A requisição que falhou agenda outra tentativa após o intervalo de rate limit, em vez de seguir o relógio normal de 30 minutos.",
-    },
+    label: "Relógios independentes das fontes",
+    spotify: "Spotify",
+    github: "GitHub",
+    states: { playing: "tocando", idle: "parado", limited: "429" },
+    age: "idade do cache",
+    cached: "em cache",
+    fetch: "GET agora",
+    rate: "429",
   },
 } as const;
 
+const spotifyStates: SpotifyState[] = ["playing", "idle", "limited"];
+
 export function SourcePolicyLab(props: SourcePolicyLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const [source, setSource] = createSignal<SourceId>("spotify");
-  const [spotifyScenario, setSpotifyScenario] = createSignal<SpotifyScenario>("playing");
-  const [cacheAgeMinutes, setCacheAgeMinutes] = createSignal(12);
-  const [githubRateLimited, setGithubRateLimited] = createSignal(false);
+  const [spotifyState, setSpotifyState] = createSignal<SpotifyState>("playing");
+  const [cacheAge, setCacheAge] = createSignal(12);
+  const [githubLimited, setGithubLimited] = createSignal(false);
 
-  const githubCacheIsFresh = createMemo(() => cacheAgeMinutes() < 30);
-  const requestNow = createMemo(() => {
-    if (source() === "spotify") return true;
-    return !githubCacheIsFresh();
+  const spotifyDelay = createMemo(() => {
+    if (spotifyState() === "playing") return "2.5 s";
+    if (spotifyState() === "idle") return "15 s";
+    return "42 s";
   });
-  const nextDelay = createMemo(() => {
-    if (source() === "spotify") {
-      if (spotifyScenario() === "playing") return `2.5 ${text().seconds}`;
-      if (spotifyScenario() === "idle") return `15 ${text().seconds}`;
-      return `42 ${text().seconds}`;
-    }
+  const cacheFresh = createMemo(() => cacheAge() < 30);
+  const githubDelay = createMemo(() => {
+    if (cacheFresh()) return `${30 - cacheAge()} min`;
+    return githubLimited() ? "15 min" : "30 min";
+  });
 
-    if (githubCacheIsFresh()) {
-      return `${30 - cacheAgeMinutes()} ${text().minutes}`;
-    }
-    return githubRateLimited() ? `15 ${text().minutes}` : `30 ${text().minutes}`;
-  });
-  const restartState = createMemo(() => {
-    if (source() === "spotify") return text().spotifyRestart;
-    return githubCacheIsFresh() ? text().githubRestartFresh : text().githubRestartStale;
-  });
-  const explanation = createMemo(() => {
-    if (source() === "spotify") {
-      if (spotifyScenario() === "playing") return text().explanations.spotifyPlaying;
-      if (spotifyScenario() === "idle") return text().explanations.spotifyIdle;
-      return text().explanations.spotifyRate;
-    }
-    if (githubCacheIsFresh()) return text().explanations.githubFresh;
-    return githubRateLimited() ? text().explanations.githubRate : text().explanations.githubRefresh;
-  });
+  function cycleSpotify() {
+    const current = spotifyStates.indexOf(spotifyState());
+    setSpotifyState(spotifyStates[(current + 1) % spotifyStates.length]!);
+  }
 
   return (
-    <ConceptLab
-      id="source-policy"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <div class="grid gap-2 sm:grid-cols-2" role="group" aria-label={text().source}>
-          {(["spotify", "github"] as const).map((item) => (
-            <button
-              type="button"
-              onClick={() => setSource(item)}
-              aria-pressed={source() === item}
-              class={`rounded-lg border px-3 py-2.5 text-left text-sm transition ${
-                source() === item
-                  ? "border-emerald-300/45 bg-emerald-300/10 text-emerald-50"
-                  : "border-slate-200/10 bg-slate-900/30 text-slate-300 hover:border-slate-200/25"
+    <LabFrame id="source-policy" label={text().label} class="mx-auto max-w-xl">
+      <div class="grid overflow-hidden rounded-[2rem] border border-slate-200/10 bg-[#0b0b0e] sm:grid-cols-2">
+        <div class="relative grid min-h-52 place-items-center overflow-hidden border-b border-slate-200/10 p-4 sm:border-r sm:border-b-0">
+          <span class="absolute top-3 left-4 font-mono text-[9px] tracking-[0.18em] text-emerald-200/45 uppercase">
+            {text().spotify}
+          </span>
+          <button
+            type="button"
+            onClick={cycleSpotify}
+            aria-label={`${text().spotify}: ${text().states[spotifyState()]}`}
+            class={`relative grid size-32 place-items-center rounded-full border border-slate-100/10 shadow-2xl transition ${
+              spotifyState() === "limited" ? "shadow-rose-500/20" : "shadow-emerald-500/15"
+            }`}
+          >
+            <span
+              class={`absolute inset-0 rounded-full bg-[repeating-radial-gradient(circle,#18181b_0,#18181b_3px,#09090b_4px,#09090b_7px)] ${
+                spotifyState() === "playing" ? "animate-spin" : ""
+              }`}
+              style={spotifyState() === "playing" ? "animation-duration:3s" : undefined}
+              aria-hidden="true"
+            />
+            <span
+              class={`relative z-10 grid size-12 place-items-center rounded-full font-mono text-[10px] ${
+                spotifyState() === "limited"
+                  ? "bg-rose-400 text-slate-950"
+                  : "bg-emerald-300 text-slate-950"
               }`}
             >
-              {text().sources[item]}
-            </button>
-          ))}
+              {spotifyDelay()}
+            </span>
+          </button>
+          <span class="absolute bottom-3 font-mono text-[9px] text-slate-500">
+            {text().states[spotifyState()]}
+          </span>
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <LabCard title={text().conditions} accent="slate">
-            <Show
-              when={source() === "spotify"}
-              fallback={
-                <div class="space-y-4">
-                  <label class="block text-xs text-slate-300">
-                    <span class="flex justify-between gap-3">
-                      <span>{text().cacheAge}</span>
-                      <output>{cacheAgeMinutes()} min</output>
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="45"
-                      value={cacheAgeMinutes()}
-                      onInput={(event) => setCacheAgeMinutes(event.currentTarget.valueAsNumber)}
-                      class="mt-2 w-full accent-blue-400"
-                    />
-                    <span class="mt-1 flex justify-between text-xxs text-slate-500">
-                      <span>{text().cacheFresh}</span>
-                      <span>{text().cacheStale}</span>
-                    </span>
-                  </label>
-                  <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                    <span>{text().githubRateLimit}</span>
-                    <input
-                      type="checkbox"
-                      checked={githubRateLimited()}
-                      onChange={(event) => setGithubRateLimited(event.currentTarget.checked)}
-                      disabled={githubCacheIsFresh()}
-                      class="size-4 accent-blue-400 disabled:opacity-40"
-                    />
-                  </label>
-                </div>
-              }
+        <div class="relative flex min-h-52 flex-col justify-between p-4">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[9px] tracking-[0.18em] text-blue-200/45 uppercase">
+              {text().github}
+            </span>
+            <button
+              type="button"
+              onClick={() => setGithubLimited((value) => !value)}
+              disabled={cacheFresh()}
+              aria-pressed={githubLimited()}
+              class={`rounded px-2 py-1 font-mono text-[9px] transition disabled:opacity-20 ${
+                githubLimited() ? "bg-rose-300 text-slate-950" : "bg-slate-800 text-slate-400"
+              }`}
             >
-              <div class="space-y-2" role="group" aria-label={text().conditions}>
-                {(["playing", "idle", "rate-limited"] as const).map((item) => (
-                  <button
-                    type="button"
-                    onClick={() => setSpotifyScenario(item)}
-                    aria-pressed={spotifyScenario() === item}
-                    class={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
-                      spotifyScenario() === item
-                        ? "border-emerald-300/35 bg-emerald-300/10 text-emerald-50"
-                        : "border-slate-200/10 bg-slate-950/35 text-slate-300"
-                    }`}
-                  >
-                    {text().spotifyScenarios[item]}
-                  </button>
-                ))}
-              </div>
-            </Show>
-          </LabCard>
+              {text().rate}
+            </button>
+          </div>
 
-          <LabCard title={text().decision} accent={source() === "spotify" ? "emerald" : "blue"}>
-            <div class="space-y-3" aria-live="polite">
-              <div class="grid gap-2 sm:grid-cols-2">
-                <LabMetric
-                  label={text().requestNow}
-                  value={requestNow() ? text().yes : text().no}
+          <div class="grid grid-cols-10 gap-1" aria-hidden="true">
+            <For each={Array.from({ length: 30 })}>
+              {(_, index) => (
+                <span
+                  class={`aspect-square rounded-[2px] transition-colors ${
+                    index() < cacheAge()
+                      ? cacheFresh()
+                        ? "bg-blue-300/65"
+                        : "bg-amber-300/70"
+                      : "bg-slate-800"
+                  }`}
                 />
-                <LabMetric label={text().nextRequest} value={nextDelay()} />
-              </div>
-              <LabMetric label={text().restartState} value={restartState()} />
-            </div>
-          </LabCard>
-        </div>
+              )}
+            </For>
+          </div>
 
-        <p
-          class="rounded-lg border border-amber-200/15 bg-amber-300/5 px-3 py-2.5 text-sm leading-relaxed text-amber-50/80"
-          aria-live="polite"
-        >
-          {explanation()}
-        </p>
+          <label class="font-mono text-[9px] text-slate-500">
+            <span class="flex items-center justify-between">
+              <span>{text().age}</span>
+              <output class="text-slate-300">{cacheAge()} min</output>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="45"
+              value={cacheAge()}
+              onInput={(event) => setCacheAge(event.currentTarget.valueAsNumber)}
+              class="mt-1 w-full accent-blue-400"
+            />
+          </label>
+
+          <div class="flex items-center justify-between font-mono text-[10px]" aria-live="polite">
+            <span class={cacheFresh() ? "text-blue-200" : "text-amber-200"}>
+              {cacheFresh() ? text().cached : text().fetch}
+            </span>
+            <span class="text-slate-400">↻ {githubDelay()}</span>
+          </div>
+        </div>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
