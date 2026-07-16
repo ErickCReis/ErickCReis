@@ -5,6 +5,8 @@ date: "2026-08-22"
 tags: [astro, mdx, sqlite]
 ---
 
+import { ViewCounterLab } from "@web/features/blog-series/labs/view-counter-lab";
+
 The [runtime telemetry post](/content/health-telemetry-from-the-real-runtime) ended with several kinds of data moving through the live server. The article you are reading takes the opposite path: its title, description, tags, date, body, and route all existed before the server started.
 
 This blog is part of the same live system, but it does not need to become a dynamic publishing application to participate. Astro builds the content. Elysia adds one narrow runtime value: how many deduplicated views each language version has received.
@@ -108,6 +110,8 @@ flowchart TB
 ```
 
 The immediate transaction prevents two concurrent requests from reading the same old state and both incrementing outside the intended sequence. It also keeps the visitor record and total update together.
+
+<ViewCounterLab client:visible locale="en-US" />
 
 The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. This is a small counter, not anonymous analytics, and that distinction belongs in its privacy description.
 
