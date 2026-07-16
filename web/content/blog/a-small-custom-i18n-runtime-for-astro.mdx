@@ -5,6 +5,8 @@ date: "2026-08-29"
 tags: [i18n, astro, vite]
 ---
 
+import { TranslationCatalogLab } from "@web/features/blog-series/labs/translation-catalog-lab";
+
 The [blog layer](/content/the-blog-layer-static-pages-live-view-counts) treats English and Brazilian Portuguese articles as separate MDX files. That is the right boundary for long-form writing: translation is editorial work, not a string lookup.
 
 The surrounding interface has a different problem. Labels such as “All posts,” “Battery,” and “Nothing playing” appear across Astro pages and hydrated Solid components. They need one small translation API, the same locale, and a path strategy that works during a static build and after JavaScript starts.
@@ -75,6 +77,8 @@ const translations = {
 [`web/i18n/en-US.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/en-US.ts) also generates the `TranslationHash` union and an override type. [`web/i18n/pt-BR.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/pt-BR.ts) uses `satisfies` against that type, so a catalog cannot add an unknown key or a non-string value. The override remains partial because a missing translation is valid during the authoring cycle.
 
 That cycle takes two build passes for a brand-new string: one build discovers it and writes the `null` placeholder; after the translation is filled in, the next build includes it in the rendered output and client bundle. Source and generated catalogs are committed together.
+
+<TranslationCatalogLab client:visible locale="en-US" />
 
 Hashing keeps the generated catalog keys short, but it gives up the readability of source keys and currently has no collision check. Two different source strings producing the same 32-bit hash would silently share one entry. The catalog is small enough that this is unlikely, but “unlikely” is not validation. If the translation surface grows, the generator should fail when one hash maps to two sources.
 

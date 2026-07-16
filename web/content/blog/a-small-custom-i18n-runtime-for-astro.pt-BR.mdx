@@ -5,6 +5,8 @@ date: "2026-08-29"
 tags: [i18n, astro, vite]
 ---
 
+import { TranslationCatalogLab } from "@web/features/blog-series/labs/translation-catalog-lab";
+
 A [camada do blog](/pt-BR/content/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos: tradução é um trabalho editorial, não uma consulta em um catálogo de strings.
 
 A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “Bateria” e “Nada tocando” aparecem em páginas do Astro e componentes hidratados do Solid. Eles precisam de uma pequena API de tradução, do mesmo idioma e de uma estratégia de caminhos que funcione durante o build estático e depois que o JavaScript inicia.
@@ -75,6 +77,8 @@ const translations = {
 O arquivo [`web/i18n/en-US.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/en-US.ts) também gera a união `TranslationHash` e um tipo para os overrides. O arquivo [`web/i18n/pt-BR.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/pt-BR.ts) usa `satisfies` com esse tipo, impedindo que o catálogo acrescente uma chave desconhecida ou um valor que não seja string. O override continua parcial porque uma tradução ausente é válida durante o ciclo de autoria.
 
 Esse ciclo exige duas passagens de build para uma string inédita: um build a descobre e grava o placeholder `null`; depois que a tradução é preenchida, o build seguinte a inclui na saída renderizada e no bundle do cliente. O código e os catálogos gerados são versionados juntos.
+
+<TranslationCatalogLab client:visible locale="pt-BR" />
 
 O hash mantém curtas as chaves geradas dos catálogos, mas abre mão da legibilidade de uma chave textual e hoje não tem uma verificação de colisões. Duas strings de origem diferentes que produzissem o mesmo hash de 32 bits compartilhariam silenciosamente uma entrada. O catálogo é pequeno o bastante para tornar isso improvável, mas “improvável” não é validação. Se a superfície de tradução crescer, o gerador deve falhar quando um hash apontar para duas origens.
 
