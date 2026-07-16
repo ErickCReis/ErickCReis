@@ -41,7 +41,25 @@ async function getMermaid() {
       startOnLoad: false,
       securityLevel: "strict",
       htmlLabels: false,
-      theme: "dark",
+      theme: "base",
+      themeVariables: {
+        background: "#090f15",
+        primaryColor: "#121921",
+        primaryTextColor: "#edf2f8",
+        primaryBorderColor: "#2d3748",
+        lineColor: "#7ce3fd",
+        arrowheadColor: "#7ce3fd",
+        edgeLabelBackground: "#090f15",
+        fontFamily: "monospace",
+        fontSize: "14px",
+        radius: 9,
+        strokeWidth: 1.25,
+      },
+      flowchart: {
+        curve: "rounded",
+        nodeSpacing: 34,
+        rankSpacing: 42,
+      },
     });
 
     return mermaid;
