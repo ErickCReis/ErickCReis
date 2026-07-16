@@ -1,249 +1,172 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { For, Show, createMemo, createSignal } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type DistRouteLabProps = {
-  locale?: LabLocale;
-};
+type DistRouteLabProps = { locale?: LabLocale };
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Build a static route table",
-    description:
-      "Add files as if Astro had written them to dist. The workbench generates clean aliases, assigns cache policy, and rejects routes claimed by two files.",
-    files: "Generated dist files",
-    inputLabel: "Relative file path",
+    label: "Static route compiler",
     placeholder: "assets/avatar.webp",
-    add: "Add file",
-    collisionExample: "Add collision example",
-    reset: "Reset",
-    remove: "Remove",
-    table: "Compiled route table",
-    file: "File",
-    routes: "Registered routes",
-    cache: "Cache-Control",
-    routeCount: "Unique routes",
-    collisions: "Collisions",
-    build: "Server build",
-    succeeds: "succeeds",
-    fails: "fails",
-    empty: "Add at least one dist file.",
-    collisionTitle: "Ambiguous aliases",
-    collisionMessage: "The build must stop because these request paths have more than one owner:",
-    clean:
-      "Every request path has one owner. The generated table can be compiled into the Bun server.",
+    add: "add",
+    collide: "inject collision",
+    reset: "reset",
+    compiled: "compiled",
+    failed: "duplicate route",
+    remove: "remove",
+    routes: "routes",
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Monte uma tabela de rotas estáticas",
-    description:
-      "Adicione arquivos como se o Astro os tivesse gravado em dist. A ferramenta gera aliases limpos, atribui a política de cache e rejeita rotas disputadas por dois arquivos.",
-    files: "Arquivos gerados em dist",
-    inputLabel: "Caminho relativo do arquivo",
+    label: "Compilador de rotas estáticas",
     placeholder: "assets/avatar.webp",
-    add: "Adicionar arquivo",
-    collisionExample: "Adicionar exemplo de colisão",
-    reset: "Restaurar",
-    remove: "Remover",
-    table: "Tabela de rotas compilada",
-    file: "Arquivo",
-    routes: "Rotas registradas",
-    cache: "Cache-Control",
-    routeCount: "Rotas únicas",
-    collisions: "Colisões",
-    build: "Build do servidor",
-    succeeds: "prossegue",
-    fails: "falha",
-    empty: "Adicione pelo menos um arquivo de dist.",
-    collisionTitle: "Aliases ambíguos",
-    collisionMessage: "O build precisa parar porque estes caminhos têm mais de um responsável:",
-    clean:
-      "Cada caminho tem um único responsável. A tabela gerada pode ser compilada dentro do servidor Bun.",
+    add: "adicionar",
+    collide: "injetar colisão",
+    reset: "reiniciar",
+    compiled: "compilado",
+    failed: "rota duplicada",
+    remove: "remover",
+    routes: "rotas",
   },
 } as const;
 
 const initialFiles = ["index.html", "content/index.html", "about.html", "_astro/app.A1B2.js"];
 
-function toRouteCandidates(relativePath: string) {
-  const routePath = `/${relativePath.replace(/^\/+/, "")}`;
-  const routes = new Set([routePath]);
-
-  if (routePath.endsWith("/index.html")) {
-    const nestedIndexPath = routePath.slice(0, -"/index.html".length) || "/";
-    routes.add(nestedIndexPath);
-    if (nestedIndexPath !== "/") routes.add(`${nestedIndexPath}/`);
-  } else if (routePath.endsWith(".html")) {
-    routes.add(routePath.slice(0, -".html".length) || "/");
+function routesFor(file: string) {
+  const path = `/${file.replace(/^\/+/, "")}`;
+  const routes = new Set([path]);
+  if (path.endsWith("/index.html")) {
+    const clean = path.slice(0, -"/index.html".length) || "/";
+    routes.add(clean);
+    if (clean !== "/") routes.add(`${clean}/`);
+  } else if (path.endsWith(".html")) {
+    routes.add(path.slice(0, -5) || "/");
   }
-
   return [...routes];
 }
 
-function getCacheControl(file: string, routes: string[]) {
-  if (routes.some((route) => route.startsWith("/_astro/"))) {
-    return "public, max-age=31536000, immutable";
-  }
+function cacheFor(file: string) {
+  if (file.startsWith("_astro/")) return "immutable";
   if (file.endsWith(".html")) return "no-cache";
-  return "public, max-age=3600";
+  return "1h";
 }
 
 export function DistRouteLab(props: DistRouteLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
   const [files, setFiles] = createSignal([...initialFiles]);
-  const [nextFile, setNextFile] = createSignal("");
-
+  const [input, setInput] = createSignal("");
   const rows = createMemo(() =>
-    files().map((file) => {
-      const routes = toRouteCandidates(file);
-      return { file, routes, cache: getCacheControl(file, routes) };
-    }),
+    files().map((file) => ({ file, routes: routesFor(file), cache: cacheFor(file) })),
   );
-  const routeOwners = createMemo(() => {
+  const collisions = createMemo(() => {
     const owners = new Map<string, string[]>();
     for (const row of rows()) {
-      for (const route of row.routes) {
-        const filesForRoute = owners.get(route) ?? [];
-        filesForRoute.push(row.file);
-        owners.set(route, filesForRoute);
-      }
+      for (const route of row.routes) owners.set(route, [...(owners.get(route) ?? []), row.file]);
     }
-    return owners;
+    return [...owners].filter(([, routeOwners]) => routeOwners.length > 1);
   });
-  const collisions = createMemo(() => [...routeOwners()].filter(([, owners]) => owners.length > 1));
+  const routeCount = createMemo(() => new Set(rows().flatMap((row) => row.routes)).size);
 
-  const addFile = (value = nextFile()) => {
-    const normalized = value.trim().replace(/^\.\//, "").replace(/^\/+/, "");
-    if (!normalized) return;
-    setFiles((current) => (current.includes(normalized) ? current : [...current, normalized]));
-    setNextFile("");
-  };
+  function addFile(value = input()) {
+    const file = value.trim().replace(/^\.\//, "").replace(/^\/+/, "");
+    if (!file) return;
+    setFiles((current) => (current.includes(file) ? current : [...current, file]));
+    setInput("");
+  }
 
   return (
-    <ConceptLab
-      id="dist-route-table"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <LabCard title={text().files} accent="blue">
-          <div class="space-y-3">
-            <form
-              class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
-              onSubmit={(event) => {
-                event.preventDefault();
-                addFile();
-              }}
-            >
-              <label class="block">
-                <span class="sr-only">{text().inputLabel}</span>
-                <input
-                  type="text"
-                  value={nextFile()}
-                  onInput={(event) => setNextFile(event.currentTarget.value)}
-                  placeholder={text().placeholder}
-                  class="w-full rounded-lg border border-slate-200/15 bg-slate-950/50 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-blue-300/40"
-                />
-              </label>
-              <button
-                type="submit"
-                class="rounded-lg border border-blue-300/35 bg-blue-300/10 px-3 py-2.5 text-sm text-blue-50 transition hover:bg-blue-300/15"
-              >
-                {text().add}
-              </button>
-            </form>
-
-            <div class="flex flex-wrap gap-2">
-              <For each={files()}>
-                {(file) => (
-                  <button
-                    type="button"
-                    onClick={() => setFiles((current) => current.filter((item) => item !== file))}
-                    class="rounded-full border border-slate-200/10 bg-slate-950/35 px-2.5 py-1 font-mono text-xxs text-slate-300 transition hover:border-rose-300/30 hover:text-rose-100"
-                    aria-label={`${text().remove}: ${file}`}
-                  >
-                    {file} ×
-                  </button>
-                )}
-              </For>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => addFile("about/index.html")}
-                class="rounded-lg border border-amber-300/25 px-3 py-2 text-xs text-amber-100 transition hover:bg-amber-300/10"
-              >
-                {text().collisionExample}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFiles([...initialFiles])}
-                class="rounded-lg border border-slate-200/15 px-3 py-2 text-xs text-slate-300 transition hover:bg-slate-200/5"
-              >
-                {text().reset}
-              </button>
-            </div>
-          </div>
-        </LabCard>
-
-        <div class="grid gap-2 sm:grid-cols-3">
-          <LabMetric label={text().routeCount} value={routeOwners().size} />
-          <LabMetric label={text().collisions} value={collisions().length} />
-          <LabMetric
-            label={text().build}
-            value={collisions().length === 0 ? text().succeeds : text().fails}
+    <LabFrame id="dist-route-table" label={text().label} class="mx-auto max-w-2xl">
+      <div class="overflow-hidden rounded-xl border border-slate-200/15 bg-[#050807] font-mono shadow-2xl shadow-emerald-950/20">
+        <form
+          class="flex items-center gap-2 border-b border-emerald-200/10 bg-emerald-300/[0.04] px-3 py-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addFile();
+          }}
+        >
+          <span class="text-emerald-300">$</span>
+          <input
+            value={input()}
+            onInput={(event) => setInput(event.currentTarget.value)}
+            placeholder={text().placeholder}
+            aria-label={text().label}
+            class="min-w-0 flex-1 bg-transparent text-xs text-slate-200 outline-none placeholder:text-slate-700"
           />
+          <button type="submit" class="rounded bg-emerald-300 px-2 py-1 text-[9px] text-slate-950">
+            {text().add}
+          </button>
+        </form>
+
+        <div class="max-h-64 overflow-y-auto p-2">
+          <For each={rows()}>
+            {(row) => (
+              <div class="group grid grid-cols-[minmax(7rem,0.8fr)_minmax(0,1.4fr)_auto] items-center gap-2 border-b border-slate-200/5 px-2 py-1.5 text-[9px] last:border-0">
+                <button
+                  type="button"
+                  onClick={() => setFiles((current) => current.filter((file) => file !== row.file))}
+                  aria-label={`${text().remove}: ${row.file}`}
+                  class="truncate text-left text-slate-400 transition group-hover:text-rose-200"
+                >
+                  {row.file}
+                </button>
+                <span class="truncate text-cyan-200/75">{row.routes.join("  ·  ")}</span>
+                <span
+                  class={`rounded px-1.5 py-0.5 ${
+                    row.cache === "immutable"
+                      ? "bg-violet-300/10 text-violet-200"
+                      : row.cache === "no-cache"
+                        ? "bg-amber-300/10 text-amber-200"
+                        : "bg-blue-300/10 text-blue-200"
+                  }`}
+                >
+                  {row.cache}
+                </span>
+              </div>
+            )}
+          </For>
         </div>
 
-        <LabCard title={text().table} accent="slate">
-          <div class="space-y-2">
-            <Show
-              when={rows().length > 0}
-              fallback={<p class="text-sm text-slate-400">{text().empty}</p>}
-            >
-              <For each={rows()}>
-                {(row) => (
-                  <div class="grid gap-2 rounded-lg border border-slate-200/10 bg-slate-950/40 p-3 text-xs lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
-                    <div>
-                      <p class="font-mono text-xxs text-slate-500 uppercase">{text().file}</p>
-                      <p class="mt-1 break-all font-mono text-slate-200">{row.file}</p>
-                    </div>
-                    <div>
-                      <p class="font-mono text-xxs text-slate-500 uppercase">{text().routes}</p>
-                      <p class="mt-1 break-all font-mono text-blue-200">{row.routes.join(" · ")}</p>
-                    </div>
-                    <div>
-                      <p class="font-mono text-xxs text-slate-500 uppercase">{text().cache}</p>
-                      <p class="mt-1 break-all font-mono text-emerald-200">{row.cache}</p>
-                    </div>
-                  </div>
-                )}
-              </For>
-            </Show>
+        <Show when={collisions().length > 0}>
+          <div
+            class="border-t border-rose-300/15 bg-rose-400/[0.06] px-3 py-2 text-[9px] text-rose-200"
+            aria-live="polite"
+          >
+            <For each={collisions()}>
+              {([route, owners]) => (
+                <p>
+                  {route} ← {owners.join(" + ")}
+                </p>
+              )}
+            </For>
           </div>
-        </LabCard>
-
-        <Show
-          when={collisions().length > 0}
-          fallback={
-            <p class="rounded-lg border border-emerald-200/15 bg-emerald-300/5 px-3 py-2.5 text-sm leading-relaxed text-emerald-50/80">
-              {text().clean}
-            </p>
-          }
-        >
-          <section class="rounded-lg border border-rose-300/20 bg-rose-300/5 px-3 py-2.5">
-            <h3 class="text-sm font-medium text-rose-100">{text().collisionTitle}</h3>
-            <p class="mt-1 text-xs leading-relaxed text-rose-100/70">{text().collisionMessage}</p>
-            <ul class="mt-2 space-y-1 font-mono text-xs text-rose-100/85" aria-live="polite">
-              <For each={collisions()}>
-                {([route, owners]) => <li>{`${route} ← ${owners.join(" + ")}`}</li>}
-              </For>
-            </ul>
-          </section>
         </Show>
+
+        <div class="flex items-center gap-2 border-t border-slate-200/10 px-3 py-2 text-[9px]">
+          <span
+            class={collisions().length ? "text-rose-300" : "text-emerald-300"}
+            aria-live="polite"
+          >
+            {collisions().length ? "✕" : "✓"}{" "}
+            {collisions().length ? text().failed : text().compiled}
+          </span>
+          <span class="text-slate-700">
+            {routeCount()} {text().routes}
+          </span>
+          <button
+            type="button"
+            onClick={() => addFile("about/index.html")}
+            class="ml-auto text-amber-200/60 hover:text-amber-200"
+          >
+            {text().collide}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFiles([...initialFiles])}
+            class="text-slate-600 hover:text-slate-300"
+          >
+            {text().reset}
+          </button>
+        </div>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
