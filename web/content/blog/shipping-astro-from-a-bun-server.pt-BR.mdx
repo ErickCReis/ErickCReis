@@ -1,0 +1,125 @@
+---
+title: "Servindo a saída do Astro com um servidor Bun"
+description: Como uma tabela de rotas criada no build permite que um processo Elysia sirva os arquivos estáticos do Astro ao lado das APIs dinâmicas.
+date: "2026-08-08"
+tags: [astro, bun, deploy]
+---
+
+O [pipeline de estatísticas](/pt-BR/content/the-stats-pipeline) termina em rotas do Elysia. Em produção, essas rotas compartilham um processo com algo muito menos dinâmico: todas as páginas HTML, folhas de estilo, fontes, imagens e scripts produzidos pelo Astro.
+
+O [primeiro post desta série](/pt-BR/content/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy: um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime. Ele deixou de propósito uma pergunta sem resposta: como um site estático passa a fazer parte do servidor sem transformar o Astro em uma aplicação renderizada no servidor?
+
+Neste projeto, a resposta é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático. O Elysia descobre quais arquivos ele produziu e serve esses arquivos ao lado dos endpoints dinâmicos.
+
+```mermaid center
+flowchart LR
+  Source["Código do Astro"] --> Astro["Build estático do Astro"]
+  Astro --> Dist["Diretório dist"]
+  Dist --> Macro["Macro do Bun percorre os arquivos"]
+  Macro --> Binary["Servidor Elysia compilado + tabela de rotas"]
+  Dist --> Image["Imagem de runtime"]
+  Binary --> Image
+  Image --> Process["Um processo em produção"]
+```
+
+## A ordem faz parte do build
+
+Os dois comandos em `package.json` estão ligados por um motivo:
+
+```json
+{
+  "scripts": {
+    "build": "bun --bun astro build && bun build ./server/index.ts --compile --outfile myserver"
+  }
+}
+```
+
+O Astro precisa terminar primeiro e gravar `dist`. Só então o Bun pode compilar [`server/index.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/index.ts), pois o build do servidor inspeciona esse diretório para descobrir as rotas estáticas.
+
+O build tem dois produtos, em vez de um único artefato fingindo conter tudo:
+
+- `dist`, com os arquivos produzidos pelo Astro;
+- `myserver`, um executável nativo com a aplicação Elysia e os metadados das rotas geradas.
+
+As migrações do banco são o terceiro diretório copiado para a imagem de runtime, mas não participam do roteamento estático.
+
+Uma versão anterior incorporava o conteúdo dos assets ao servidor. A versão atual incorpora apenas os caminhos e mantém arquivos como arquivos. A responsabilidade fica mais clara: o executável sabe como rotear uma requisição, enquanto `dist` continua sendo o conteúdo produzido pelo Astro.
+
+## Descobrindo rotas limpas durante a compilação
+
+O arquivo [`server/dist-assets.macro.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/dist-assets.macro.ts) percorre `dist` recursivamente e em ordem. Para cada arquivo, ele produz um ou mais caminhos de requisição.
+
+Um asset comum mantém seu caminho. Arquivos HTML também recebem os aliases limpos esperados em um site estático:
+
+| Arquivo gerado       | Rotas registradas                              |
+| -------------------- | ---------------------------------------------- |
+| `index.html`         | `/index.html`, `/`                             |
+| `content/index.html` | `/content/index.html`, `/content`, `/content/` |
+| `about.html`         | `/about.html`, `/about`                        |
+| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                          |
+
+O import da macro é avaliado pelo Bun enquanto o servidor é empacotado:
+
+```ts
+import { loadDistAssetRoutes } from "./dist-assets.macro" with { type: "macro" };
+
+const distAssetRoutes = loadDistAssetRoutes();
+```
+
+O array resultante é compilado dentro de `myserver`; o diretório não é percorrido sempre que o processo inicia. Isso também significa que as rotas estáticas não podem mudar independentemente do binário. Se `dist` mudar, o servidor precisa ser reconstruído para que sua tabela de rotas e seus arquivos continuem pertencendo ao mesmo build.
+
+A macro se recusa a compilar quando `dist` é obrigatório, mas não existe. O erro aponta para o build do Astro em vez de produzir um servidor cuja página inicial retorna 404 silenciosamente.
+
+## Aliases duplicados devem interromper o build
+
+Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Escolher o último arquivo visitado faria o roteamento depender da ordem em que o sistema de arquivos foi percorrido.
+
+O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem da travessia torna o diagnóstico estável, mas o importante é a interrupção: uma rota estática ambígua é um problema de build, não uma política para resolver em produção.
+
+Essa verificação cobre colisões entre os arquivos gerados pelo Astro. As rotas de API continuam como rotas explícitas do Elysia em `server/index.ts`, registradas antes do subroteador estático exclusivo de produção. Manter o registro das rotas estáticas em um subroteador deixa essa fronteira visível.
+
+## Servindo arquivos com tempos de cache diferentes
+
+Em runtime, [`server/dist-assets.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/dist-assets.ts) percorre a tabela de rotas compilada e registra um handler `GET` do Elysia para cada entrada. O handler entrega o caminho ao helper de resposta `file` do Elysia e atribui o comportamento de cache de acordo com o tipo de asset.
+
+```ts
+function getCacheControl(asset: DistAssetRoute) {
+  if (asset.routePath.startsWith("/_astro/")) {
+    return "public, max-age=31536000, immutable";
+  }
+
+  if (asset.filePath.endsWith(".html")) {
+    return "no-cache";
+  }
+
+  return "public, max-age=3600";
+}
+```
+
+O Astro adiciona fingerprints aos assets empacotados, portanto os arquivos em `/_astro/` podem ser armazenados como imutáveis por um ano. O HTML usa `no-cache`: o navegador pode mantê-lo, mas precisa revalidá-lo antes de reutilizar. Outros arquivos públicos recebem uma validade de uma hora.
+
+Os aliases limpos e a rota original com `.html` apontam para o mesmo arquivo e, por isso, recebem a mesma política de HTML. O comportamento do cache pertence ao arquivo, não à URL mais bonita usada para encontrá-lo.
+
+## O container preserva a estrutura do build
+
+O [Dockerfile de múltiplos estágios](https://github.com/ErickCReis/ErickCReis/blob/main/Dockerfile) executa o build combinado em `oven/bun` e depois recomeça a partir de `debian:bookworm-slim`:
+
+```dockerfile
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/myserver ./myserver
+COPY --from=build /app/server/db/migrations ./server/db/migrations
+
+CMD ["./myserver"]
+```
+
+Os dois estágios usam `/app` como diretório de trabalho. Preservar essa estrutura importa porque a tabela criada na compilação aponta para os arquivos encontrados em `/app/dist`. A imagem de runtime não instala o Bun nem as dependências da aplicação; ela precisa do executável compilado, dos arquivos servidos e das migrações executadas pela aplicação.
+
+O desenvolvimento tem de propósito outro formato. O servidor de desenvolvimento do Astro e a API do Bun rodam em paralelo, em portas diferentes e com feedback rápido. O subroteador estático só é conectado quando `NODE_ENV` é `production`. Usar um processo em produção não exige forçar os servidores de desenvolvimento a compartilhar o mesmo ciclo de vida.
+
+## Saída estática por trás de um servidor dinâmico
+
+Essa configuração não usa SSR do Astro, e o Elysia não renderiza as páginas. Uma requisição para um artigo lê o HTML já produzido pelo Astro. Uma requisição para `/stats/stream`, `/live` ou um contador de conteúdo chega a código executado em runtime dentro do mesmo processo.
+
+Essa distinção mantém a restrição original: estático quando possível, dinâmico apenas quando o comportamento exige. O deploy tem um único servidor público, mas as responsabilidades de geração das páginas e de atendimento das requisições continuam separadas.
+
+O próximo post permanece dentro desse container e faz uma pergunta mais operacional: quando o servidor informa CPU, memória, bateria e uptime, qual máquina ele está realmente medindo?
