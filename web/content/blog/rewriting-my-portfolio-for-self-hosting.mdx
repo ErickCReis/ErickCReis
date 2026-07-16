@@ -5,6 +5,8 @@ date: "2026-06-23"
 tags: [self-hosting]
 ---
 
+import { DeploymentShapeLab } from "@web/features/blog-series/labs/deployment-shape-lab";
+
 At some point this portfolio stopped being just a static page. I kept adding telemetry, API routes, cursor presence, background polling, local data, and internal jobs. It was still a small project, but its deployment shape had started to matter.
 
 This rewrite was not about escaping Cloudflare or saving money. I wanted to make one machine the unit of deployment. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
@@ -17,12 +19,12 @@ The previous version of the portfolio leaned more heavily on platform services. 
 
 The rewrite changed the default boundary:
 
-| Before | After |
-| --- | --- |
-| Separate web and server applications | One server process |
-| Managed real-time state and persistence | In-process state and [SQLite](https://www.sqlite.org/) |
-| Several provider-specific runtime pieces | One Docker image and one data directory |
-| Platform deployment configuration | A container deployed by [Dokploy](https://dokploy.com/) |
+| Before                                   | After                                                   |
+| ---------------------------------------- | ------------------------------------------------------- |
+| Separate web and server applications     | One server process                                      |
+| Managed real-time state and persistence  | In-process state and [SQLite](https://www.sqlite.org/)  |
+| Several provider-specific runtime pieces | One Docker image and one data directory                 |
+| Platform deployment configuration        | A container deployed by [Dokploy](https://dokploy.com/) |
 
 I still like Cloudflare, and it remains part of this setup. DNS and connectivity stay at the edge; the compute and persistent data moved to the laptop. Self-hosting here is a change in where the application runs, not a claim that every external service disappeared.
 
@@ -52,6 +54,8 @@ flowchart LR
 ```
 
 I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and keeps the deployment workflow easy to inspect. The useful simplification is not that the infrastructure has only one piece. It is that the application has fewer runtime boundaries: one deploy target, one container, and one server process.
+
+<DeploymentShapeLab client:visible locale="en-US" />
 
 ## The build artifact
 

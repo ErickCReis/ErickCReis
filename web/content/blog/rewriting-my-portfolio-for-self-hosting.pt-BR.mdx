@@ -5,6 +5,8 @@ date: "2026-06-23"
 tags: [self-hosting]
 ---
 
+import { DeploymentShapeLab } from "@web/features/blog-series/labs/deployment-shape-lab";
+
 Em algum momento, este portfólio deixou de ser apenas uma página estática. Fui acrescentando telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas o formato do deploy já importava.
 
 Esta reescrita não foi uma tentativa de abandonar a Cloudflare nem de economizar dinheiro. Eu queria transformar uma única máquina na unidade de deploy. O [Astro](https://astro.build/) continuaria gerando páginas estáticas e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas, mas a aplicação inteira seria empacotada em um único container e executada em um notebook que estava parado.
@@ -17,12 +19,12 @@ A versão anterior do portfólio dependia mais de serviços de plataforma. Ela e
 
 A reescrita mudou onde eu colocava as fronteiras:
 
-| Antes | Depois |
-| --- | --- |
-| Aplicações separadas para web e servidor | Um processo de servidor |
+| Antes                                           | Depois                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------- |
+| Aplicações separadas para web e servidor        | Um processo de servidor                                        |
 | Estado em tempo real e persistência gerenciados | Estado mantido no processo e [SQLite](https://www.sqlite.org/) |
-| Várias peças de runtime específicas do provedor | Uma imagem Docker e um diretório de dados |
-| Configuração de deploy na plataforma | Um container entregue pelo [Dokploy](https://dokploy.com/) |
+| Várias peças de runtime específicas do provedor | Uma imagem Docker e um diretório de dados                      |
+| Configuração de deploy na plataforma            | Um container entregue pelo [Dokploy](https://dokploy.com/)     |
 
 A Cloudflare não saiu completamente da arquitetura. O DNS e a conectividade continuam na borda; o processamento e os dados persistentes foram para o notebook. Neste caso, self-hosting descreve onde a aplicação roda, não o desaparecimento de todo serviço externo.
 
@@ -52,6 +54,8 @@ flowchart LR
 ```
 
 Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e deixa o fluxo de deploy fácil de inspecionar. A infraestrutura ainda tem várias peças. A simplificação está dentro da aplicação: um destino de deploy, um container e um processo de servidor.
+
+<DeploymentShapeLab client:visible locale="pt-BR" />
 
 ## O artefato de build
 
