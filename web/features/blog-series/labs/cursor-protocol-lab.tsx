@@ -1,263 +1,174 @@
-import { createMemo, createSignal, Show } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type CursorPoint = { x: number; y: number };
-type DeliveryStatus = "waiting" | "broadcast" | "identity" | "socket" | "expired";
-
-type CursorProtocolLabProps = {
-  locale?: LabLocale;
-};
+type CursorProtocolLabProps = { locale?: LabLocale };
+type Point = { x: number; y: number };
+type RemotePoint = Point & { documentX: number; documentY: number };
+type State = "live" | "socket" | "identity" | "expired";
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Follow one cursor sample",
-    description:
-      "Move the local pointer and scroll offset. The local marker reacts immediately; the wire payload changes only when the 50 ms sampler runs.",
-    local: "Local browser state",
-    viewportX: "Viewport x",
-    viewportY: "Viewport y",
-    scrollY: "Document scroll y",
-    documentPoint: "Document point",
-    transport: "Connection and identity",
-    socket: "WebSocket is open",
-    identity: "Payload ID matches cookie ID",
-    sample: "Run the 50 ms sample",
-    expire: "Expire remote cursor after 7 s",
-    lastPayload: "Last wire payload",
-    remote: "Remote browser",
-    noPayload: "No payload sampled yet",
-    remoteEmpty: "No active remote cursor",
-    cookie: "Server cookie ID",
-    status: {
-      waiting: "Move the controls, then sample the latest point.",
-      broadcast: "Validated and broadcast. The remote marker now uses the sampled document point.",
-      identity: "Dropped: the payload ID does not match the HTTP-only cookie identity.",
-      socket: "Dropped: the socket is closed. Old coordinates are not queued.",
-      expired: "Removed locally after seven seconds without a newer sample.",
+    label: "Realtime cursor sampler",
+    move: "move here",
+    scroll: "scroll",
+    socket: "WS",
+    identity: "ID",
+    expire: "expire",
+    states: {
+      live: "broadcast",
+      socket: "socket closed",
+      identity: "ID rejected",
+      expired: "expired",
     },
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Acompanhe uma amostra do cursor",
-    description:
-      "Mova o ponteiro local e o deslocamento da rolagem. O marcador local reage na hora; o payload só muda quando a amostragem de 50 ms acontece.",
-    local: "Estado local do navegador",
-    viewportX: "x na área visível",
-    viewportY: "y na área visível",
-    scrollY: "Rolagem y do documento",
-    documentPoint: "Ponto no documento",
-    transport: "Conexão e identidade",
-    socket: "WebSocket está aberto",
-    identity: "ID do payload corresponde ao cookie",
-    sample: "Executar amostragem de 50 ms",
-    expire: "Expirar cursor remoto após 7 s",
-    lastPayload: "Último payload transmitido",
-    remote: "Navegador remoto",
-    noPayload: "Nenhum payload foi amostrado",
-    remoteEmpty: "Nenhum cursor remoto ativo",
-    cookie: "ID no cookie do servidor",
-    status: {
-      waiting: "Mova os controles e amostre o ponto mais recente.",
-      broadcast:
-        "Validado e transmitido. O marcador remoto agora usa o ponto amostrado no documento.",
-      identity: "Descartado: o ID do payload não corresponde à identidade no cookie HTTP-only.",
-      socket: "Descartado: o socket está fechado. Coordenadas antigas não entram em uma fila.",
-      expired: "Removido localmente depois de sete segundos sem uma amostra mais nova.",
+    label: "Amostrador de cursor em tempo real",
+    move: "mova aqui",
+    scroll: "rolagem",
+    socket: "WS",
+    identity: "ID",
+    expire: "expirar",
+    states: {
+      live: "transmitido",
+      socket: "socket fechado",
+      identity: "ID rejeitado",
+      expired: "expirado",
     },
   },
 } as const;
 
-const VIEWPORT_WIDTH = 600;
-const VIEWPORT_HEIGHT = 300;
-const COOKIE_ID = "cursor-a1";
+const DOCUMENT_WIDTH = 600;
+const VIEWPORT_HEIGHT = 240;
 
 export function CursorProtocolLab(props: CursorProtocolLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const [viewportX, setViewportX] = createSignal(300);
-  const [viewportY, setViewportY] = createSignal(140);
+  const [local, setLocal] = createSignal<Point>({ x: 35, y: 45 });
+  const [remote, setRemote] = createSignal<RemotePoint>();
   const [scrollY, setScrollY] = createSignal(480);
   const [socketOpen, setSocketOpen] = createSignal(true);
   const [identityMatches, setIdentityMatches] = createSignal(true);
-  const [lastPayload, setLastPayload] = createSignal<(CursorPoint & { id: string }) | null>(null);
-  const [remotePoint, setRemotePoint] = createSignal<CursorPoint | null>(null);
-  const [status, setStatus] = createSignal<DeliveryStatus>("waiting");
+  const [active, setActive] = createSignal(true);
+  const [state, setState] = createSignal<State>("live");
 
-  const documentPoint = createMemo<CursorPoint>(() => ({
-    x: viewportX(),
-    y: viewportY() + scrollY(),
+  const documentPoint = createMemo(() => ({
+    x: Math.round((local().x / 100) * DOCUMENT_WIDTH),
+    y: Math.round((local().y / 100) * VIEWPORT_HEIGHT + scrollY()),
   }));
 
-  const sampleLatestPoint = () => {
-    const payload = {
-      id: identityMatches() ? COOKIE_ID : "cursor-b9",
-      ...documentPoint(),
-    };
-    setLastPayload(payload);
+  onMount(() => {
+    const timer = window.setInterval(() => {
+      if (!active()) return;
+      if (!socketOpen()) {
+        setState("socket");
+        return;
+      }
+      if (!identityMatches()) {
+        setState("identity");
+        return;
+      }
 
-    if (!socketOpen()) {
-      setStatus("socket");
-      return;
-    }
+      setRemote({ ...local(), documentX: documentPoint().x, documentY: documentPoint().y });
+      setState("live");
+    }, 50);
+    onCleanup(() => window.clearInterval(timer));
+  });
 
-    if (payload.id !== COOKIE_ID) {
-      setStatus("identity");
-      return;
-    }
-
-    setRemotePoint({ x: payload.x, y: payload.y });
-    setStatus("broadcast");
-  };
-
-  const expireRemote = () => {
-    setRemotePoint(null);
-    setStatus("expired");
-  };
+  function movePointer(event: PointerEvent & { currentTarget: HTMLDivElement }) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    setLocal({
+      x: Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100)),
+      y: Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100)),
+    });
+    setActive(true);
+  }
 
   return (
-    <ConceptLab
-      id="cursor-protocol"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <div class="grid gap-4 lg:grid-cols-2">
-          <LabCard title={text().local} accent="blue">
-            <div class="space-y-3">
-              <div class="relative h-36 overflow-hidden rounded-lg border border-blue-200/15 bg-slate-950/60">
-                <div class="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-200/10" />
-                <div class="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-200/10" />
-                <span
-                  class="absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-100/70 bg-blue-300 shadow-lg shadow-blue-400/30 transition-[left,top]"
-                  style={{
-                    left: `${(viewportX() / VIEWPORT_WIDTH) * 100}%`,
-                    top: `${(viewportY() / VIEWPORT_HEIGHT) * 100}%`,
-                  }}
-                  aria-hidden="true"
-                />
-              </div>
+    <LabFrame id="cursor-protocol" label={text().label} class="mx-auto max-w-xl">
+      <div class="overflow-hidden rounded-[1.35rem] border border-violet-300/15 bg-[#090716] shadow-xl shadow-violet-950/25">
+        <div
+          class="relative h-52 touch-none overflow-hidden bg-[linear-gradient(rgba(167,139,250,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(167,139,250,0.06)_1px,transparent_1px)] bg-[size:24px_24px]"
+          onPointerMove={movePointer}
+          role="application"
+          aria-label={text().move}
+        >
+          <span class="pointer-events-none absolute top-3 left-3 font-mono text-[9px] tracking-[0.2em] text-violet-200/35 uppercase">
+            {text().move}
+          </span>
 
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().viewportX}</span>
-                  <output>{viewportX()} px</output>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={VIEWPORT_WIDTH}
-                  value={viewportX()}
-                  onInput={(event) => setViewportX(event.currentTarget.valueAsNumber)}
-                  class="mt-1 w-full accent-blue-400"
-                />
-              </label>
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().viewportY}</span>
-                  <output>{viewportY()} px</output>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={VIEWPORT_HEIGHT}
-                  value={viewportY()}
-                  onInput={(event) => setViewportY(event.currentTarget.valueAsNumber)}
-                  class="mt-1 w-full accent-blue-400"
-                />
-              </label>
-              <label class="block text-xs text-slate-300">
-                <span class="flex justify-between gap-3">
-                  <span>{text().scrollY}</span>
-                  <output>{scrollY()} px</output>
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1200"
-                  step="20"
-                  value={scrollY()}
-                  onInput={(event) => setScrollY(event.currentTarget.valueAsNumber)}
-                  class="mt-1 w-full accent-blue-400"
-                />
-              </label>
+          <span
+            class="pointer-events-none absolute z-20 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-300 shadow-[0_0_16px_rgba(125,211,252,0.8)]"
+            style={{ left: `${local().x}%`, top: `${local().y}%` }}
+          />
+          {remote() ? (
+            <span
+              class="pointer-events-none absolute z-10 size-6 -translate-x-1/2 -translate-y-1/2 rounded-full border border-violet-300/80 transition-[left,top] duration-75"
+              style={{ left: `${remote()!.x}%`, top: `${remote()!.y}%` }}
+            />
+          ) : null}
 
-              <LabMetric
-                label={text().documentPoint}
-                value={`x:${documentPoint().x} y:${documentPoint().y}`}
-              />
-            </div>
-          </LabCard>
-
-          <LabCard title={text().transport} accent="emerald">
-            <div class="space-y-3">
-              <p class="rounded-lg bg-slate-950/45 px-3 py-2 font-mono text-xs text-slate-300">
-                {text().cookie}: <span class="text-emerald-200">{COOKIE_ID}</span>
-              </p>
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().socket}</span>
-                <input
-                  type="checkbox"
-                  checked={socketOpen()}
-                  onChange={(event) => setSocketOpen(event.currentTarget.checked)}
-                  class="size-4 accent-emerald-400"
-                />
-              </label>
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().identity}</span>
-                <input
-                  type="checkbox"
-                  checked={identityMatches()}
-                  onChange={(event) => setIdentityMatches(event.currentTarget.checked)}
-                  class="size-4 accent-emerald-400"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={sampleLatestPoint}
-                class="w-full rounded-lg border border-emerald-300/35 bg-emerald-300/10 px-3 py-2.5 text-sm text-emerald-50 transition hover:bg-emerald-300/15"
-              >
-                {text().sample}
-              </button>
-
-              <div class="rounded-lg border border-slate-200/10 bg-slate-950/60 p-3">
-                <p class="font-mono text-xxs tracking-wide text-slate-400 uppercase">
-                  {text().lastPayload}
-                </p>
-                <code class="mt-2 block overflow-x-auto text-xs text-slate-200">
-                  {lastPayload() ? JSON.stringify(lastPayload()) : text().noPayload}
-                </code>
-              </div>
-            </div>
-          </LabCard>
+          <code class="pointer-events-none absolute right-3 bottom-3 rounded-md bg-slate-950/75 px-2 py-1 font-mono text-[9px] text-slate-400">
+            {remote() ? `{x:${remote()!.documentX}, y:${remote()!.documentY}}` : "∅"}
+          </code>
         </div>
 
-        <LabCard title={text().remote} accent="amber">
-          <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <div class="min-h-14 rounded-lg border border-slate-200/10 bg-slate-950/45 p-3 font-mono text-xs text-slate-300">
-              <Show when={remotePoint()} fallback={<span>{text().remoteEmpty}</span>}>
-                {(point) => <span>{`cursor-a1 → x:${point().x} y:${point().y}`}</span>}
-              </Show>
-            </div>
+        <div class="grid grid-cols-[1fr_auto] items-center gap-3 border-t border-violet-200/10 p-2.5">
+          <label class="flex min-w-0 items-center gap-2 font-mono text-[9px] text-slate-500">
+            <span>{text().scroll}</span>
+            <input
+              type="range"
+              min="0"
+              max="1200"
+              step="40"
+              value={scrollY()}
+              onInput={(event) => setScrollY(event.currentTarget.valueAsNumber)}
+              class="min-w-0 flex-1 accent-violet-400"
+            />
+            <output class="w-9 text-right text-slate-300">{scrollY()}</output>
+          </label>
+
+          <div class="flex gap-1">
             <button
               type="button"
-              onClick={expireRemote}
-              disabled={!remotePoint()}
-              class="rounded-lg border border-amber-300/25 px-3 py-2 text-xs text-amber-100 transition enabled:hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => setSocketOpen((value) => !value)}
+              aria-pressed={socketOpen()}
+              class={`rounded px-2 py-1 font-mono text-[9px] ${socketOpen() ? "bg-blue-300/15 text-blue-200" : "bg-rose-300/10 text-rose-200"}`}
+            >
+              {text().socket}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIdentityMatches((value) => !value)}
+              aria-pressed={identityMatches()}
+              class={`rounded px-2 py-1 font-mono text-[9px] ${identityMatches() ? "bg-violet-300/15 text-violet-200" : "bg-rose-300/10 text-rose-200"}`}
+            >
+              {text().identity}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActive(false);
+                setRemote(undefined);
+                setState("expired");
+              }}
+              class="rounded bg-slate-800 px-2 py-1 font-mono text-[9px] text-slate-400"
             >
               {text().expire}
             </button>
           </div>
-        </LabCard>
+        </div>
 
-        <p
-          class="rounded-lg border border-slate-200/10 bg-slate-900/45 px-3 py-2.5 text-sm leading-relaxed text-slate-200/80"
+        <div
+          class="flex items-center gap-2 px-3 pb-2.5 font-mono text-[9px] text-slate-500"
           aria-live="polite"
         >
-          {text().status[status()]}
-        </p>
+          <span
+            class={`size-1.5 rounded-full ${state() === "live" ? "bg-emerald-300" : "bg-rose-300"}`}
+          />
+          {text().states[state()]}
+          <span class="ml-auto text-slate-700">50 ms</span>
+        </div>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
