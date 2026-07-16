@@ -188,14 +188,14 @@ export function DistRouteLab(props: DistRouteLabProps) {
           </div>
         </LabCard>
 
-        <dl class="grid gap-2 sm:grid-cols-3">
+        <div class="grid gap-2 sm:grid-cols-3">
           <LabMetric label={text().routeCount} value={routeOwners().size} />
           <LabMetric label={text().collisions} value={collisions().length} />
           <LabMetric
             label={text().build}
             value={collisions().length === 0 ? text().succeeds : text().fails}
           />
-        </dl>
+        </div>
 
         <LabCard title={text().table} accent="slate">
           <div class="space-y-2">

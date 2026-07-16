@@ -67,10 +67,14 @@ type LabMetricProps = {
 
 export function LabMetric(props: LabMetricProps) {
   return (
-    <div class="rounded-lg border border-slate-200/10 bg-slate-950/45 px-3 py-2.5">
+    <dl class="rounded-lg border border-slate-200/10 bg-slate-950/45 px-3 py-2.5">
       <dt class="font-mono text-xxs tracking-wider text-slate-400 uppercase">{props.label}</dt>
-      <dd class="mt-1 font-mono text-lg text-slate-100">{props.value}</dd>
-      {props.hint ? <p class="mt-1 text-xs leading-relaxed text-slate-400">{props.hint}</p> : null}
-    </div>
+      <dd class="mt-1">
+        <span class="block font-mono text-lg text-slate-100">{props.value}</span>
+        {props.hint ? (
+          <span class="mt-1 block text-xs leading-relaxed text-slate-400">{props.hint}</span>
+        ) : null}
+      </dd>
+    </dl>
   );
 }

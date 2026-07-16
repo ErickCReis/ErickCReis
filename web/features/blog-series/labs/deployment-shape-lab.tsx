@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For } from "solid-js";
 import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
-import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
+import { resolveLabLocale, selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
 type DeploymentMode = "platform" | "single";
 type CapabilityId = "pages" | "api" | "realtime" | "data" | "jobs";
@@ -98,7 +98,7 @@ const capabilities: Array<{
 
 export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const locale = () => (props.locale === "pt-BR" ? "pt-BR" : "en-US");
+  const locale = () => resolveLabLocale(props.locale);
   const [mode, setMode] = createSignal<DeploymentMode>("single");
   const [enabled, setEnabled] = createSignal<Record<CapabilityId, boolean>>({
     pages: true,
@@ -171,13 +171,13 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
 
           <LabCard title={text().owners} accent={mode() === "single" ? "emerald" : "blue"}>
             <div class="space-y-3">
-              <dl class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <LabMetric label={text().boundaries} value={ownerCount()} hint={text().ownerHint} />
                 <LabMetric
                   label={text().activeCapabilities}
                   value={selectedCapabilities().length}
                 />
-              </dl>
+              </div>
 
               <div class="space-y-1.5" aria-live="polite">
                 <For each={selectedCapabilities()}>

@@ -206,7 +206,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
                 <p class="mb-2 font-mono text-xxs tracking-wider text-slate-400 uppercase">
                   {text().visitor}
                 </p>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-2" role="group" aria-label={text().visitor}>
                   <For each={["A", "B"] as const}>
                     {(choice) => (
                       <button
@@ -257,13 +257,13 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
 
           <LabCard title={text().database} accent="emerald">
             <div class="space-y-3">
-              <dl class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <LabMetric label={text().total} value={total()} />
                 <LabMetric
                   label={text().recentRows}
                   value={`${activeRows()} / ${recentViews().length}`}
                 />
-              </dl>
+              </div>
 
               <div class="rounded-lg border border-slate-200/10 bg-slate-950/35 p-3">
                 <p class="font-mono text-xxs tracking-wider text-slate-400 uppercase">

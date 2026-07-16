@@ -127,7 +127,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                 />
               </label>
 
-              <dl class="grid grid-cols-2 gap-2 pt-2">
+              <div class="grid grid-cols-2 gap-2 pt-2">
                 <LabMetric
                   label={text().staticMetric}
                   value={`${documentAvailableCount()}/${text().documentItems.length}`}
@@ -136,7 +136,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                   label={text().liveMetric}
                   value={`${liveAvailableCount()}/${text().liveItems.length}`}
                 />
-              </dl>
+              </div>
             </div>
           </LabCard>
 

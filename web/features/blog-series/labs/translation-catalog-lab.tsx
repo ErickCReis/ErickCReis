@@ -1,5 +1,5 @@
 import { Show, createMemo, createSignal } from "solid-js";
-import { hashTranslationKey } from "../../../../plugins/translate-runtime";
+import { hashTranslationKey } from "@plugins/translate-runtime";
 import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
@@ -105,7 +105,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
   const [builds, setBuilds] = createSignal(0);
 
   const hash = createMemo(() => hashTranslationKey(source()));
-  const collected = createMemo(() => result() !== "idle" && result() !== "skipped");
+  const collected = createMemo(() => catalogValue() !== undefined);
   const renderedOutput = createMemo(() => catalogValue() ?? source());
 
   function resetLoop(nextExpression = expression(), nextSource = source()) {
@@ -183,7 +183,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
                 />
               </label>
 
-              <div class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-2" role="group" aria-label={text().source}>
                 <button
                   type="button"
                   onClick={() => resetLoop("static")}
@@ -243,10 +243,10 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
 
           <LabCard title={text().catalog} accent="emerald">
             <div class="space-y-3">
-              <dl class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <LabMetric label={text().collector} value={collectorValue()} />
                 <LabMetric label={text().hash} value={collected() ? hash() : text().noHash} />
-              </dl>
+              </div>
 
               <div class="rounded-lg border border-slate-200/10 bg-slate-950/65 p-3 font-mono text-xs leading-relaxed">
                 <Show

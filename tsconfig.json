@@ -6,7 +6,8 @@
       "@web/*": ["./web/*"],
       "@server/*": ["./server/*"],
       "@shared/*": ["./shared/*"],
-      "@scripts/*": ["./scripts/*"]
+      "@scripts/*": ["./scripts/*"],
+      "@plugins/*": ["./plugins/*"]
     },
     "target": "ESNext",
     "module": "ESNext",

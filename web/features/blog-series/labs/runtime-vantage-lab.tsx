@@ -228,7 +228,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
                 />
               </label>
             </div>
-            <dl class="grid gap-2 sm:grid-cols-3" aria-live="polite">
+            <div class="grid gap-2 sm:grid-cols-3" aria-live="polite">
               <LabMetric
                 label={text().battery}
                 value={batteryMounted() ? text().batteryValue : text().unavailable}
@@ -238,7 +238,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
                 value={publicReachable() ? text().reachable : text().down}
               />
               <LabMetric label={text().processAge} value={text().alive} />
-            </dl>
+            </div>
           </div>
         </LabCard>
 

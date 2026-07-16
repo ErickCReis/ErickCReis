@@ -1,6 +1,6 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, createMemo, createSignal } from "solid-js";
 import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
-import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
+import { resolveLabLocale, selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
 type TokenUsageMergeLabProps = {
   locale?: LabLocale;
@@ -40,7 +40,6 @@ const copy = {
     reset: "Reset",
     persisted: "Private persisted source windows",
     storedRows: "Stored rows",
-    noRows: "No synchronized sources.",
     current: "fresh source",
     stale: "stale source",
     publicSnapshot: "Derived public snapshot",
@@ -75,7 +74,6 @@ const copy = {
     reset: "Reiniciar",
     persisted: "Janelas privadas persistidas por origem",
     storedRows: "Registros armazenados",
-    noRows: "Nenhuma origem sincronizada.",
     current: "origem atualizada",
     stale: "origem desatualizada",
     publicSnapshot: "Retrato público derivado",
@@ -101,7 +99,7 @@ const copy = {
   },
 } as const;
 
-const PROVIDERS: Provider[] = ["codex", "claude", "pi"];
+const PROVIDERS: Provider[] = ["claude", "codex", "pi"];
 const SOURCE_IDS: SourceId[] = ["laptop", "server"];
 const STALE_AFTER_HOURS = 3;
 const INITIAL_SOURCES: SourceWindow[] = [
@@ -123,13 +121,12 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
   const [generatedHoursAgo, setGeneratedHoursAgo] = createSignal(0);
   const [sources, setSources] = createSignal<SourceWindow[]>([...INITIAL_SOURCES]);
   const [result, setResult] = createSignal<SyncResult>();
+  const locale = () => resolveLabLocale(props.locale);
 
-  const numberFormatter = createMemo(
-    () => new Intl.NumberFormat(props.locale === "pt-BR" ? "pt-BR" : "en-US"),
-  );
+  const numberFormatter = createMemo(() => new Intl.NumberFormat(locale()));
   const compactFormatter = createMemo(
     () =>
-      new Intl.NumberFormat(props.locale === "pt-BR" ? "pt-BR" : "en-US", {
+      new Intl.NumberFormat(locale(), {
         notation: "compact",
         maximumFractionDigits: 1,
       }),
@@ -232,7 +229,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
                 <p class="mb-2 font-mono text-xxs tracking-wider text-slate-400 uppercase">
                   {text().provider}
                 </p>
-                <div class="grid grid-cols-3 gap-2">
+                <div class="grid grid-cols-3 gap-2" role="group" aria-label={text().provider}>
                   <For each={PROVIDERS}>
                     {(choice) => (
                       <button
@@ -256,7 +253,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
                 <p class="mb-2 font-mono text-xxs tracking-wider text-slate-400 uppercase">
                   {text().source}
                 </p>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-2" role="group" aria-label={text().source}>
                   <For each={SOURCE_IDS}>
                     {(choice) => (
                       <button
@@ -323,45 +320,38 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
           <LabCard title={text().persisted} accent="emerald">
             <div class="space-y-3">
               <LabMetric label={text().storedRows} value={sources().length} />
-              <Show
-                when={sortedSources().length > 0}
-                fallback={<p class="text-xs text-slate-500">{text().noRows}</p>}
-              >
-                <ul class="space-y-1.5">
-                  <For each={sortedSources()}>
-                    {(source) => {
-                      const stale = () => source.generatedHoursAgo > STALE_AFTER_HOURS;
-                      return (
-                        <li class="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-slate-200/10 bg-slate-950/40 px-3 py-2 text-xs">
-                          <div>
-                            <p class="font-mono text-slate-200">
-                              {source.provider}/{source.sourceId}
-                            </p>
-                            <p
-                              class={
-                                stale() ? "mt-1 text-amber-300/75" : "mt-1 text-emerald-300/75"
-                              }
-                            >
-                              {source.generatedHoursAgo}
-                              {text().hoursAgo} · {stale() ? text().stale : text().current}
-                            </p>
-                          </div>
-                          <span class="font-mono text-slate-300">
-                            {formatTokens(source.totalTokens)}
-                          </span>
-                        </li>
-                      );
-                    }}
-                  </For>
-                </ul>
-              </Show>
+              <ul class="space-y-1.5">
+                <For each={sortedSources()}>
+                  {(source) => {
+                    const stale = () => source.generatedHoursAgo > STALE_AFTER_HOURS;
+                    return (
+                      <li class="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-slate-200/10 bg-slate-950/40 px-3 py-2 text-xs">
+                        <div>
+                          <p class="font-mono text-slate-200">
+                            {source.provider}/{source.sourceId}
+                          </p>
+                          <p
+                            class={stale() ? "mt-1 text-amber-300/75" : "mt-1 text-emerald-300/75"}
+                          >
+                            {source.generatedHoursAgo}
+                            {text().hoursAgo} · {stale() ? text().stale : text().current}
+                          </p>
+                        </div>
+                        <span class="font-mono text-slate-300">
+                          {formatTokens(source.totalTokens)}
+                        </span>
+                      </li>
+                    );
+                  }}
+                </For>
+              </ul>
             </div>
           </LabCard>
         </div>
 
         <LabCard title={text().publicSnapshot} accent="amber">
           <div class="space-y-3">
-            <dl class="grid gap-2 sm:grid-cols-2">
+            <div class="grid gap-2 sm:grid-cols-2">
               <LabMetric label={text().total30d} value={formatTokens(aggregateTotal())} />
               <LabMetric
                 label={text().publicFreshness}
@@ -372,7 +362,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
                     : undefined
                 }
               />
-            </dl>
+            </div>
 
             <div>
               <p class="mb-2 font-mono text-xxs tracking-wider text-slate-400 uppercase">

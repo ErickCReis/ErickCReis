@@ -69,7 +69,7 @@ const copy = {
     cacheAge: "Idade do cache em disco",
     cacheFresh: "Novo o bastante para iniciar",
     cacheStale: "Expira aos 30 minutos",
-    githubRateLimit: "Requisição recebe rate limit sem header de reset",
+    githubRateLimit: "A requisição é limitada sem um cabeçalho de reset",
     decision: "Decisão do coletor",
     requestNow: "Requisitar agora",
     nextRequest: "Próxima requisição",
@@ -93,7 +93,7 @@ const copy = {
       githubRefresh:
         "Um cache vencido não vira o valor atual do painel, então o coletor pede agora um novo calendário desde o início do ano.",
       githubRate:
-        "A requisição que falhou agenda outra tentativa depois do limite, em vez de seguir o relógio normal de 30 minutos.",
+        "A requisição que falhou agenda outra tentativa após o intervalo de rate limit, em vez de seguir o relógio normal de 30 minutos.",
     },
   },
 } as const;
@@ -198,7 +198,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
                 </div>
               }
             >
-              <div class="space-y-2">
+              <div class="space-y-2" role="group" aria-label={text().conditions}>
                 {(["playing", "idle", "rate-limited"] as const).map((item) => (
                   <button
                     type="button"
@@ -219,13 +219,13 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
 
           <LabCard title={text().decision} accent={source() === "spotify" ? "emerald" : "blue"}>
             <div class="space-y-3" aria-live="polite">
-              <dl class="grid gap-2 sm:grid-cols-2">
+              <div class="grid gap-2 sm:grid-cols-2">
                 <LabMetric
                   label={text().requestNow}
                   value={requestNow() ? text().yes : text().no}
                 />
                 <LabMetric label={text().nextRequest} value={nextDelay()} />
-              </dl>
+              </div>
               <LabMetric label={text().restartState} value={restartState()} />
             </div>
           </LabCard>

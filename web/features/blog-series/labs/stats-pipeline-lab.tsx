@@ -188,6 +188,7 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
                     <button
                       type="button"
                       onClick={() => mutateModule(id)}
+                      aria-label={`${text().mutate}: ${text().moduleNames[id]}`}
                       class="rounded-md border border-blue-300/25 px-2.5 py-1.5 text-xs text-blue-100 transition hover:bg-blue-300/10"
                     >
                       {text().mutate}
@@ -200,10 +201,10 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
 
           <LabCard title={text().versions} accent="emerald">
             <div class="space-y-3">
-              <dl class="grid grid-cols-2 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <LabMetric label={text().pending} value={pendingIds().length} />
                 <LabMetric label={text().emitted} value={events().length} />
-              </dl>
+              </div>
               <div class="grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
