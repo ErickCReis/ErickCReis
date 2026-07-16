@@ -5,6 +5,8 @@ date: "2026-08-08"
 tags: [astro, bun, deployment]
 ---
 
+import { DistRouteLab } from "@web/features/blog-series/labs/dist-route-lab";
+
 The [stats pipeline](/content/the-stats-pipeline) ends at Elysia routes. In production, those routes share a process with something much less dynamic: every HTML page, stylesheet, font, image, and script produced by Astro.
 
 The [first post in this series](/content/rewriting-my-portfolio-for-self-hosting) showed the outer deployment shape: an Astro build, a compiled Bun server, and a small runtime image. It intentionally skipped the question inside that shape: how does a static site become part of the server without turning Astro into a server-rendered application?
@@ -99,6 +101,8 @@ function getCacheControl(asset: DistAssetRoute) {
 Astro fingerprints its bundled assets, so files under `/_astro/` can be cached as immutable for a year. HTML uses `no-cache`: a browser may retain it, but must revalidate before reuse. Other public files receive a one-hour lifetime.
 
 The clean aliases and the original `.html` route point to the same file and therefore receive the same HTML policy. Cache behavior belongs to the file, not the prettier URL used to reach it.
+
+<DistRouteLab client:visible locale="en-US" />
 
 ## The container preserves the build's layout
 
