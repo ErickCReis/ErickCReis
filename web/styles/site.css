@@ -106,6 +106,16 @@
   margin: 0;
 }
 
+.prose .mermaid-diagram text,
+.prose .mermaid-diagram .label {
+  font-family: var(--font-family-mono) !important;
+}
+
+.prose .mermaid-diagram .node rect {
+  rx: 9px !important;
+  ry: 9px !important;
+}
+
 .prose .mermaid-diagram--center svg {
   margin-right: auto;
   margin-left: auto;
