@@ -5,6 +5,8 @@ date: "2026-07-25"
 tags: [telemetry, spotify, github]
 ---
 
+import { SourcePolicyLab } from "@web/features/blog-series/labs/source-policy-lab";
+
 The [cursor presence feature](/content/realtime-cursor-presence-with-tiny-pieces) moves short-lived data between browsers. The next two live surfaces move in the other direction: they bring outside context into the portfolio.
 
 One panel shows what I am listening to on [Spotify](https://developer.spotify.com/documentation/web-api). Another summarizes my recent activity from the [GitHub GraphQL API](https://docs.github.com/en/graphql). Together they make the homepage say something about the present instead of only listing work from the past.
@@ -73,6 +75,8 @@ The module polls every 30 minutes. After a successful request, it writes the nor
 This cache is not a second analytics database. It contains the same aggregate values sent to the browser and exists to avoid an empty panel and a redundant API call after a process restart. Valibot validates it before use, so an old or malformed file degrades to a fresh request instead of quietly entering the stat stream.
 
 GitHub rate limits have their own clock. On a rate-limited response, the module reads `X-RateLimit-Reset` and schedules the next attempt after the reset time, with a 15-minute fallback. Other failures produce an empty configured snapshot and use the same slower retry interval. That policy currently favors an honest empty state over leaving an old value on screen indefinitely.
+
+<SourcePolicyLab client:visible locale="en-US" />
 
 ## One panel shape, two source policies
 

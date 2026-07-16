@@ -5,6 +5,8 @@ date: "2026-07-25"
 tags: [telemetria, spotify, github]
 ---
 
+import { SourcePolicyLab } from "@web/features/blog-series/labs/source-policy-lab";
+
 A [funcionalidade de presença de cursores](/pt-BR/content/realtime-cursor-presence-with-tiny-pieces) movimenta dados temporários entre navegadores. As duas próximas superfícies dinâmicas seguem na direção oposta: trazem contexto externo para dentro do portfólio.
 
 Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api). Outro resume minha atividade recente a partir da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles fazem a página inicial dizer algo sobre o presente em vez de apenas listar trabalhos do passado.
@@ -73,6 +75,8 @@ O módulo consulta a API a cada 30 minutos. Depois de uma requisição bem-suced
 Esse cache não é um segundo banco de analytics. Ele contém os mesmos valores agregados enviados ao navegador e existe para evitar um painel vazio e uma chamada redundante à API depois que o processo reinicia. O Valibot valida o arquivo antes do uso, portanto um cache antigo ou malformado resulta em uma nova consulta em vez de entrar silenciosamente no fluxo de estatísticas.
 
 Os limites da API do GitHub têm seu próprio relógio. Diante de uma resposta por excesso de requisições, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
+
+<SourcePolicyLab client:visible locale="pt-BR" />
 
 ## Um formato de painel, duas políticas de origem
 
