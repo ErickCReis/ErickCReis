@@ -22,6 +22,7 @@ export function getStaticPaths() {
 }
 
 const { locale } = Astro.props;
+const includeScheduled = import.meta.env.MODE === "development";
 
 const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   day: "numeric",
@@ -31,7 +32,7 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
 });
 
 const posts = getBlogEntries(await getCollection("blog"), locale, {
-  includeScheduled: import.meta.env.DEV,
+  includeScheduled,
 })
   .map(({ slug, entry }) => ({
     ...entry.data,
