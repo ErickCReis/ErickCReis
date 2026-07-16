@@ -89,9 +89,15 @@ type TokenUsageSyncPayload = {
 
 `providerId` describes the adapter and chart segment. `sourceId` distinguishes copies of that provider on different machines. The server treats the pair as a replaceable snapshot: syncing `codex-workstation` again replaces that source's previous 30-day window instead of adding the same sessions twice. Different sources are summed when they contribute to the same provider and date.
 
+That compound identity—not the token count—is the merge instruction. Repeating the same pair replaces one window; a previously unseen pair creates another window that contributes to the aggregate. Scheduler reruns can therefore be safe without collapsing activity from separate machines.
+
 The defaults prefix a machine fingerprint with the provider. On Linux the script uses the stable label `vps-prod`; on other systems it normalizes the hostname. Multiple Linux machines therefore need explicit source-ID overrides or they would replace one another. Stable merging depends on stable IDs also being unique.
 
+The lab starts with a stale `codex/laptop` window and a fresh `claude/laptop` window. Keep the selected key to preview a replacement, or switch `sourceId` to `server` to preview an additive merge. Changing the generated age also reveals the gap between per-source freshness and the single aggregate flag.
+
 <TokenUsageMergeLab client:visible locale="en-US" />
+
+Stale windows still contribute to the total in this model. What the newest source can hide is their stale status, not their token count.
 
 ## A protected write into a local file
 

@@ -1,17 +1,17 @@
 ---
 title: "Shipping Astro from a Bun server"
-description: How a build-time route table lets one Elysia process serve Astro's static output beside its live APIs.
+description: How I turn Astro's static output into a checked route table that one compiled Elysia process can serve beside live APIs.
 date: "2026-08-08"
 tags: [astro, bun, deployment]
 ---
 
 import { DistRouteLab } from "@web/features/blog-series/labs/dist-route-lab";
 
-The [stats pipeline](/content/the-stats-pipeline) ends at Elysia routes. In production, those routes share a process with something much less dynamic: every HTML page, stylesheet, font, image, and script produced by Astro.
+The public site has one front door, but two very different kinds of work happen behind it. The [stats pipeline](/content/the-stats-pipeline) ends at live Elysia routes; every article, stylesheet, font, image, and script is already finished before the server starts.
 
-The [first post in this series](/content/rewriting-my-portfolio-for-self-hosting) showed the outer deployment shape: an Astro build, a compiled Bun server, and a small runtime image. It intentionally skipped the question inside that shape: how does a static site become part of the server without turning Astro into a server-rendered application?
+I wanted that single entry point without turning Astro into a server-rendered application. The [first post in this series](/content/rewriting-my-portfolio-for-self-hosting) showed the outer deployment shape—an Astro build, a compiled Bun server, and a small runtime image—but intentionally skipped how those pieces meet.
 
-For this project, the answer is a route table generated during the build. Astro remains a static-site generator. Elysia learns which files it produced and serves those files beside the live endpoints.
+The seam is a route table generated during the build. Astro remains a static-site generator; Elysia learns which files it produced and later serves those exact files beside the live endpoints.
 
 ```mermaid center
 flowchart LR
@@ -38,14 +38,14 @@ The two commands in `package.json` are joined for a reason:
 
 Astro must finish first and write `dist`. Only then can Bun compile [`server/index.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/index.ts), because the server build inspects that directory to discover the static routes.
 
-The build has two products rather than one artifact pretending to contain everything:
+I keep two build products rather than one artifact pretending to contain everything:
 
 - `dist`, with the actual Astro files;
 - `myserver`, a native executable containing the Elysia application and the generated route metadata.
 
 Database migrations are the third directory copied into the runtime image, but they do not participate in static routing.
 
-An earlier version embedded asset contents in the server. The current version embeds only paths and keeps files as files. That makes the responsibility clearer: the executable knows how to route a request, while `dist` remains the payload Astro generated.
+My first version embedded asset contents in the server. The current version embeds only paths and keeps files as files. That makes the boundary clearer: the executable knows how to route a request, while `dist` remains the payload Astro generated.
 
 ## Discovering clean routes at compile time
 
@@ -74,9 +74,9 @@ The macro refuses to compile when `dist` is required but missing. Its error poin
 
 ## Duplicate aliases should fail the build
 
-Generating aliases creates a possible collision. `about.html` and `about/index.html`, for example, would both claim `/about`. Choosing whichever file happened to be visited last would make routing depend on filesystem traversal.
+Generating aliases creates a possible collision. `about.html` and `about/index.html`, for example, would both claim `/about`. I do not want filesystem traversal order to decide which page wins.
 
-The generator puts candidates in a map and throws as soon as a route already exists, including both file entries in the error. Sorted traversal makes diagnostics stable, but it is the failure itself that matters: an ambiguous static route is a build problem, not a production routing policy.
+The generator puts candidates in a map and throws as soon as a route already exists, including both file entries in the error. Sorted traversal makes diagnostics stable, but it is the failure itself that matters: I treat an ambiguous static route as a build problem, not a production routing policy.
 
 This check covers collisions within Astro's generated files. API routes remain explicit Elysia routes in `server/index.ts`, registered before the production-only static subrouter. Keeping the static route registration in one subrouter makes that boundary visible.
 
@@ -102,7 +102,13 @@ Astro fingerprints its bundled assets, so files under `/_astro/` can be cached a
 
 The clean aliases and the original `.html` route point to the same file and therefore receive the same HTML policy. Cache behavior belongs to the file, not the prettier URL used to reach it.
 
+## Put the build contract under pressure
+
+The lab below compresses the macro and runtime handler into one view. Pick a route to trace it to its file and response header. Add a regular asset and it receives one literal route; add an HTML file and its clean alias appears. Then inject the conflicting `about/index.html`: `/about` gains two owners, the build stops, and there is no binary available to answer the request.
+
 <DistRouteLab client:visible locale="en-US" />
+
+That failure is the useful result. The invalid state never becomes a rule that production has to resolve.
 
 ## The container preserves the build's layout
 
@@ -116,7 +122,7 @@ COPY --from=build /app/server/db/migrations ./server/db/migrations
 CMD ["./myserver"]
 ```
 
-Both stages use `/app` as their working directory. That preserved layout matters because the compile-time route table points to the files discovered under `/app/dist`. The runtime image does not install Bun or application dependencies; it needs the compiled executable, the files it serves, and the migrations the application runs.
+Both stages use `/app` as their working directory. I preserve that layout because the compile-time route table points to the files discovered under `/app/dist`. The runtime image does not install Bun or application dependencies; it needs the compiled executable, the files it serves, and the migrations the application runs.
 
 Development deliberately has a different shape. Astro's dev server and the Bun API run in parallel with separate ports and fast feedback. The static subrouter is only attached when `NODE_ENV` is `production`. One-process production does not require forcing the development servers into the same lifecycle.
 

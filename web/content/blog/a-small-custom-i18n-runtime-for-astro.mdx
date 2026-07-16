@@ -78,6 +78,10 @@ const translations = {
 
 That cycle takes two build passes for a brand-new string: one build discovers it and writes the `null` placeholder; after the translation is filled in, the next build includes it in the rendered output and client bundle. Source and generated catalogs are committed together.
 
+That choice makes the English source both the fallback copy and the entry's identity. Even a punctuation edit produces a different hash: the next build removes the unused key and creates a new `null` entry. I prefer that small interruption to silently carrying an old translation across copy whose meaning may have changed.
+
+The workbench below makes the loop concrete. A literal and a static concatenation converge on the same key, while a runtime variable never enters the catalog. Run one build, edit the generated override, run the next, and switch the preview locale to watch the English fallback give way to the bundled Portuguese value.
+
 <TranslationCatalogLab client:visible locale="en-US" />
 
 Hashing keeps the generated catalog keys short, but it gives up the readability of source keys and currently has no collision check. Two different source strings producing the same 32-bit hash would silently share one entry. The catalog is small enough that this is unlikely, but “unlikely” is not validation. If the translation surface grows, the generator should fail when one hash maps to two sources.

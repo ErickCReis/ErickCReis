@@ -89,9 +89,15 @@ type TokenUsageSyncPayload = {
 
 `providerId` descreve o adaptador e o segmento do gráfico. `sourceId` diferencia cópias daquele provedor em máquinas distintas. O servidor trata o par como um retrato substituível: sincronizar `codex-workstation` novamente substitui a janela anterior de 30 dias daquela origem, em vez de somar as mesmas sessões duas vezes. Origens distintas são somadas quando contribuem para o mesmo provedor e a mesma data.
 
+Essa identidade composta — e não a contagem de tokens — é a instrução de combinação. Repetir o mesmo par substitui uma janela; um par ainda não visto cria outra janela, que passa a contribuir para o conjunto. Assim, as reexecuções de um agendador podem ser seguras sem misturar a atividade de máquinas distintas.
+
 Os padrões adicionam o provedor como prefixo de uma impressão digital da máquina. No Linux, o script usa o rótulo estável `vps-prod`; nos outros sistemas, normaliza o hostname. Várias máquinas Linux, portanto, precisam de IDs de origem explícitos ou substituirão os dados umas das outras. Uma combinação estável depende de IDs que sejam estáveis e também únicos.
 
+O laboratório começa com uma janela antiga de `codex/laptop` e outra atual de `claude/laptop`. Mantenha a chave selecionada para antecipar uma substituição ou troque o `sourceId` para `server` e veja uma combinação aditiva. Alterar o horário de geração também revela a diferença entre a atualização de cada origem e o indicador único do conjunto.
+
 <TokenUsageMergeLab client:visible locale="pt-BR" />
+
+Janelas antigas continuam contribuindo para o total neste modelo. O que a origem mais nova pode ocultar é o estado desatualizado delas, não a contagem de tokens.
 
 ## Uma gravação protegida em um arquivo local
 

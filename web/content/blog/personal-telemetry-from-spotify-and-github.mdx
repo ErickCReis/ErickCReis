@@ -1,6 +1,6 @@
 ---
 title: "Personal telemetry from Spotify and GitHub"
-description: How two external APIs become small live panels with different polling, caching, and failure policies.
+description: Why two small live panels need different polling, caching, privacy, and failure policies, even behind the same UI contract.
 date: "2026-07-25"
 tags: [telemetry, spotify, github]
 ---
@@ -9,9 +9,9 @@ import { SourcePolicyLab } from "@web/features/blog-series/labs/source-policy-la
 
 The [cursor presence feature](/content/realtime-cursor-presence-with-tiny-pieces) moves short-lived data between browsers. The next two live surfaces move in the other direction: they bring outside context into the portfolio.
 
-One panel shows what I am listening to on [Spotify](https://developer.spotify.com/documentation/web-api). Another summarizes my recent activity from the [GitHub GraphQL API](https://docs.github.com/en/graphql). Together they make the homepage say something about the present instead of only listing work from the past.
+A portfolio can accidentally become an archive: every card points backward. I wanted mine to keep a small pulse. One panel shows what I am listening to on [Spotify](https://developer.spotify.com/documentation/web-api); another summarizes my recent activity from the [GitHub GraphQL API](https://docs.github.com/en/graphql). Together they let the homepage say something about the present instead of only listing work from the past.
 
-They look like neighboring pieces of telemetry, but their sources behave differently. Playback changes in seconds and can be absent. Contribution data changes slowly and is useful after a restart. Treating both as “fetch an API every so often” would hide the decisions that keep them useful.
+The panels look like neighboring pieces of telemetry, but their sources behave differently. Playback changes in seconds and can be absent. Contribution data changes slowly and remains useful after a restart. Treating both as “fetch an API every so often” would hide the product decisions that keep them timely, honest, and small.
 
 ```mermaid center
 flowchart LR
@@ -22,6 +22,8 @@ flowchart LR
   Contract --> Stream["Site telemetry stream"]
   Stream --> Panels["Solid panels"]
 ```
+
+I designed each adapter by answering the same three questions: how quickly can this value become misleading, what may cross the browser boundary, and what should happen when the source says “not now”? The answers—not the visual size of the panel—set its policy.
 
 ## Spotify is a changing snapshot
 
@@ -50,7 +52,7 @@ An HTTP `204` means there is no current playback, and non-track items become the
 
 The polling interval follows the usefulness of the data. While a track is playing, the server checks every 2.5 seconds so the progress bar and track changes remain believable. When playback is idle, it waits 15 seconds. A `429` response honors Spotify's `Retry-After` header, falling back to 30 seconds if the header cannot be parsed. A rejected access token clears the cache so the next cycle can refresh it.
 
-The latest 84 snapshots live only in process memory. They let the panel find a previous track, but they are not listening history. Restarting the server clears them, and that is a useful distinction: the site displays playback context without building another permanent record of it.
+The latest 84 snapshots live only in process memory. They let the panel find a previous track, but they are not a durable listening history. Restarting the server clears them, and that is a useful distinction: the site displays playback context without building another permanent record of it.
 
 ## GitHub is a derived window
 
@@ -76,6 +78,8 @@ This cache is not a second analytics database. It contains the same aggregate va
 
 GitHub rate limits have their own clock. On a rate-limited response, the module reads `X-RateLimit-Reset` and schedules the next attempt after the reset time, with a 15-minute fallback. Other failures produce an empty configured snapshot and use the same slower retry interval. That policy currently favors an honest empty state over leaving an old value on screen indefinitely.
 
+Try making Spotify idle or rate-limited, then drag the GitHub cache past its 30-minute freshness boundary. The controls change the source conditions; the strip at the bottom is the stable contract both adapters still produce.
+
 <SourcePolicyLab client:visible locale="en-US" />
 
 ## One panel shape, two source policies
@@ -84,6 +88,6 @@ Both modules eventually expose the same four operations: start collecting, retur
 
 The Spotify panel derives a running progress bar from the latest track and shows the previous in-memory track when available. The GitHub panel turns the 30-day arrays into bars and puts the month and year totals in its footer. Neither component refreshes credentials, interprets rate-limit headers, reads a cache file, or knows how often its source should be polled.
 
-That separation is the important part of using personal APIs as product data. The source adapter owns authentication, timing, normalization, and failure behavior. A shared contract carries only what the product surface needs. The UI renders a state rather than reenacting the external API.
+That separation is the important part of using personal APIs as product data. The source adapter owns authentication, timing, normalization, retention, and failure behavior. A shared contract carries only what the product surface needs. The UI renders a state rather than reenacting the external API.
 
 Spotify and GitHub are two examples, but the homepage has several modules updating at several rates. The next post will follow the common path beneath them: initial history, compact transport tuples, an Elysia SSE stream, and the Solid stores that keep each panel small.

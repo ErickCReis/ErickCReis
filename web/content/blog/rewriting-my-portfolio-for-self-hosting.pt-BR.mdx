@@ -7,9 +7,9 @@ tags: [self-hosting]
 
 import { DeploymentShapeLab } from "@web/features/blog-series/labs/deployment-shape-lab";
 
-Em algum momento, este portfólio deixou de ser apenas uma página estática. Fui acrescentando telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas o formato do deploy já importava.
+Em algum momento, este portfólio deixou de ser apenas uma página estática. Fui acrescentando telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas “deploy de site estático” já não era uma descrição honesta dele.
 
-Esta reescrita não foi uma tentativa de abandonar a Cloudflare nem de economizar dinheiro. Eu queria transformar uma única máquina na unidade de deploy. O [Astro](https://astro.build/) continuaria gerando páginas estáticas e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas, mas a aplicação inteira seria empacotada em um único container e executada em um notebook que estava parado.
+Esta reescrita não foi uma tentativa de abandonar a Cloudflare nem de economizar dinheiro. Eu queria que o deploy tivesse uma resposta física: uma máquina. O [Astro](https://astro.build/) continuaria gerando páginas estáticas e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas, mas a aplicação inteira seria empacotada em um único container e executada em um notebook que estava parado.
 
 ## Por que self-hosting
 
@@ -55,13 +55,15 @@ flowchart LR
 
 Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e deixa o fluxo de deploy fácil de inspecionar. A infraestrutura ainda tem várias peças. A simplificação está dentro da aplicação: um destino de deploy, um container e um processo de servidor.
 
+Esses caminhos se encontram no container em execução, mas carregam coisas diferentes. Acompanhe uma requisição no modelo abaixo e, depois, faça o deploy de outra revisão. O container muda; o diretório `/app/data` montado não.
+
 <DeploymentShapeLab client:visible locale="pt-BR" />
 
 ## O artefato de build
 
 Quando o destino é um único container, o artefato passa a importar mais do que a configuração do provedor.
 
-O Astro gera o site quase todo estático. O [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas. O Elysia cuida da API, do SSE, do WebSocket e das rotas internas. O [Bun](https://bun.sh/) roda os scripts e compila o servidor.
+O Astro gera o site quase todo estático. O [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas. Em produção, o Elysia serve essa saída gerada junto com a API, o SSE, o WebSocket e as rotas internas. O [Bun](https://bun.sh/) roda os scripts e compila o servidor.
 
 O script de build é curto:
 
@@ -95,7 +97,7 @@ O estágio de runtime não precisa do código-fonte, de `node_modules` nem da im
 
 Colocar o processo em um container é a parte fácil. Mais importante é decidir o que precisa sobreviver a esse container.
 
-A aplicação usa `DATA_DIR=/app/data` para o SQLite e os arquivos locais. O Docker Compose monta `./data`, no host, dentro desse diretório. Assim, o container pode ser reconstruído sem levar os dados junto. O Compose também define uma política de reinicialização e limites explícitos de CPU e memória.
+A aplicação usa `DATA_DIR=/app/data` para o SQLite e os arquivos locais. O Docker Compose monta `./data`, no host, dentro desse diretório. Assim, o container pode ser substituído sem substituir seu estado. O Compose também define uma política de reinicialização e limites explícitos de CPU e memória.
 
 Um diretório de dados explícito ainda não é um backup. Ele facilita localizar e copiar o estado, mas automatizar uma cópia para fora do notebook continua sendo trabalho pendente. Falhas de energia, armazenamento e rede também passam a ser problemas meus, não do provedor.
 
@@ -105,6 +107,6 @@ Arquivos voltam a ser apenas arquivos. Os arquivos estáticos e as rotas de runt
 
 A camada em tempo real é a parte em que eu menos confio. O Durable Objects oferecia um lugar natural para o estado das conexões WebSocket. Em um servidor único, o ciclo de vida das conexões, a limpeza, o monitoramento e a recuperação ficam comigo. A versão atual funciona, mas ainda preciso de uma abstração melhor para acompanhar as conexões e enxergar o que essa camada está fazendo.
 
-Self-hosting deixou esta aplicação mais simples de entregar, não mais simples de operar. Troquei fronteiras gerenciadas por responsabilidades que consigo enxergar: um processo, um diretório de dados, um problema de backup e uma camada em tempo real que ainda preciso fortalecer.
+Self-hosting deixou esta aplicação mais simples de entregar, não mais simples de operar. O formato ficou menor, não magicamente mais seguro. Troquei fronteiras gerenciadas por responsabilidades que consigo enxergar: um processo, um diretório de dados, um problema de backup e uma camada em tempo real que ainda preciso fortalecer.
 
 Os próximos posts entram nessas partes menores: presença de cursor, telemetria, roteamento de arquivos estáticos, rastreamento de conteúdo, localização e sincronização do uso de tokens.

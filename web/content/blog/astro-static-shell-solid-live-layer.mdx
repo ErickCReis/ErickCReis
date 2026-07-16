@@ -7,7 +7,7 @@ tags: [architecture, astro, solid]
 
 import { IslandBoundaryLab } from "@web/features/blog-series/labs/island-boundary-lab";
 
-In the [previous post](/content/rewriting-my-portfolio-for-self-hosting), I compressed the frontend architecture into one sentence: [Astro](https://astro.build/) builds the mostly static site, and [Solid](https://www.solidjs.com/) hydrates only the live islands.
+In the [previous post](/content/rewriting-my-portfolio-for-self-hosting), I compressed the frontend architecture into one sentence: [Astro](https://astro.build/) turns most of the site into HTML, and [Solid](https://www.solidjs.com/) starts only the live islands in the browser.
 
 That sentence hides one of the most useful boundaries in the rewrite.
 
@@ -47,7 +47,7 @@ flowchart TB
 
 ## Why this island is client-only
 
-Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive skips rendering the component into HTML during the build and renders it in the browser instead. It is not just a shorter spelling for “make this interactive,” and it is not automatically a performance optimization.
+Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive skips rendering the component into HTML during the build and renders it in the browser instead. Because there is no server-rendered component markup to resume, this is a client render rather than hydration of that component. The directive is not just a shorter spelling for “make this interactive,” and it is not automatically a performance optimization.
 
 For this overlay, skipping the build-time render is the correct tradeoff. The component depends on browser state such as the viewport size and pointer position. Its telemetry and cursor data also have no useful build-time value. A stat panel generated during the build would be stale before the page reached the browser.
 
@@ -55,7 +55,11 @@ More importantly, the empty state is valid. Until the island starts, there are s
 
 If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. That failure mode is part of the design.
 
+The boundary inspector below makes that ownership visible. Switch between the architecture I shipped and a counterfactual where the client owns the document, then inject a JavaScript or stream failure. “Client-owned” is deliberately narrower than “SPA”: the comparison is about which layer produced the content, not a verdict on every client-side application.
+
 <IslandBoundaryLab client:visible locale="en-US" />
+
+The two failures remove different things. Blocking JavaScript prevents the live island from starting; dropping the stream leaves the island running but without fresh data. In both cases, the generated Astro document remains available because neither dependency owns it.
 
 ## One island instead of two
 

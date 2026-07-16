@@ -9,7 +9,7 @@ import { CursorProtocolLab } from "@web/features/blog-series/labs/cursor-protoco
 
 The [previous post](/content/astro-static-shell-solid-live-layer) ended at the boundary of the Solid island. This one follows a pointer across it.
 
-Move the pointer on the homepage and a small marker follows it. Open the page in another browser and that marker becomes a remote cursor there. The visible result is playful, but its implementation is a useful example of the architecture behind the site: a few small pieces, each responsible for one edge of the interaction.
+Move the pointer on the homepage and a small marker follows it. Open the page in another browser and that marker becomes a remote cursor there. I like the visible result because it is playful; I like the implementation because it stays small. It is a useful example of the architecture behind the site: a few pieces, each responsible for one edge of the interaction.
 
 The browser tracks a position. A shared schema defines the message. An Elysia WebSocket validates and broadcasts it. Solid keeps the current cursors reactive and renders them. No cursor position is stored after that.
 
@@ -37,7 +37,7 @@ const cursorPayloadSchema = v.object({
 
 The Valibot schema is both a runtime validator and the source of the TypeScript type used by the client. Coordinates are relative to the document, not the viewport. That detail matters when one visitor scrolls: the marker should stay attached to a position on the page instead of sliding with the browser window.
 
-There are no join, leave, or room messages. This site has one public cursor surface, and a position update is all it needs. The smaller protocol also makes its limit explicit: this is transient presence, not a collaboration system.
+I resisted adding join, leave, or room messages. This site has one public cursor surface, and a position update is all it needs. The smaller protocol also makes its limit explicit: this is transient presence, not a collaboration system.
 
 ## Identity belongs to the connection
 
@@ -45,7 +45,7 @@ The browser needs an identifier so other clients can distinguish its updates. Le
 
 Instead, the [live routes](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) assign the WebSocket a cursor ID in an HTTP-only cookie during the upgrade. The cookie is strict same-site, secure in production, and unavailable to client-side JavaScript. A small `GET /live/id` endpoint lets the rendering layer learn its own ID without making the cookie itself readable.
 
-Every incoming message still includes an ID, but the server only broadcasts it when that value matches the ID attached to the connection:
+Every incoming message still includes an ID, but that field is only a claim. The connection cookie is the authority. The server broadcasts a message only when its claimed ID matches the ID attached to the connection:
 
 ```ts
 message(ws, payload) {
@@ -68,11 +68,13 @@ Publishing every pointer event would create work the interface cannot display. [
 
 This is a visual sampling decision, not guaranteed delivery. If the socket is not open, the current update is dropped. A newer pointer position will replace it soon enough.
 
+The workbench below compresses the whole path into one surface. Move the blue local cursor, then change the scroll offset without moving it: its viewport position stays fixed while its document `y` and the violet marker on the remote document change. Close the socket or make the IDs differ, move again, and the sample stops at that gate. “Skip 7 s” demonstrates the separate stale-presence cleanup rule.
+
 <CursorProtocolLab client:visible locale="en-US" />
 
 ## A shared socket with a small lifecycle
 
-The API module maintains one WebSocket and a set of subscribers. The first subscriber connects; the last unsubscribe closes it. That matters because Astro's client-side navigation can mount and unmount the live island without a full page reload.
+The API module maintains one WebSocket and a set of subscribers. The first subscriber connects; the last unsubscribe closes it. I keep that ownership outside the rendering component because Astro's client-side navigation can mount and unmount the live island without a full page reload.
 
 When the connection closes unexpectedly, the module waits one second and reconnects as long as a listener still exists. It does not queue old coordinates during the outage. Replaying them would only animate history that is no longer true.
 
@@ -95,6 +97,6 @@ The local cursor is intentionally dimmer and moves without interpolation; remote
 
 There are obvious limits. All connections live in one server process. There is no cross-instance broadcast, durable membership, history, or server-side stale-presence registry. A restart clears everything—which, for cursor positions, is the correct persistence policy.
 
-The feature works because it does not pretend to be more than it is. A server-owned identity, a validated position message, a throttled sender, a reconnecting socket, and expiring client state are enough to make the otherwise static page feel occupied.
+The feature works because I do not ask it to be more than it is. A server-owned identity, a validated position message, a throttled sender, a reconnecting socket, and expiring client state are enough to make the otherwise static page feel occupied.
 
 The next post will reuse that preference for small pieces with slower-moving data: Spotify playback and GitHub contributions collected by the server and presented as personal telemetry.

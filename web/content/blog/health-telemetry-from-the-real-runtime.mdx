@@ -11,7 +11,7 @@ The [previous post](/content/shipping-astro-from-a-bun-server) put Astro's files
 
 CPU can mean the whole laptop, the container's allowance, or the server process itself. Memory reported by `node:os` may describe the host even when the process is constrained by a cgroup. The laptop has a battery, but the container cannot see it unless that host detail is deliberately exposed. Process uptime says nothing about whether the public domain was reachable.
 
-The telemetry on this site uses three vantage points instead of pretending one measurement covers them all.
+When I first put these readings beside one another, their proximity made them look interchangeable. They are not. The telemetry on this site keeps four observer lenses—process, cgroup, host, and outside—separate instead of pretending one measurement can describe the whole deployment.
 
 ```mermaid center
 flowchart LR
@@ -46,6 +46,8 @@ Calling `os.totalmem()` inside a container can expose the host's total memory ra
 For cgroup v2 it reads `memory.current` and `memory.max`; for v1 it uses `memory.usage_in_bytes` and `memory.limit_in_bytes`. A v2 limit of `max` means unlimited. Cgroup v1 can represent the same idea with a very large number, so the module rejects a reported limit larger than twice the host memory.
 
 If the cgroup files are unavailable or unlimited, the fallback is host memory from `node:os`. Otherwise, the panel calculates used megabytes and percentage against the cgroup values. With the current Compose limit of 1 GB, “memory used” describes pressure against the container's budget rather than against all RAM installed in the laptop.
+
+That number is not the Bun heap either. `memory.current` accounts memory to the cgroup boundary, which can include the process, native allocations, and filesystem cache. It is the right signal for “is this container approaching its enforced budget?”, not for diagnosing which allocation inside Bun consumed it.
 
 That distinction matters before an out-of-memory kill. A host with free RAM can still terminate a container that crosses its own limit.
 
@@ -82,7 +84,11 @@ Days before the monitor was created remain `null` instead of becoming zero-perce
 
 The request has a 15-second timeout and short retries after network failures, `429` responses, and server errors. If those attempts fail after the module has already fetched a valid monitor, it keeps the last successful snapshot and tries the polling cycle again after one minute. An outage in the monitoring API should not immediately rewrite the site's last known availability as zero.
 
+I use the lab below as a boundary debugger. Choose a lens, change only the signal available to it, and watch both the answer and its blind spot. In particular, leave the Bun process “up 7d” while taking the public route down: both statements can be true at the same time.
+
 <RuntimeVantageLab client:visible locale="en-US" />
+
+The gauge is deliberately not enough on its own. Its observer, denominator, and blind spot are part of the value; without those labels, a precise percentage can still tell the wrong story.
 
 ## From a visible stat to an actionable signal
 
@@ -92,6 +98,6 @@ The task records whether an alert was sent and resets that state when the batter
 
 The panel and alert answer different questions. The panel helps a visitor—or me—understand the deployment. The email asks for action when a host-specific condition crosses a threshold. They reuse the same battery reader, but they should not share the same delivery policy.
 
-There is no single “real system” behind a containerized application. This site measures process work against its cgroup allowance, opts into one host hardware signal, and asks an external observer whether the full public route works. Keeping those perspectives separate makes each number more honest.
+There is no single “real system” behind a containerized application. This site measures process work against its cgroup allowance, opts into one host hardware signal, and asks an external observer whether the full public route works. I keep those perspectives separate because the boundary around a number is what makes that number honest.
 
 The next post returns to the static Astro output and adds one narrow runtime feature of its own: view counts for MDX articles without making the blog dynamic.

@@ -1,6 +1,6 @@
 ---
 title: "Telemetria pessoal a partir do Spotify e do GitHub"
-description: Como duas APIs externas se tornam pequenos painéis dinâmicos com políticas diferentes de polling, cache e falhas.
+description: Por que dois pequenos painéis dinâmicos precisam de políticas diferentes de polling, cache, privacidade e falhas, mesmo sob o mesmo contrato de interface.
 date: "2026-07-25"
 tags: [telemetria, spotify, github]
 ---
@@ -9,9 +9,9 @@ import { SourcePolicyLab } from "@web/features/blog-series/labs/source-policy-la
 
 A [funcionalidade de presença de cursores](/pt-BR/content/realtime-cursor-presence-with-tiny-pieces) movimenta dados temporários entre navegadores. As duas próximas superfícies dinâmicas seguem na direção oposta: trazem contexto externo para dentro do portfólio.
 
-Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api). Outro resume minha atividade recente a partir da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles fazem a página inicial dizer algo sobre o presente em vez de apenas listar trabalhos do passado.
+Um portfólio pode virar um arquivo sem querer: cada card aponta para trás. Eu queria que o meu mantivesse um pequeno pulso. Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api); outro resume minha atividade recente a partir da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles permitem que a página inicial diga algo sobre o presente em vez de apenas listar trabalhos do passado.
 
-Eles aparecem lado a lado como peças de telemetria, mas suas fontes se comportam de formas diferentes. A reprodução muda em segundos e pode nem existir. Os dados de contribuições mudam devagar e continuam úteis depois de uma reinicialização. Tratar os dois apenas como “consultar uma API de tempos em tempos” esconderia as decisões que os mantêm úteis.
+Os painéis aparecem lado a lado como peças de telemetria, mas suas fontes se comportam de formas diferentes. A reprodução muda em segundos e pode nem existir. Os dados de contribuições mudam devagar e continuam úteis depois de uma reinicialização. Tratar os dois apenas como “consultar uma API de tempos em tempos” esconderia as decisões de produto que os mantêm atuais, honestos e pequenos.
 
 ```mermaid center
 flowchart LR
@@ -22,6 +22,8 @@ flowchart LR
   Contract --> Stream["Fluxo de telemetria do site"]
   Stream --> Panels["Painéis do Solid"]
 ```
+
+Projetei cada adaptador respondendo às mesmas três perguntas: com que rapidez esse valor pode se tornar enganoso, o que pode atravessar a fronteira do navegador e o que deve acontecer quando a fonte diz “agora não”? As respostas — e não o tamanho visual do painel — definem a política.
 
 ## O Spotify é um retrato em movimento
 
@@ -50,7 +52,7 @@ Uma resposta HTTP `204` indica que não há reprodução atual, e itens que não
 
 O intervalo de polling acompanha a utilidade dos dados. Enquanto uma faixa está tocando, o servidor consulta a API a cada 2,5 segundos para que a barra de progresso e as trocas de música continuem convincentes. Quando a reprodução está parada, ele espera 15 segundos. Uma resposta `429` respeita o header `Retry-After` do Spotify, com um intervalo padrão de 30 segundos quando o header não pode ser interpretado. Se um access token for recusado, o cache é limpo para que o próximo ciclo possa renová-lo.
 
-Os 84 retratos mais recentes vivem apenas na memória do processo. Eles permitem que o painel encontre a faixa anterior, mas não formam um histórico de reprodução. Reiniciar o servidor os apaga, e essa é uma distinção útil: o site exibe o contexto da reprodução sem criar mais um registro permanente sobre ela.
+Os 84 retratos mais recentes vivem apenas na memória do processo. Eles permitem que o painel encontre a faixa anterior, mas não formam um histórico duradouro de reprodução. Reiniciar o servidor os apaga, e essa é uma distinção útil: o site exibe o contexto da reprodução sem criar mais um registro permanente sobre ela.
 
 ## O GitHub é uma janela derivada
 
@@ -76,6 +78,8 @@ Esse cache não é um segundo banco de analytics. Ele contém os mesmos valores 
 
 Os limites da API do GitHub têm seu próprio relógio. Diante de uma resposta por excesso de requisições, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
 
+Experimente deixar o Spotify parado ou limitado e depois arraste o cache do GitHub além da fronteira de validade de 30 minutos. Os controles mudam as condições das fontes; a faixa inferior é o contrato estável que os dois adaptadores continuam produzindo.
+
 <SourcePolicyLab client:visible locale="pt-BR" />
 
 ## Um formato de painel, duas políticas de origem
@@ -84,6 +88,6 @@ No fim, os dois módulos expõem as mesmas quatro operações: iniciar a coleta,
 
 O painel do Spotify deriva uma barra de progresso da faixa atual e mostra a faixa anterior mantida em memória quando ela existe. O painel do GitHub transforma os arrays dos últimos 30 dias em barras e coloca os totais do mês e do ano no rodapé. Nenhum dos componentes renova credenciais, interpreta headers de limite, lê um arquivo de cache ou sabe com que frequência sua fonte deve ser consultada.
 
-Essa separação é a parte importante de usar APIs pessoais como dados do produto. O adaptador da fonte cuida da autenticação, do tempo, da normalização e do comportamento diante de falhas. Um contrato compartilhado transporta somente o necessário para a superfície do produto. A interface renderiza um estado em vez de reencenar a API externa.
+Essa separação é a parte importante de usar APIs pessoais como dados do produto. O adaptador da fonte cuida da autenticação, do tempo, da normalização, da retenção e do comportamento diante de falhas. Um contrato compartilhado transporta somente o necessário para a superfície do produto. A interface renderiza um estado em vez de reencenar a API externa.
 
 Spotify e GitHub são dois exemplos, mas a página inicial tem vários módulos atualizados em frequências diferentes. O próximo post acompanhará o caminho comum por baixo deles: histórico inicial, tuplas compactas de transporte, um fluxo SSE do Elysia e os stores do Solid que mantêm cada painel pequeno.

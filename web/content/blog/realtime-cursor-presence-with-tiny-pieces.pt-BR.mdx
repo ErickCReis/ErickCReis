@@ -9,7 +9,7 @@ import { CursorProtocolLab } from "@web/features/blog-series/labs/cursor-protoco
 
 O [post anterior](/pt-BR/content/astro-static-shell-solid-live-layer) terminou na fronteira da ilha do Solid. Este acompanha um ponteiro atravessando essa fronteira.
 
-Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página for aberta em outro navegador, esse marcador aparece ali como um cursor remoto. O resultado visível é uma brincadeira, mas sua implementação é um bom exemplo da arquitetura por trás do site: algumas peças pequenas, cada uma responsável por uma ponta da interação.
+Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página for aberta em outro navegador, esse marcador aparece ali como um cursor remoto. Gosto do resultado visível porque ele é divertido; gosto da implementação porque ela continua pequena. É um bom exemplo da arquitetura por trás do site: algumas peças, cada uma responsável por uma ponta da interação.
 
 O navegador acompanha uma posição. Um schema compartilhado define a mensagem. Um WebSocket do Elysia valida e transmite essa mensagem. O Solid mantém os cursores atuais reativos e os renderiza. Nenhuma posição é armazenada depois disso.
 
@@ -37,7 +37,7 @@ const cursorPayloadSchema = v.object({
 
 O schema do Valibot funciona como validador em runtime e também como origem do tipo TypeScript usado pelo cliente. As coordenadas são relativas ao documento, não à área visível do navegador. Esse detalhe importa quando um visitante rola a página: o marcador precisa continuar ligado a uma posição no conteúdo, em vez de deslizar junto com a janela.
 
-Não existem mensagens para entrada, saída ou salas. O site tem uma única superfície pública de cursores, e uma atualização de posição é tudo de que ela precisa. O protocolo reduzido também deixa clara a sua limitação: isto é presença transitória, não um sistema de colaboração.
+Resisti a adicionar mensagens para entrada, saída ou salas. O site tem uma única superfície pública de cursores, e uma atualização de posição é tudo de que ela precisa. O protocolo reduzido também deixa clara a sua limitação: isto é presença transitória, não um sistema de colaboração.
 
 ## A identidade pertence à conexão
 
@@ -45,7 +45,7 @@ O navegador precisa de um identificador para que os outros clientes diferenciem 
 
 Por isso, as [rotas live](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) atribuem ao WebSocket um ID em um cookie HTTP-only durante o upgrade. O cookie usa `same-site` estrito, é seguro em produção e não pode ser acessado pelo JavaScript do cliente. Um pequeno endpoint `GET /live/id` permite que a camada de renderização descubra o próprio ID sem tornar o cookie legível.
 
-Cada mensagem recebida ainda inclui um ID, mas o servidor só a transmite quando esse valor corresponde ao ID associado à conexão:
+Cada mensagem recebida ainda inclui um ID, mas esse campo é apenas uma alegação. A autoridade é o cookie da conexão. O servidor só transmite a mensagem quando o ID declarado corresponde ao ID associado à conexão:
 
 ```ts
 message(ws, payload) {
@@ -68,11 +68,13 @@ Publicar cada evento do ponteiro criaria um volume de trabalho que a interface n
 
 Essa é uma decisão de amostragem visual, não uma garantia de entrega. Se o socket não estiver aberto, a atualização atual é descartada. Em pouco tempo, uma posição mais nova tomará seu lugar.
 
+A bancada abaixo comprime todo o caminho em uma única superfície. Mova o cursor local azul e, sem movê-lo novamente, altere a rolagem: sua posição na área visível permanece fixa, enquanto seu `y` no documento e o marcador violeta no documento remoto mudam. Feche o socket ou faça os IDs divergirem, mova outra vez e veja a amostra parar naquela etapa. “Avançar 7 s” demonstra a regra separada de limpeza da presença expirada.
+
 <CursorProtocolLab client:visible locale="pt-BR" />
 
 ## Um socket compartilhado com um ciclo de vida pequeno
 
-O módulo da API mantém um único WebSocket e um conjunto de assinantes. O primeiro assinante inicia a conexão; a saída do último a encerra. Isso importa porque a navegação no cliente do Astro pode montar e desmontar a ilha interativa sem recarregar a página inteira.
+O módulo da API mantém um único WebSocket e um conjunto de assinantes. O primeiro assinante inicia a conexão; a saída do último a encerra. Mantenho essa responsabilidade fora do componente de renderização porque a navegação no cliente do Astro pode montar e desmontar a ilha interativa sem recarregar a página inteira.
 
 Quando a conexão é fechada de forma inesperada, o módulo espera um segundo e tenta novamente enquanto ainda houver algum assinante. As coordenadas antigas não são enfileiradas durante a interrupção. Reproduzi-las depois apenas animaria um histórico que já não representa a realidade.
 
@@ -95,6 +97,6 @@ O cursor local fica mais discreto e se move sem interpolação; os cursores remo
 
 Existem limitações evidentes. Todas as conexões vivem em um único processo de servidor. Não há transmissão entre instâncias, participação durável, histórico nem um registro de presença expirada no servidor. Uma reinicialização limpa tudo — o que, para posições de cursores, é a política de persistência correta.
 
-A funcionalidade funciona porque não tenta ser maior do que é. Uma identidade definida pelo servidor, uma mensagem de posição validada, um emissor limitado, um socket que se reconecta e um estado temporário no cliente são suficientes para dar vida a uma página que, fora isso, continua estática.
+A funcionalidade funciona porque não exijo que ela seja maior do que é. Uma identidade definida pelo servidor, uma mensagem de posição validada, um emissor limitado, um socket que se reconecta e um estado temporário no cliente são suficientes para dar vida a uma página que, fora isso, continua estática.
 
 O próximo post reutilizará essa preferência por peças pequenas com dados que mudam mais devagar: a reprodução do Spotify e as contribuições do GitHub coletadas pelo servidor e apresentadas como telemetria pessoal.

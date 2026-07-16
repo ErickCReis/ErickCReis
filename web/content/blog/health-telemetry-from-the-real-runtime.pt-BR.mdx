@@ -11,7 +11,7 @@ O [post anterior](/pt-BR/content/shipping-astro-from-a-bun-server) colocou os ar
 
 CPU pode significar o notebook inteiro, a capacidade permitida ao container ou o próprio processo do servidor. A memória informada por `node:os` pode descrever o host mesmo quando o processo está restrito por um cgroup. O notebook tem bateria, mas o container não consegue enxergá-la sem que esse detalhe do host seja exposto de propósito. O tempo de vida do processo não diz se o domínio público estava acessível.
 
-A telemetria deste site usa três pontos de vista em vez de fingir que uma única medida cobre todos eles.
+Quando coloquei essas leituras lado a lado pela primeira vez, a proximidade fez com que parecessem intercambiáveis. Não são. A telemetria deste site mantém separadas quatro lentes de observação — processo, cgroup, host e observador externo — em vez de fingir que uma única medida consegue descrever todo o deploy.
 
 ```mermaid center
 flowchart LR
@@ -46,6 +46,8 @@ Chamar `os.totalmem()` dentro de um container pode expor a memória total do hos
 No cgroup v2, ele lê `memory.current` e `memory.max`; no v1, usa `memory.usage_in_bytes` e `memory.limit_in_bytes`. Um limite `max` no v2 significa que não há limite. O cgroup v1 pode representar a mesma ideia com um número muito grande, por isso o módulo rejeita um limite informado que ultrapasse duas vezes a memória do host.
 
 Se os arquivos do cgroup não estiverem disponíveis ou não houver limite, o fallback é a memória do host informada por `node:os`. Caso contrário, o painel calcula os megabytes usados e o percentual a partir dos valores do cgroup. Com o limite atual de 1 GB no Compose, “memória usada” descreve a pressão sobre o orçamento do container, não sobre toda a RAM instalada no notebook.
+
+Esse número também não é o heap do Bun. `memory.current` contabiliza memória na fronteira do cgroup, o que pode incluir o processo, alocações nativas e cache do sistema de arquivos. É o sinal certo para “este container está se aproximando do orçamento imposto?”, não para diagnosticar qual alocação dentro do Bun o consumiu.
 
 Essa distinção importa antes de uma interrupção por falta de memória. Um host com RAM livre ainda pode encerrar um container que ultrapassa seu próprio limite.
 
@@ -82,7 +84,11 @@ Os dias anteriores à criação do monitor permanecem como `null` em vez de se t
 
 A requisição tem um timeout de 15 segundos e novas tentativas curtas após falhas de rede, respostas `429` e erros do servidor. Se essas tentativas falharem depois que o módulo já obteve um monitor válido, ele mantém o último retrato bem-sucedido e tenta o ciclo de polling novamente após um minuto. Uma indisponibilidade da API de monitoramento não deve reescrever imediatamente como zero a última disponibilidade conhecida do site.
 
+Uso o laboratório abaixo como um depurador de fronteiras. Escolha uma lente, altere apenas o sinal disponível para ela e observe tanto a resposta quanto seu ponto cego. Em especial, mantenha o processo Bun “ativo há 7d” enquanto tira a rota pública do ar: as duas afirmações podem ser verdadeiras ao mesmo tempo.
+
 <RuntimeVantageLab client:visible locale="pt-BR" />
+
+O medidor não basta sozinho de propósito. Seu observador, denominador e ponto cego fazem parte do valor; sem esses rótulos, um percentual preciso ainda pode contar a história errada.
 
 ## De estatística visível a sinal acionável
 
@@ -92,6 +98,6 @@ A tarefa registra se um alerta foi enviado e limpa esse estado quando o status d
 
 O painel e o alerta respondem a perguntas diferentes. O painel ajuda um visitante — ou eu — a entender o deploy. O e-mail pede uma ação quando uma condição específica do host cruza um limite. Os dois reutilizam o mesmo leitor da bateria, mas não devem compartilhar a mesma política de entrega.
 
-Não existe um único “sistema real” por trás de uma aplicação em container. Este site mede o trabalho do processo em relação à capacidade do cgroup, escolhe observar um sinal do hardware do host e pergunta a um observador externo se o caminho público completo funciona. Manter essas perspectivas separadas torna cada número mais honesto.
+Não existe um único “sistema real” por trás de uma aplicação em container. Este site mede o trabalho do processo em relação à capacidade do cgroup, escolhe observar um sinal do hardware do host e pergunta a um observador externo se o caminho público completo funciona. Mantenho essas perspectivas separadas porque a fronteira ao redor de um número é o que torna esse número honesto.
 
 O próximo post volta à saída estática do Astro e adiciona a ela uma pequena funcionalidade de runtime: contagens de visualizações para artigos MDX sem tornar o blog dinâmico.

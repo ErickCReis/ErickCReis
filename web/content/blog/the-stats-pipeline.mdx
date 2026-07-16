@@ -11,6 +11,8 @@ The [Spotify and GitHub panels](/content/personal-telemetry-from-spotify-and-git
 
 That is the job of the stats pipeline.
 
+The hard part was not finding one more timer. It was letting every source keep its own clock while giving the browser one place to bootstrap, listen, and decode. I wanted the panels to feel coordinated without making their collectors pretend to work at the same pace.
+
 The homepage currently combines system resources, external uptime, visitor presence, Spotify playback, GitHub contributions, and agent token usage. Some sources change every few seconds; others change every 30 minutes or only when another process syncs them. The interface needs an initial chart for each one and new snapshots after it starts, without six independent networking implementations.
 
 The resulting path has four layers: collectors on the server, an initial history response, a shared server-sent event stream, and small Solid stores.
@@ -75,6 +77,8 @@ for (const { name, mod } of statModules) {
 ```
 
 The 500-millisecond loop does not make slow sources poll faster. It only notices their versions. It also coalesces multiple source changes that happen between checks into the newest snapshot, which is appropriate for a live dashboard: the browser needs the current value, not an audit log of every intermediate mutation.
+
+The version check is easiest to see as a gate. In the lab below, change the same collector more than once before inspecting the versions: its counter advances each time, but the stream emits one event containing only the newest snapshot. Opening a new SSE connection sends every current snapshot because that response starts with no versions in `lastSeen`.
 
 <StatsPipelineLab client:visible locale="en-US" />
 

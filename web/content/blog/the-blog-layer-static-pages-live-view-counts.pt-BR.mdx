@@ -9,7 +9,7 @@ import { ViewCounterLab } from "@web/features/blog-series/labs/view-counter-lab"
 
 O [post sobre a telemetria do runtime](/pt-BR/content/health-telemetry-from-the-real-runtime) terminou com vários tipos de dados atravessando o servidor dinâmico. O artigo que você está lendo segue o caminho oposto: título, descrição, tags, data, corpo e rota já existiam antes de o servidor iniciar.
 
-Este blog faz parte do mesmo sistema dinâmico, mas não precisa se transformar em uma aplicação de publicação dinâmica para participar. O Astro gera o conteúdo. O Elysia adiciona um único valor de runtime: quantas visualizações deduplicadas cada versão de idioma recebeu.
+Eu queria que este blog participasse do mesmo sistema dinâmico sem se transformar em uma aplicação de publicação dinâmica. Isso levou a uma divisão intencionalmente desigual: o Astro cuida do artigo completo, enquanto o Elysia acrescenta um único valor de runtime — quantas visualizações deduplicadas cada versão de idioma recebeu.
 
 ```mermaid center
 flowchart LR
@@ -111,6 +111,8 @@ flowchart TB
 
 A transação imediata impede que duas requisições simultâneas leiam o mesmo estado antigo e façam dois incrementos fora da sequência desejada. Ela também mantém o registro do visitante e a atualização do total juntos.
 
+O laboratório abaixo torna essa transação visível. Leia como o navegador A duas vezes: a primeira requisição incrementa o total, enquanto a segunda encontra o token ativo e não o altera. O navegador B tem um token independente. Você também pode ocultar a aba para reter uma leitura no controle de visibilidade ou avançar o relógio em 25 horas e tornar um navegador elegível novamente. Note que a metade MDX nunca muda; apenas o número de runtime e o conjunto de tokens temporários se movimentam.
+
 <ViewCounterLab client:visible locale="pt-BR" />
 
 As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. Este é um pequeno contador, não analytics anônimo, e essa distinção faz parte da sua descrição de privacidade.
@@ -119,6 +121,6 @@ As tabelas de visualizações não armazenam endereço IP, user agent, conta nem
 
 Tornar o blog inteiro renderizado pelo servidor não simplificaria nada disso. O conteúdo muda no deploy; apenas a contagem muda entre requisições. As coleções do Astro oferecem autoria, validação, variantes localizadas e rotas estáticas. Duas pequenas ilhas dão à listagem uma leitura em lote e ao artigo uma gravação intencional.
 
-É a mesma fronteira usada na página inicial: o documento existe sem estado no cliente, e o JavaScript entra onde um valor dinâmico acrescenta algo útil.
+É a mesma fronteira à qual continuo voltando na página inicial: o documento existe sem estado no cliente, e o JavaScript entra onde um valor dinâmico acrescenta algo útil.
 
 O próximo post acompanha as variantes localizadas mencionadas aqui. Ele explica o pequeno plugin de build e o runtime que coletam strings de tradução, geram catálogos e disponibilizam o mesmo idioma para páginas do Astro e ilhas hidratadas do Solid.

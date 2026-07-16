@@ -9,7 +9,7 @@ import { ViewCounterLab } from "@web/features/blog-series/labs/view-counter-lab"
 
 The [runtime telemetry post](/content/health-telemetry-from-the-real-runtime) ended with several kinds of data moving through the live server. The article you are reading takes the opposite path: its title, description, tags, date, body, and route all existed before the server started.
 
-This blog is part of the same live system, but it does not need to become a dynamic publishing application to participate. Astro builds the content. Elysia adds one narrow runtime value: how many deduplicated views each language version has received.
+I wanted this blog to participate in the same live system without turning it into a dynamic publishing application. That led to a deliberately uneven split: Astro owns the complete article, while Elysia adds one narrow runtime value—how many deduplicated views each language version has received.
 
 ```mermaid center
 flowchart LR
@@ -111,6 +111,8 @@ flowchart TB
 
 The immediate transaction prevents two concurrent requests from reading the same old state and both incrementing outside the intended sequence. It also keeps the visitor record and total update together.
 
+The lab below makes that transaction visible. Read as browser A twice: the first request increments the total, while the second finds the active token and leaves it alone. Browser B has an independent token. You can also hide the tab to hold a read at the visibility gate, or advance the clock by 25 hours and make a browser eligible again. Notice that the MDX half never changes; only the runtime number and short-lived token set move.
+
 <ViewCounterLab client:visible locale="en-US" />
 
 The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. This is a small counter, not anonymous analytics, and that distinction belongs in its privacy description.
@@ -119,6 +121,6 @@ The view tables do not store an IP address, user agent, account, or referrer. Th
 
 Making the entire blog server-rendered would not simplify any of this. The content changes at deploy time; only the count changes between requests. Astro content collections give authoring, validation, localized variants, and static routes. Two small islands give the archive a batch read and the article an intentional write.
 
-That is the same boundary used on the homepage: the document exists without client state, and JavaScript enters where a live value adds something useful.
+It is the same boundary I keep returning to on the homepage: the document exists without client state, and JavaScript enters where a live value adds something useful.
 
 The next post follows the localized variants mentioned here. It explains the small build plugin and runtime that collect translation strings, generate catalogs, and make the same locale available to Astro pages and hydrated Solid islands.

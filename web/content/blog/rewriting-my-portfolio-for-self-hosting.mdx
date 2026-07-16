@@ -7,9 +7,9 @@ tags: [self-hosting]
 
 import { DeploymentShapeLab } from "@web/features/blog-series/labs/deployment-shape-lab";
 
-At some point this portfolio stopped being just a static page. I kept adding telemetry, API routes, cursor presence, background polling, local data, and internal jobs. It was still a small project, but its deployment shape had started to matter.
+At some point this portfolio stopped being just a static page. I kept adding telemetry, API routes, cursor presence, background polling, local data, and internal jobs. It was still a small project, but “static-site deployment” was no longer an honest description of it.
 
-This rewrite was not about escaping Cloudflare or saving money. I wanted to make one machine the unit of deployment. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
+This rewrite was not about escaping Cloudflare or saving money. I wanted the deployment to have a physical answer: one machine. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
 
 ## Why self-host this
 
@@ -55,13 +55,15 @@ flowchart LR
 
 I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and keeps the deployment workflow easy to inspect. The useful simplification is not that the infrastructure has only one piece. It is that the application has fewer runtime boundaries: one deploy target, one container, and one server process.
 
+Those paths meet at the running container, but they carry different things. Trace a request in the model below, then deploy another revision. The container changes; the mounted `/app/data` directory does not.
+
 <DeploymentShapeLab client:visible locale="en-US" />
 
 ## The build artifact
 
 Once the deploy target is a single container, the artifact matters more than provider configuration.
 
-Astro builds the mostly static site. [Solid](https://www.solidjs.com/) hydrates only the live islands. Elysia owns the API, SSE, WebSocket, and internal routes. [Bun](https://bun.sh/) runs the scripts and compiles the server.
+Astro builds the mostly static site. [Solid](https://www.solidjs.com/) hydrates only the live islands. In production, Elysia serves that generated output alongside the API, SSE, WebSocket, and internal routes. [Bun](https://bun.sh/) runs the scripts and compiles the server.
 
 The build script is short:
 
@@ -95,7 +97,7 @@ The runtime stage does not need the source tree, `node_modules`, or the Bun buil
 
 Putting the process in a container is the easy part. Deciding what must survive that container is more important.
 
-The application uses `DATA_DIR=/app/data` for SQLite and local files, and Docker Compose mounts `./data` from the host into that directory. The container can be rebuilt without taking its state with it. Compose also gives the process a restart policy and explicit CPU and memory limits.
+The application uses `DATA_DIR=/app/data` for SQLite and local files, and Docker Compose mounts `./data` from the host into that directory. The container can be replaced without replacing its state. Compose also gives the process a restart policy and explicit CPU and memory limits.
 
 An explicit data directory is not a backup, though. It makes the state easy to locate and snapshot, but an automated off-machine copy is still part of the work. The laptop also makes power, storage, and network failures my responsibility instead of the provider's.
 
@@ -105,6 +107,6 @@ Files can be files again. Static assets and runtime routes come from the same se
 
 The real-time layer is the part I trust the least. Durable Objects gave WebSocket state a natural home; on one server, connection lifecycle, cleanup, monitoring, and recovery are mine to handle. The current version works, but it still needs a better abstraction for tracking connections and seeing what the live layer is doing.
 
-Self-hosting made this application simpler to deploy, not simpler to operate. I traded managed runtime boundaries for responsibilities I can see: one process, one data directory, one backup problem, and one real-time layer I still need to harden.
+Self-hosting made this application simpler to deploy, not simpler to operate. The shape is smaller, not magically safer. I traded managed runtime boundaries for responsibilities I can see: one process, one data directory, one backup problem, and one real-time layer I still need to harden.
 
 The next posts will go deeper into those smaller pieces: cursor presence, telemetry, static asset routing, content tracking, localization, and token usage sync.

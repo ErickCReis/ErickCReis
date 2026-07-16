@@ -1,17 +1,17 @@
 ---
 title: "Servindo a saída do Astro com um servidor Bun"
-description: Como uma tabela de rotas criada no build permite que um processo Elysia sirva os arquivos estáticos do Astro ao lado das APIs dinâmicas.
+description: Como transformo a saída estática do Astro em uma tabela de rotas verificada que um processo Elysia compilado serve ao lado das APIs dinâmicas.
 date: "2026-08-08"
 tags: [astro, bun, deploy]
 ---
 
 import { DistRouteLab } from "@web/features/blog-series/labs/dist-route-lab";
 
-O [pipeline de estatísticas](/pt-BR/content/the-stats-pipeline) termina em rotas do Elysia. Em produção, essas rotas compartilham um processo com algo muito menos dinâmico: todas as páginas HTML, folhas de estilo, fontes, imagens e scripts produzidos pelo Astro.
+O site público tem uma única porta de entrada, mas dois tipos bem diferentes de trabalho acontecem atrás dela. O [pipeline de estatísticas](/pt-BR/content/the-stats-pipeline) termina em rotas dinâmicas do Elysia; cada artigo, folha de estilo, fonte, imagem e script já está pronto antes de o servidor iniciar.
 
-O [primeiro post desta série](/pt-BR/content/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy: um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime. Ele deixou de propósito uma pergunta sem resposta: como um site estático passa a fazer parte do servidor sem transformar o Astro em uma aplicação renderizada no servidor?
+Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicação renderizada no servidor. O [primeiro post desta série](/pt-BR/content/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy—um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime—mas deixou de propósito sem resposta como essas peças se encontram.
 
-Neste projeto, a resposta é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático. O Elysia descobre quais arquivos ele produziu e serve esses arquivos ao lado dos endpoints dinâmicos.
+A ligação é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático; o Elysia descobre quais arquivos ele produziu e depois serve exatamente esses arquivos ao lado dos endpoints dinâmicos.
 
 ```mermaid center
 flowchart LR
@@ -38,14 +38,14 @@ Os dois comandos em `package.json` estão ligados por um motivo:
 
 O Astro precisa terminar primeiro e gravar `dist`. Só então o Bun pode compilar [`server/index.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/index.ts), pois o build do servidor inspeciona esse diretório para descobrir as rotas estáticas.
 
-O build tem dois produtos, em vez de um único artefato fingindo conter tudo:
+Eu mantenho dois produtos de build, em vez de um único artefato fingindo conter tudo:
 
 - `dist`, com os arquivos produzidos pelo Astro;
 - `myserver`, um executável nativo com a aplicação Elysia e os metadados das rotas geradas.
 
 As migrações do banco são o terceiro diretório copiado para a imagem de runtime, mas não participam do roteamento estático.
 
-Uma versão anterior incorporava o conteúdo dos assets ao servidor. A versão atual incorpora apenas os caminhos e mantém arquivos como arquivos. A responsabilidade fica mais clara: o executável sabe como rotear uma requisição, enquanto `dist` continua sendo o conteúdo produzido pelo Astro.
+Minha primeira versão incorporava o conteúdo dos assets ao servidor. A versão atual incorpora apenas os caminhos e mantém arquivos como arquivos. A fronteira fica mais clara: o executável sabe como rotear uma requisição, enquanto `dist` continua sendo o conteúdo produzido pelo Astro.
 
 ## Descobrindo rotas limpas durante a compilação
 
@@ -74,9 +74,9 @@ A macro se recusa a compilar quando `dist` é obrigatório, mas não existe. O e
 
 ## Aliases duplicados devem interromper o build
 
-Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Escolher o último arquivo visitado faria o roteamento depender da ordem em que o sistema de arquivos foi percorrido.
+Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Não quero que a ordem de travessia do sistema de arquivos decida qual página vence.
 
-O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem da travessia torna o diagnóstico estável, mas o importante é a interrupção: uma rota estática ambígua é um problema de build, não uma política para resolver em produção.
+O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem da travessia torna o diagnóstico estável, mas o importante é a interrupção: trato uma rota estática ambígua como um problema de build, não como uma política para resolver em produção.
 
 Essa verificação cobre colisões entre os arquivos gerados pelo Astro. As rotas de API continuam como rotas explícitas do Elysia em `server/index.ts`, registradas antes do subroteador estático exclusivo de produção. Manter o registro das rotas estáticas em um subroteador deixa essa fronteira visível.
 
@@ -102,7 +102,13 @@ O Astro adiciona fingerprints aos assets empacotados, portanto os arquivos em `/
 
 Os aliases limpos e a rota original com `.html` apontam para o mesmo arquivo e, por isso, recebem a mesma política de HTML. O comportamento do cache pertence ao arquivo, não à URL mais bonita usada para encontrá-lo.
 
+## Colocando o contrato de build sob pressão
+
+O laboratório abaixo comprime a macro e o handler de runtime em uma única visão. Escolha uma rota para seguir o caminho até seu arquivo e o header da resposta. Adicione um asset comum e ele recebe uma rota literal; adicione um arquivo HTML e seu alias limpo aparece. Depois, injete o conflito `about/index.html`: `/about` ganha dois proprietários, o build é interrompido e nenhum binário fica disponível para responder à requisição.
+
 <DistRouteLab client:visible locale="pt-BR" />
+
+Essa falha é o resultado útil. O estado inválido nunca se transforma em uma regra que a produção precisa resolver.
 
 ## O container preserva a estrutura do build
 
@@ -116,7 +122,7 @@ COPY --from=build /app/server/db/migrations ./server/db/migrations
 CMD ["./myserver"]
 ```
 
-Os dois estágios usam `/app` como diretório de trabalho. Preservar essa estrutura importa porque a tabela criada na compilação aponta para os arquivos encontrados em `/app/dist`. A imagem de runtime não instala o Bun nem as dependências da aplicação; ela precisa do executável compilado, dos arquivos servidos e das migrações executadas pela aplicação.
+Os dois estágios usam `/app` como diretório de trabalho. Preservo essa estrutura porque a tabela criada na compilação aponta para os arquivos encontrados em `/app/dist`. A imagem de runtime não instala o Bun nem as dependências da aplicação; ela precisa do executável compilado, dos arquivos servidos e das migrações executadas pela aplicação.
 
 O desenvolvimento tem de propósito outro formato. O servidor de desenvolvimento do Astro e a API do Bun rodam em paralelo, em portas diferentes e com feedback rápido. O subroteador estático só é conectado quando `NODE_ENV` é `production`. Usar um processo em produção não exige forçar os servidores de desenvolvimento a compartilhar o mesmo ciclo de vida.
 
