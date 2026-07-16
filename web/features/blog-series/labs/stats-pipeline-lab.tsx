@@ -1,256 +1,153 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { For, Show, createMemo, createSignal } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type ModuleId = "system" | "websocket" | "spotify";
-
-type ModuleState = {
-  version: number;
-  timestamp: number;
-  value: number;
-};
-
-type ModuleMap = Record<ModuleId, ModuleState>;
-
-type StatsPipelineLabProps = {
-  locale?: LabLocale;
-};
+type StatsPipelineLabProps = { locale?: LabLocale };
+type ModuleId = "system" | "users" | "spotify";
+type ModuleState = { version: number; value: number };
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Run one SSE delivery scan",
-    description:
-      "Update collectors at their own pace, then run the delivery loop. Multiple mutations of one module become one event containing its newest snapshot.",
-    modules: "Independent stat modules",
-    moduleNames: { system: "System CPU", websocket: "Connected users", spotify: "Track progress" },
-    mutate: "Update",
-    scan: "Run 500 ms scan",
-    reset: "Open a fresh SSE response",
-    pending: "Changed modules",
-    emitted: "Events in last scan",
-    versions: "Module versions",
-    wire: "Serialized SSE events",
-    noEvents: "Run the scan to deliver changed modules.",
-    event: "event",
-    data: "data",
-    statusFresh:
-      "A new response has an empty lastSeen map, so every module with version > 0 is pending.",
-    statusIdle: "No version changed since the previous scan, so the server yields nothing.",
-    statusDelivered:
-      "Each changed module yielded once. Repeated updates before the scan were coalesced into its latest value.",
+    label: "SSE version conveyor",
+    modules: { system: "CPU", users: "users", spotify: "track" },
+    scan: "scan 500 ms",
+    reset: "new SSE",
+    empty: "no packets",
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Execute uma varredura de entrega SSE",
-    description:
-      "Atualize coletores no ritmo de cada um e execute o loop de entrega. Várias mutações de um módulo viram um evento com seu retrato mais novo.",
-    modules: "Módulos independentes de estatísticas",
-    moduleNames: {
-      system: "CPU do sistema",
-      websocket: "Usuários conectados",
-      spotify: "Progresso da faixa",
-    },
-    mutate: "Atualizar",
-    scan: "Executar varredura de 500 ms",
-    reset: "Abrir uma nova resposta SSE",
-    pending: "Módulos alterados",
-    emitted: "Eventos na última varredura",
-    versions: "Versões dos módulos",
-    wire: "Eventos SSE serializados",
-    noEvents: "Execute a varredura para entregar os módulos alterados.",
-    event: "evento",
-    data: "dados",
-    statusFresh:
-      "Uma nova resposta tem o mapa lastSeen vazio, então todo módulo com versão > 0 está pendente.",
-    statusIdle:
-      "Nenhuma versão mudou desde a varredura anterior, então o servidor não produz nada.",
-    statusDelivered:
-      "Cada módulo alterado produziu um evento. Atualizações repetidas antes da varredura foram combinadas no valor mais recente.",
+    label: "Esteira de versões SSE",
+    modules: { system: "CPU", users: "usuários", spotify: "faixa" },
+    scan: "varrer 500 ms",
+    reset: "novo SSE",
+    empty: "sem pacotes",
   },
 } as const;
 
-const moduleIds: ModuleId[] = ["system", "websocket", "spotify"];
-const eventCodes: Record<ModuleId, "sy" | "ws" | "sp"> = {
-  system: "sy",
-  websocket: "ws",
-  spotify: "sp",
+const ids: ModuleId[] = ["system", "users", "spotify"];
+const eventCode: Record<ModuleId, string> = { system: "sy", users: "ws", spotify: "sp" };
+const nodeColor: Record<ModuleId, string> = {
+  system: "border-blue-300/30 bg-blue-300/10 text-blue-100",
+  users: "border-emerald-300/30 bg-emerald-300/10 text-emerald-100",
+  spotify: "border-violet-300/30 bg-violet-300/10 text-violet-100",
 };
 
-function createInitialModules(): ModuleMap {
+function initialModules(): Record<ModuleId, ModuleState> {
   return {
-    system: { version: 1, timestamp: 1_700_000_000_000, value: 18 },
-    websocket: { version: 1, timestamp: 1_700_000_000_000, value: 2 },
-    spotify: { version: 1, timestamp: 1_700_000_000_000, value: 42_000 },
+    system: { version: 1, value: 18 },
+    users: { version: 1, value: 2 },
+    spotify: { version: 1, value: 42 },
   };
-}
-
-function serializeModule(id: ModuleId, state: ModuleState) {
-  switch (id) {
-    case "system":
-      return [state.timestamp, state.value, 512, 1024, 1, 50, null, null];
-    case "websocket":
-      return [state.timestamp, state.value, Math.max(4, state.value), 1_699_999_900_000];
-    case "spotify":
-      return [
-        true,
-        true,
-        "track-1",
-        "Demo Track",
-        ["Demo Artist"],
-        "Demo Album",
-        null,
-        state.value,
-        180_000,
-        state.timestamp,
-      ];
-  }
 }
 
 export function StatsPipelineLab(props: StatsPipelineLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const [modules, setModules] = createSignal<ModuleMap>(createInitialModules());
+  const [modules, setModules] = createSignal(initialModules());
   const [lastSeen, setLastSeen] = createSignal<Record<ModuleId, number>>({
     system: 0,
-    websocket: 0,
+    users: 0,
     spotify: 0,
   });
-  const [events, setEvents] = createSignal<Array<{ code: string; data: unknown[] }>>([]);
-  const [hasScanned, setHasScanned] = createSignal(false);
+  const [packets, setPackets] = createSignal<Array<{ id: ModuleId; tuple: string }>>([]);
 
-  const pendingIds = createMemo(() =>
-    moduleIds.filter((id) => modules()[id].version > lastSeen()[id]),
-  );
+  const pending = createMemo(() => ids.filter((id) => modules()[id].version > lastSeen()[id]));
+  const delta = (id: ModuleId) => modules()[id].version - lastSeen()[id];
 
-  const mutateModule = (id: ModuleId) => {
-    setModules((current) => {
-      const state = current[id];
-      const increment = id === "spotify" ? 2_500 : 1;
-      return {
-        ...current,
-        [id]: {
-          version: state.version + 1,
-          timestamp: state.timestamp + 500,
-          value: state.value + increment,
-        },
-      };
-    });
-  };
+  function update(id: ModuleId) {
+    setModules((current) => ({
+      ...current,
+      [id]: {
+        version: current[id].version + 1,
+        value: current[id].value + (id === "spotify" ? 3 : 1),
+      },
+    }));
+  }
 
-  const scan = () => {
-    const currentModules = modules();
-    const changed = pendingIds();
-    setEvents(
-      changed.map((id) => ({
-        code: eventCodes[id],
-        data: serializeModule(id, currentModules[id]),
+  function scan() {
+    const current = modules();
+    setPackets(
+      pending().map((id) => ({
+        id,
+        tuple: id === "spotify" ? `[true,${current[id].value}]` : `[t,${current[id].value}]`,
       })),
     );
-    setLastSeen((current) => {
-      const next = { ...current };
-      for (const id of changed) next[id] = currentModules[id].version;
-      return next;
+    setLastSeen({
+      system: current.system.version,
+      users: current.users.version,
+      spotify: current.spotify.version,
     });
-    setHasScanned(true);
-  };
-
-  const resetConnection = () => {
-    setLastSeen({ system: 0, websocket: 0, spotify: 0 });
-    setEvents([]);
-    setHasScanned(false);
-  };
-
-  const status = createMemo(() => {
-    if (!hasScanned()) return text().statusFresh;
-    return events().length === 0 ? text().statusIdle : text().statusDelivered;
-  });
+  }
 
   return (
-    <ConceptLab
-      id="stats-pipeline"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <LabCard title={text().modules} accent="blue">
-            <div class="space-y-2">
-              <For each={moduleIds}>
-                {(id) => (
-                  <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2">
-                    <div>
-                      <p class="text-sm text-slate-200">{text().moduleNames[id]}</p>
-                      <p class="mt-0.5 font-mono text-xxs text-slate-500">
-                        v{modules()[id].version} · value={modules()[id].value}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => mutateModule(id)}
-                      aria-label={`${text().mutate}: ${text().moduleNames[id]}`}
-                      class="rounded-md border border-blue-300/25 px-2.5 py-1.5 text-xs text-blue-100 transition hover:bg-blue-300/10"
-                    >
-                      {text().mutate}
-                    </button>
-                  </div>
-                )}
-              </For>
-            </div>
-          </LabCard>
-
-          <LabCard title={text().versions} accent="emerald">
-            <div class="space-y-3">
-              <div class="grid grid-cols-2 gap-2">
-                <LabMetric label={text().pending} value={pendingIds().length} />
-                <LabMetric label={text().emitted} value={events().length} />
-              </div>
-              <div class="grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={scan}
-                  class="rounded-lg border border-emerald-300/35 bg-emerald-300/10 px-3 py-2.5 text-sm text-emerald-50 transition hover:bg-emerald-300/15"
-                >
-                  {text().scan}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetConnection}
-                  class="rounded-lg border border-slate-200/15 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-200/5"
-                >
-                  {text().reset}
-                </button>
-              </div>
-            </div>
-          </LabCard>
+    <LabFrame id="stats-pipeline" label={text().label} class="mx-auto max-w-xl">
+      <div class="rounded-xl border border-cyan-200/15 bg-[#071014] p-3 shadow-xl shadow-cyan-950/20">
+        <div class="grid grid-cols-3 gap-2">
+          <For each={ids}>
+            {(id) => (
+              <button
+                type="button"
+                onClick={() => update(id)}
+                aria-label={`${text().modules[id]} +1`}
+                class={`relative rounded-lg border px-2 py-3 text-left transition active:translate-y-0.5 ${nodeColor[id]}`}
+              >
+                <span class="block font-mono text-[9px] uppercase opacity-60">
+                  {text().modules[id]}
+                </span>
+                <span class="mt-1 block font-mono text-lg">{modules()[id].value}</span>
+                <Show when={delta(id) > 0}>
+                  <span class="absolute -top-1 -right-1 rounded-full bg-amber-300 px-1.5 py-0.5 font-mono text-[8px] text-slate-950">
+                    +{delta(id)}
+                  </span>
+                </Show>
+              </button>
+            )}
+          </For>
         </div>
 
-        <LabCard title={text().wire} accent="slate">
-          <div class="space-y-2 font-mono text-xs" aria-live="polite">
+        <div class="my-2 flex items-center gap-2" aria-hidden="true">
+          <span class="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-300/30 to-cyan-300/50" />
+          <span class="font-mono text-[9px] text-cyan-200/40">▼</span>
+          <span class="h-px flex-1 bg-gradient-to-r from-cyan-300/50 via-cyan-300/30 to-transparent" />
+        </div>
+
+        <div class="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+          <button
+            type="button"
+            onClick={scan}
+            class="rounded-full bg-cyan-300 px-3 py-2 font-mono text-[10px] font-semibold text-slate-950 transition hover:bg-cyan-200"
+          >
+            {text().scan}
+          </button>
+
+          <div
+            class="flex min-h-9 items-center gap-1.5 overflow-x-auto rounded-lg bg-slate-950/70 px-2"
+            aria-live="polite"
+          >
             <Show
-              when={events().length > 0}
-              fallback={<p class="text-slate-400">{text().noEvents}</p>}
+              when={packets().length > 0}
+              fallback={<span class="font-mono text-[9px] text-slate-700">{text().empty}</span>}
             >
-              <For each={events()}>
-                {(item) => (
-                  <div class="overflow-x-auto rounded-lg bg-slate-950/60 px-3 py-2 text-slate-300">
-                    <span class="text-emerald-200">{text().event}</span> {item.code}
-                    <br />
-                    <span class="text-blue-200">{text().data}</span> {JSON.stringify(item.data)}
-                  </div>
+              <For each={packets()}>
+                {(packet) => (
+                  <code class="shrink-0 rounded bg-slate-800 px-2 py-1 font-mono text-[9px] text-slate-300">
+                    <span class="text-cyan-200">{eventCode[packet.id]}</span> {packet.tuple}
+                  </code>
                 )}
               </For>
             </Show>
           </div>
-        </LabCard>
 
-        <p
-          class="rounded-lg border border-amber-200/15 bg-amber-300/5 px-3 py-2.5 text-sm leading-relaxed text-amber-50/80"
-          aria-live="polite"
-        >
-          {status()}
-        </p>
+          <button
+            type="button"
+            onClick={() => {
+              setLastSeen({ system: 0, users: 0, spotify: 0 });
+              setPackets([]);
+            }}
+            class="rounded-md border border-slate-200/10 px-2 py-2 font-mono text-[9px] text-slate-500"
+          >
+            {text().reset}
+          </button>
+        </div>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
