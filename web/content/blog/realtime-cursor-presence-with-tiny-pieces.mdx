@@ -5,6 +5,8 @@ date: "2026-07-18"
 tags: [realtime, websockets, solid]
 ---
 
+import { CursorProtocolLab } from "@web/features/blog-series/labs/cursor-protocol-lab";
+
 The [previous post](/content/astro-static-shell-solid-live-layer) ended at the boundary of the Solid island. This one follows a pointer across it.
 
 Move the pointer on the homepage and a small marker follows it. Open the page in another browser and that marker becomes a remote cursor there. The visible result is playful, but its implementation is a useful example of the architecture behind the site: a few small pieces, each responsible for one edge of the interaction.
@@ -65,6 +67,8 @@ Mouse coordinates already follow the document in this primitive. Touch coordinat
 Publishing every pointer event would create work the interface cannot display. [`@solid-primitives/scheduled`](https://primitives.solidjs.community/package/scheduled/) throttles sends to one update every 50 milliseconds. The local marker is updated through the same path, while remote markers use a short CSS transition to smooth the gaps between network updates.
 
 This is a visual sampling decision, not guaranteed delivery. If the socket is not open, the current update is dropped. A newer pointer position will replace it soon enough.
+
+<CursorProtocolLab client:visible locale="en-US" />
 
 ## A shared socket with a small lifecycle
 
