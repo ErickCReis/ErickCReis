@@ -5,6 +5,8 @@ date: "2026-07-15"
 tags: [architecture, astro, solid]
 ---
 
+import { IslandBoundaryLab } from "@web/features/blog-series/labs/island-boundary-lab";
+
 In the [previous post](/content/rewriting-my-portfolio-for-self-hosting), I compressed the frontend architecture into one sentence: [Astro](https://astro.build/) builds the mostly static site, and [Solid](https://www.solidjs.com/) hydrates only the live islands.
 
 That sentence hides one of the most useful boundaries in the rewrite.
@@ -53,6 +55,8 @@ More importantly, the empty state is valid. Until the island starts, there are s
 
 If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. That failure mode is part of the design.
 
+<IslandBoundaryLab client:visible locale="en-US" />
+
 ## One island instead of two
 
 Telemetry and cursor presence look like separate features, but they share one interaction. When a telemetry panel is active, the cursor layer changes how cursor labels are displayed.
@@ -66,10 +70,7 @@ export function HomeLiveOverlay() {
 
   return (
     <>
-      <TelemetryBackdrop
-        placement="hero"
-        onStatsHoverChange={setIsStatsHovered}
-      />
+      <TelemetryBackdrop placement="hero" onStatsHoverChange={setIsStatsHovered} />
       <CursorPresenceLayer
         selfId={selfId()}
         cursors={cursors()}

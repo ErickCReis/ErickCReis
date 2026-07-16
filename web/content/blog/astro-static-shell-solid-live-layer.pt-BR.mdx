@@ -5,6 +5,8 @@ date: "2026-07-15"
 tags: [architecture, astro, solid]
 ---
 
+import { IslandBoundaryLab } from "@web/features/blog-series/labs/island-boundary-lab";
+
 No [post anterior](/pt-BR/content/rewriting-my-portfolio-for-self-hosting), resumi a arquitetura do frontend em uma frase: o [Astro](https://astro.build/) gera a maior parte do site como conteúdo estático, e o [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas.
 
 Essa frase esconde uma das fronteiras mais úteis da reescrita.
@@ -53,6 +55,8 @@ Mais importante: o estado vazio é válido. Enquanto a ilha não inicia, não h�
 
 Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Esse modo de falha faz parte do design.
 
+<IslandBoundaryLab client:visible locale="pt-BR" />
+
 ## Uma ilha em vez de duas
 
 A telemetria e a presença de cursores parecem funcionalidades separadas, mas compartilham uma interação. Quando um painel de telemetria está ativo, a camada de cursores muda a forma de exibir os rótulos.
@@ -66,10 +70,7 @@ export function HomeLiveOverlay() {
 
   return (
     <>
-      <TelemetryBackdrop
-        placement="hero"
-        onStatsHoverChange={setIsStatsHovered}
-      />
+      <TelemetryBackdrop placement="hero" onStatsHoverChange={setIsStatsHovered} />
       <CursorPresenceLayer
         selfId={selfId()}
         cursors={cursors()}
