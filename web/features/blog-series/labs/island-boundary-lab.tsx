@@ -1,197 +1,143 @@
-import { createMemo, createSignal, For } from "solid-js";
-import { ConceptLab, LabCard, LabMetric } from "@web/features/blog-series/components/concept-lab";
+import { For, createMemo, createSignal } from "solid-js";
+import { LabFrame } from "@web/features/blog-series/components/lab-frame";
 import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
 
-type BoundaryMode = "overlay" | "full-app";
-
-type IslandBoundaryLabProps = {
-  locale?: LabLocale;
-};
+type IslandBoundaryLabProps = { locale?: LabLocale };
+type Mode = "islands" | "spa";
 
 const copy = {
   "en-US": {
-    eyebrow: "Interactive concept lab",
-    title: "Test the island boundary",
-    description:
-      "Change who owns the document, then introduce browser and network failures. A useful island boundary limits what each failure can remove.",
-    modes: {
-      overlay: "Astro document + Solid overlay",
-      "full-app": "Solid owns the whole page",
-    },
-    failures: "Failure switches",
-    javascript: "JavaScript starts",
-    connection: "Live connection works",
-    surfaces: "Page surfaces",
-    document: "Generated document",
-    documentItems: ["Heading and description", "Project links", "Navigation and metadata"],
-    live: "Live overlay",
-    liveItems: ["Telemetry panels", "Remote cursors"],
-    available: "available",
-    unavailable: "unavailable",
-    staticMetric: "Document content",
-    liveMetric: "Live features",
-    takeaway: {
-      overlay:
-        "Astro owns the content, so a JavaScript or stream failure removes only behavior that needs the browser.",
-      "full-app":
-        "When the client tree owns the document, a JavaScript failure also removes content that never needed client state.",
-    },
+    label: "Island failure simulator",
+    modes: { islands: "islands", spa: "SPA" },
+    js: "JS",
+    stream: "stream",
+    title: "Portfolio",
+    nav: ["work", "notes", "contact"],
+    body: "Static document",
+    stats: "live stats",
+    cursors: "cursors",
+    unavailable: "offline",
   },
   "pt-BR": {
-    eyebrow: "Laboratório interativo",
-    title: "Teste a fronteira da ilha",
-    description:
-      "Mude quem controla o documento e introduza falhas no navegador e na rede. Uma boa fronteira limita o que cada falha consegue remover.",
-    modes: {
-      overlay: "Documento do Astro + camada do Solid",
-      "full-app": "Solid controla a página inteira",
-    },
-    failures: "Controles de falha",
-    javascript: "JavaScript inicia",
-    connection: "Conexão dinâmica funciona",
-    surfaces: "Superfícies da página",
-    document: "Documento gerado",
-    documentItems: ["Título e descrição", "Links dos projetos", "Navegação e metadados"],
-    live: "Camada interativa",
-    liveItems: ["Painéis de telemetria", "Cursores remotos"],
-    available: "disponível",
+    label: "Simulador de falhas nas ilhas",
+    modes: { islands: "ilhas", spa: "SPA" },
+    js: "JS",
+    stream: "fluxo",
+    title: "Portfólio",
+    nav: ["trabalho", "notas", "contato"],
+    body: "Documento estático",
+    stats: "stats ao vivo",
+    cursors: "cursores",
     unavailable: "indisponível",
-    staticMetric: "Conteúdo do documento",
-    liveMetric: "Funcionalidades dinâmicas",
-    takeaway: {
-      overlay:
-        "O Astro controla o conteúdo, então uma falha no JavaScript ou no fluxo remove apenas o comportamento que precisa do navegador.",
-      "full-app":
-        "Quando a árvore do cliente controla o documento, uma falha no JavaScript também remove conteúdo que nunca precisou de estado no cliente.",
-    },
   },
 } as const;
 
 export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
   const text = () => selectLabCopy(props.locale, copy);
-  const [mode, setMode] = createSignal<BoundaryMode>("overlay");
-  const [javascriptStarts, setJavascriptStarts] = createSignal(true);
-  const [connectionWorks, setConnectionWorks] = createSignal(true);
-
-  const documentAvailable = createMemo(() => mode() === "overlay" || javascriptStarts());
-  const liveAvailable = createMemo(() => javascriptStarts() && connectionWorks());
-  const documentAvailableCount = createMemo(() =>
-    documentAvailable() ? text().documentItems.length : 0,
-  );
-  const liveAvailableCount = createMemo(() => (liveAvailable() ? text().liveItems.length : 0));
+  const [mode, setMode] = createSignal<Mode>("islands");
+  const [javascript, setJavascript] = createSignal(true);
+  const [stream, setStream] = createSignal(true);
+  const documentVisible = createMemo(() => mode() === "islands" || javascript());
+  const liveVisible = createMemo(() => javascript() && stream());
 
   return (
-    <ConceptLab
-      id="island-boundary"
-      eyebrow={text().eyebrow}
-      title={text().title}
-      description={text().description}
-    >
-      <div class="space-y-4">
-        <div class="grid gap-2 sm:grid-cols-2" role="group" aria-label={text().title}>
-          {(["overlay", "full-app"] as const).map((item) => (
-            <button
-              type="button"
-              onClick={() => setMode(item)}
-              aria-pressed={mode() === item}
-              class={`rounded-lg border px-3 py-2.5 text-left text-sm transition ${
-                mode() === item
-                  ? "border-blue-300/45 bg-blue-300/10 text-blue-50"
-                  : "border-slate-200/10 bg-slate-900/30 text-slate-300 hover:border-slate-200/25"
-              }`}
-            >
-              {text().modes[item]}
-            </button>
-          ))}
+    <LabFrame id="island-boundary" label={text().label} class="mx-auto max-w-lg">
+      <div class="overflow-hidden rounded-2xl border border-blue-200/15 bg-slate-950 shadow-2xl shadow-blue-950/20">
+        <div class="flex h-9 items-center gap-2 border-b border-slate-200/10 bg-slate-900/80 px-3">
+          <span class="size-2 rounded-full bg-rose-400/70" />
+          <span class="size-2 rounded-full bg-amber-300/70" />
+          <span class="size-2 rounded-full bg-emerald-300/70" />
+          <span class="ml-2 flex-1 rounded-full bg-slate-950/70 px-3 py-1 font-mono text-[9px] text-slate-500">
+            erickr.dev
+          </span>
+          <div class="flex rounded-md bg-slate-950/60 p-0.5" role="group" aria-label={text().label}>
+            <For each={["islands", "spa"] as const}>
+              {(choice) => (
+                <button
+                  type="button"
+                  onClick={() => setMode(choice)}
+                  aria-pressed={mode() === choice}
+                  class={`rounded px-2 py-0.5 font-mono text-[9px] ${
+                    mode() === choice ? "bg-blue-300 text-slate-950" : "text-slate-500"
+                  }`}
+                >
+                  {text().modes[choice]}
+                </button>
+              )}
+            </For>
+          </div>
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
-          <LabCard title={text().failures} accent="slate">
-            <div class="space-y-2">
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().javascript}</span>
-                <input
-                  type="checkbox"
-                  checked={javascriptStarts()}
-                  onChange={(event) => setJavascriptStarts(event.currentTarget.checked)}
-                  class="size-4 accent-blue-400"
-                />
-              </label>
-              <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-slate-200/10 bg-slate-950/35 px-3 py-2 text-sm text-slate-200">
-                <span>{text().connection}</span>
-                <input
-                  type="checkbox"
-                  checked={connectionWorks()}
-                  onChange={(event) => setConnectionWorks(event.currentTarget.checked)}
-                  class="size-4 accent-blue-400"
-                />
-              </label>
-
-              <div class="grid grid-cols-2 gap-2 pt-2">
-                <LabMetric
-                  label={text().staticMetric}
-                  value={`${documentAvailableCount()}/${text().documentItems.length}`}
-                />
-                <LabMetric
-                  label={text().liveMetric}
-                  value={`${liveAvailableCount()}/${text().liveItems.length}`}
-                />
+        <div class="relative h-44 bg-[linear-gradient(135deg,rgba(30,41,59,0.35),rgba(2,6,23,0.8))] p-4">
+          <div
+            class={`transition duration-300 ${
+              documentVisible() ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+            }`}
+            aria-hidden={!documentVisible()}
+          >
+            <div class="flex items-center justify-between">
+              <strong class="font-serif text-lg text-slate-100">{text().title}</strong>
+              <div class="flex gap-2 font-mono text-[9px] text-slate-500">
+                <For each={text().nav}>{(item) => <span>{item}</span>}</For>
               </div>
             </div>
-          </LabCard>
+            <div class="mt-4 h-2 w-2/3 rounded bg-slate-300/20" />
+            <div class="mt-2 h-2 w-1/2 rounded bg-slate-300/10" />
+            <span class="mt-3 inline-block rounded bg-slate-200/10 px-2 py-1 font-mono text-[9px] text-slate-400">
+              {text().body}
+            </span>
+          </div>
 
-          <LabCard title={text().surfaces} accent="blue">
-            <div class="grid gap-3 sm:grid-cols-2" aria-live="polite">
-              <section
-                class={`rounded-lg border p-3 transition ${
-                  documentAvailable()
-                    ? "border-emerald-300/25 bg-emerald-300/5"
-                    : "border-rose-300/20 bg-rose-300/5 opacity-55"
-                }`}
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <h4 class="font-mono text-xs text-slate-100 uppercase">{text().document}</h4>
-                  <span class="font-mono text-xxs text-slate-400">
-                    {documentAvailable() ? text().available : text().unavailable}
-                  </span>
-                </div>
-                <ul class="mt-3 space-y-2 text-xs text-slate-300/80">
-                  <For each={text().documentItems}>
-                    {(item) => <li class="rounded bg-slate-950/35 px-2 py-1.5">{item}</li>}
-                  </For>
-                </ul>
-              </section>
+          <div
+            class={`absolute right-4 bottom-4 grid w-36 grid-cols-2 gap-1.5 rounded-xl border p-2 transition duration-300 ${
+              liveVisible()
+                ? "border-blue-300/25 bg-blue-400/10 opacity-100"
+                : "border-rose-300/20 bg-rose-400/5 opacity-45"
+            }`}
+            aria-live="polite"
+          >
+            <span class="rounded-md bg-slate-950/70 px-2 py-2 text-center font-mono text-[9px] text-blue-100">
+              {liveVisible() ? text().stats : "—"}
+            </span>
+            <span class="rounded-md bg-slate-950/70 px-2 py-2 text-center font-mono text-[9px] text-violet-100">
+              {liveVisible() ? text().cursors : "—"}
+            </span>
+          </div>
 
-              <section
-                class={`rounded-lg border p-3 transition ${
-                  liveAvailable()
-                    ? "border-blue-300/25 bg-blue-300/5"
-                    : "border-rose-300/20 bg-rose-300/5 opacity-55"
-                }`}
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <h4 class="font-mono text-xs text-slate-100 uppercase">{text().live}</h4>
-                  <span class="font-mono text-xxs text-slate-400">
-                    {liveAvailable() ? text().available : text().unavailable}
-                  </span>
-                </div>
-                <ul class="mt-3 space-y-2 text-xs text-slate-300/80">
-                  <For each={text().liveItems}>
-                    {(item) => <li class="rounded bg-slate-950/35 px-2 py-1.5">{item}</li>}
-                  </For>
-                </ul>
-              </section>
-            </div>
-          </LabCard>
+          {!documentVisible() ? (
+            <span class="absolute inset-0 grid place-items-center font-mono text-xs text-rose-200/70">
+              {text().unavailable}
+            </span>
+          ) : null}
         </div>
 
-        <p
-          class="rounded-lg border border-amber-200/15 bg-amber-300/5 px-3 py-2.5 text-sm leading-relaxed text-amber-50/80"
-          aria-live="polite"
-        >
-          {text().takeaway[mode()]}
-        </p>
+        <div class="flex items-center justify-center gap-2 border-t border-slate-200/10 bg-slate-900/55 p-2">
+          <button
+            type="button"
+            onClick={() => setJavascript((value) => !value)}
+            aria-pressed={javascript()}
+            class={`rounded-full border px-3 py-1 font-mono text-xxs transition ${
+              javascript()
+                ? "border-blue-300/30 bg-blue-300/10 text-blue-100"
+                : "border-rose-300/25 text-rose-200"
+            }`}
+          >
+            {text().js} {javascript() ? "●" : "○"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStream((value) => !value)}
+            aria-pressed={stream()}
+            class={`rounded-full border px-3 py-1 font-mono text-xxs transition ${
+              stream()
+                ? "border-violet-300/30 bg-violet-300/10 text-violet-100"
+                : "border-rose-300/25 text-rose-200"
+            }`}
+          >
+            {text().stream} {stream() ? "●" : "○"}
+          </button>
+        </div>
       </div>
-    </ConceptLab>
+    </LabFrame>
   );
 }
