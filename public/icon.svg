@@ -1,11 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <style>
-    path { fill: #070b13; }
-    @media (prefers-color-scheme: dark) {
-      path { fill: #fff; }
-    }
-  </style>
-  <g transform="translate(7 26) scale(.98) translate(-393 -377)">
+  <rect width="512" height="512" rx="96" fill="#070b13" />
+  <g fill="#fff" transform="translate(47 64) scale(.82) translate(-393 -377)">
     <path d="M403 387H749c70 0 126 56 126 129 0 62-41 113-110 130l125 188h-87L631 578h118c30 0 53-25 53-61 0-34-23-60-53-60H403Z" />
     <path d="M403 577h191l50 70H403ZM403 764h312l50 70H403Z" />
   </g>
