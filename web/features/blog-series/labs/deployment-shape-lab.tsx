@@ -98,9 +98,14 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
           </span>
           <span class="min-w-0 text-right text-slate-300">
             <span class="block truncate">{text().laptop}</span>
-            <span class="block truncate text-[8px] text-slate-600">
+            <output
+              class="block truncate text-[8px] text-slate-600"
+              aria-label={`${text().container} r${String(revision()).padStart(2, "0")}`}
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {text().container} r{String(revision()).padStart(2, "0")}
-            </span>
+            </output>
           </span>
         </div>
 

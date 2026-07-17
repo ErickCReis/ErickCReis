@@ -43,7 +43,7 @@ I resisted adding join, leave, or room messages. This site has one public cursor
 
 The browser needs an identifier so other clients can distinguish its updates. Letting it choose any identifier would also let it impersonate another cursor.
 
-Instead, the [live routes](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) assign the WebSocket a cursor ID in an HTTP-only cookie during the upgrade. The cookie is strict same-site, secure in production, and unavailable to client-side JavaScript. A small `GET /live/id` endpoint lets the rendering layer learn its own ID without making the cookie itself readable.
+Instead, the [live routes](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) assign the WebSocket a cursor ID in an HTTP-only cookie during the upgrade. The cookie is strict same-site, secure in production, and unavailable to client-side JavaScript. A small `GET /live/id` endpoint returns the existing ID or, when the cookie is missing, creates an ID, stores it in the same HTTP-only cookie, and then returns it. That lets the rendering layer learn its own ID without making the cookie itself readable.
 
 Every incoming message still includes an ID, but that field is only a claim. The connection cookie is the authority. The server broadcasts a message only when its claimed ID matches the ID attached to the connection:
 

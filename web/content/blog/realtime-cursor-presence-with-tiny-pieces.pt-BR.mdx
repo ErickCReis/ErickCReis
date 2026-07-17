@@ -43,7 +43,7 @@ Resisti a adicionar mensagens para entrada, saída ou salas. O site tem uma úni
 
 O navegador precisa de um identificador para que os outros clientes diferenciem suas atualizações. Permitir que ele escolhesse qualquer identificador também abriria espaço para se passar por outro cursor.
 
-Por isso, as [rotas live](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) atribuem ao WebSocket um ID em um cookie HTTP-only durante o upgrade. O cookie usa `same-site` estrito, é seguro em produção e não pode ser acessado pelo JavaScript do cliente. Um pequeno endpoint `GET /live/id` permite que a camada de renderização descubra o próprio ID sem tornar o cookie legível.
+Por isso, as [rotas live](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) atribuem ao WebSocket um ID em um cookie HTTP-only durante o upgrade. O cookie usa `same-site` estrito, é seguro em produção e não pode ser acessado pelo JavaScript do cliente. Um pequeno endpoint `GET /live/id` retorna o ID existente ou, quando o cookie está ausente, cria um ID, armazena-o no mesmo cookie HTTP-only e então o retorna. Assim, a camada de renderização descobre o próprio ID sem tornar o cookie legível.
 
 Cada mensagem recebida ainda inclui um ID, mas esse campo é apenas uma alegação. A autoridade é o cookie da conexão. O servidor só transmite a mensagem quando o ID declarado corresponde ao ID associado à conexão:
 
@@ -54,7 +54,7 @@ message(ws, payload) {
 }
 ```
 
-Essa verificação não forma um modelo de segurança completo — posições e cores ainda são entradas públicas não confiáveis —, mas preserva a propriedade da qual a funcionalidade depende: uma conexão não pode publicar como o cursor de outra.
+Essa verificação não forma um modelo de segurança completo — posições e cores ainda são entradas públicas não confiáveis — mas preserva a propriedade da qual a funcionalidade depende: uma conexão não pode publicar como o cursor de outra.
 
 O Elysia valida o corpo da mensagem com o mesmo schema compartilhado antes de executar o handler. O [Eden Treaty](https://elysiajs.com/eden/overview.html) leva o tipo da rota do servidor até [`web/lib/api.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/api.ts), evitando a criação de um segundo protocolo manual para abrir o socket no cliente.
 

@@ -17,7 +17,7 @@ describe("resolveMemoryBoundary", () => {
     ).toEqual({ usedBytes: 640, totalBytes: 1024 });
   });
 
-  it("uses one host boundary when the cgroup has no finite limit", () => {
+  it("uses the host boundary when the cgroup has no finite limit", () => {
     expect(
       resolveMemoryBoundary({
         ...host,
@@ -27,7 +27,7 @@ describe("resolveMemoryBoundary", () => {
     ).toEqual({ usedBytes: host.hostUsedBytes, totalBytes: host.hostTotalBytes });
   });
 
-  it("uses one host boundary when cgroup usage is unavailable", () => {
+  it("uses the host boundary when cgroup usage is unavailable", () => {
     expect(
       resolveMemoryBoundary({
         ...host,
