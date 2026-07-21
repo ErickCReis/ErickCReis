@@ -35,6 +35,7 @@ function CursorMarker(props: CursorMarkerProps) {
   });
   const cursorLabel = () => props.cursor()?.id ?? "";
   const isSelf = () => cursorLabel() === props.selfId;
+  const opensToLeft = () => x() - window.scrollX > document.documentElement.clientWidth / 2;
 
   if (!props.cursor()) {
     return null;
@@ -52,7 +53,12 @@ function CursorMarker(props: CursorMarkerProps) {
       style={style()}
     >
       {!props.isStatsHovered ? (
-        <span class="absolute top-1/2 left-3 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-xxs tracking-wide uppercase">
+        <span
+          class={clsx(
+            "absolute top-1/2 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap font-mono text-xxs tracking-wide uppercase",
+            opensToLeft() ? "right-3" : "left-3",
+          )}
+        >
           <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel().slice(0, 4)}</span>
           <span class="text-slate-100/84">{position()}</span>
         </span>
