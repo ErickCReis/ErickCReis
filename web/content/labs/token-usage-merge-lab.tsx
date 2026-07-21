@@ -125,7 +125,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
       <div class="border-l border-slate-700/70 pl-4 sm:pl-6">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="font-mono text-[8px] uppercase tracking-[0.24em] text-slate-600">
+            <p class="font-mono text-xs uppercase tracking-[0.24em] text-slate-600">
               {text().mergeKey}
             </p>
             <div class="mt-1 flex items-center font-mono text-lg">
@@ -149,7 +149,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
             </div>
           </div>
           <span
-            class={`border-b pb-1 font-mono text-[9px] uppercase tracking-widest ${
+            class={`border-b pb-1 font-mono text-xs uppercase tracking-widest ${
               selectedSource()
                 ? "border-amber-300/40 text-amber-200"
                 : "border-emerald-300/40 text-emerald-200"
@@ -161,13 +161,13 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
 
         <div class="mt-7 grid gap-x-6 gap-y-5 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
           <div class="min-w-0">
-            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
               {text().existing}
             </p>
             <p class="mt-2 font-mono text-2xl tabular-nums text-slate-500">
               {selectedSource() ? format().format(selectedSource()!.totalTokens) : "∅"}
             </p>
-            <p class="mt-1 font-mono text-[9px] text-slate-700">
+            <p class="mt-1 font-mono text-xs text-slate-700">
               {selectedSource()
                 ? `${selectedSource()!.generatedHoursAgo}h · ${
                     selectedSource()!.generatedHoursAgo > STALE_AFTER_HOURS
@@ -183,14 +183,14 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
           </div>
 
           <div class="min-w-0 border-l border-sky-300/30 pl-4">
-            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-sky-300/60">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-sky-300/60">
               {text().incoming}
             </p>
             <div class="mt-2 flex items-baseline justify-between gap-3">
               <output class="font-mono text-2xl tabular-nums text-sky-100">
                 {format().format(totalTokens())}
               </output>
-              <output class="font-mono text-[9px] text-slate-500">{generatedHoursAgo()}h</output>
+              <output class="font-mono text-xs text-slate-500">{generatedHoursAgo()}h</output>
             </div>
             <label class="mt-3 block">
               <span class="sr-only">{text().tokens}</span>
@@ -204,7 +204,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
                 class="block h-1 w-full accent-sky-200"
               />
             </label>
-            <label class="mt-3 flex items-center gap-3 font-mono text-[8px] text-slate-600">
+            <label class="mt-3 flex items-center gap-3 font-mono text-xs text-slate-600">
               <span>{text().age}</span>
               <input
                 type="range"
@@ -220,8 +220,8 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
 
         <div class="mt-7 flex flex-wrap items-center justify-between gap-4 border-y border-dashed border-slate-800 py-3">
           <div class="font-mono tabular-nums">
-            <p class="text-[8px] uppercase tracking-[0.2em] text-slate-600">{text().publicSide}</p>
-            <p class="mt-1 text-xs text-slate-500">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-600">{text().publicSide}</p>
+            <p class="mt-1 text-sm text-slate-500">
               {format().format(aggregateTotal())}
               <span class="mx-2 text-slate-700">−</span>
               {format().format(selectedSource()?.totalTokens ?? 0)}
@@ -234,7 +234,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
           <button
             type="button"
             onClick={sync}
-            class="border border-sky-200/60 px-3 py-1.5 font-mono text-[9px] text-sky-100 transition-colors hover:bg-sky-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
+            class="border border-sky-200/60 px-3 py-1.5 font-mono text-xs text-sky-100 transition-colors hover:bg-sky-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
           >
             {text().apply} →
           </button>
@@ -242,7 +242,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
 
         <div class="mt-5 grid gap-5 sm:grid-cols-[1fr_auto]">
           <div>
-            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
               {text().sources}
             </p>
             <ul class="mt-2 space-y-1.5">
@@ -250,7 +250,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
                 {(item) => {
                   const stale = () => item.generatedHoursAgo > STALE_AFTER_HOURS;
                   return (
-                    <li class="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-mono text-[9px]">
+                    <li class="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-mono text-xs">
                       <span class={tones[item.provider]}>
                         {item.provider}
                         <span class="text-slate-700">/{item.sourceId}</span>
@@ -279,11 +279,11 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
             </ul>
           </div>
           <div class="sm:text-right">
-            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
               {text().freshness}
             </p>
             <p
-              class={`mt-2 font-mono text-[9px] ${
+              class={`mt-2 font-mono text-xs ${
                 aggregateFresh() ? "text-emerald-200" : "text-amber-200"
               }`}
             >
@@ -293,7 +293,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
         </div>
 
         <output
-          class="mt-5 block min-h-4 text-[11px] leading-relaxed text-slate-400"
+          class="mt-5 block min-h-4 text-sm leading-relaxed text-slate-400"
           aria-live="polite"
         >
           {message()}
@@ -301,13 +301,11 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
           {maskedStale() ? text().blind(maskedStale()) : ""}
         </output>
         <div class="mt-2 flex items-start justify-between gap-4 border-t border-slate-800/70 pt-3">
-          <p class="max-w-md font-mono text-[8px] leading-relaxed text-slate-600">
-            {text().boundary}
-          </p>
+          <p class="max-w-md font-mono text-xs leading-relaxed text-slate-600">{text().boundary}</p>
           <button
             type="button"
             onClick={reset}
-            class="font-mono text-[8px] text-slate-700 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+            class="font-mono text-xs text-slate-700 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
           >
             {text().reset}
           </button>

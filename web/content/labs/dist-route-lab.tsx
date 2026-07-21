@@ -85,7 +85,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
   }
 
   const controlClass =
-    "font-mono text-[9px] text-slate-600 transition-colors hover:text-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none";
+    "font-mono text-xs text-slate-600 transition-colors hover:text-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none";
 
   return (
     <section
@@ -95,17 +95,17 @@ export function DistRouteLab(props: DistRouteLabProps) {
     >
       <div class="border-y border-white/10 py-4">
         <div class="flex min-w-0 items-center gap-3 font-mono">
-          <span class="shrink-0 text-[10px] text-emerald-200">dist/</span>
+          <span class="shrink-0 text-xs text-emerald-200">dist/</span>
           <span class="h-px min-w-4 flex-1 bg-white/10" aria-hidden="true" />
-          <span class="text-[8px] text-slate-700">{files().length}</span>
-          <span class="text-[9px] text-slate-600">→</span>
-          <span class="text-[8px] text-slate-700">{manifest().length}</span>
-          <span class="text-[9px] text-slate-600">→</span>
+          <span class="text-xs text-slate-700">{files().length}</span>
+          <span class="text-xs text-slate-600">→</span>
+          <span class="text-xs text-slate-700">{manifest().length}</span>
+          <span class="text-xs text-slate-600">→</span>
           <span
             class={`size-1.5 shrink-0 ${buildPasses() ? "bg-emerald-200" : "bg-rose-300"}`}
             aria-hidden="true"
           />
-          <span class={buildPasses() ? "text-[9px] text-emerald-200" : "text-[9px] text-rose-200"}>
+          <span class={buildPasses() ? "text-xs text-emerald-200" : "text-xs text-rose-200"}>
             {text().build} {buildPasses() ? text().passes : text().stopped}
           </span>
         </div>
@@ -121,7 +121,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
             type="button"
             onClick={toggleCollision}
             aria-pressed={files().includes(conflictFile)}
-            class={`font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-rose-200 motion-reduce:transition-none ${
+            class={`font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-rose-200 motion-reduce:transition-none ${
               files().includes(conflictFile)
                 ? "text-rose-200 underline decoration-rose-300/40 underline-offset-4"
                 : "text-slate-600 hover:text-rose-200"
@@ -132,7 +132,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
           <button
             type="button"
             onClick={reset}
-            class="ml-auto font-mono text-[9px] text-slate-700 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-300 motion-reduce:transition-none"
+            class="ml-auto font-mono text-xs text-slate-700 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-300 motion-reduce:transition-none"
           >
             {text().reset}
           </button>
@@ -157,11 +157,11 @@ export function DistRouteLab(props: DistRouteLabProps) {
                         : "border-white/[0.06] hover:border-white/15"
                   }`}
                 >
-                  <span class="pt-px text-[8px] tabular-nums text-slate-800">
+                  <span class="pt-px text-xs tabular-nums text-slate-800">
                     {String(index() + 1).padStart(2, "0")}
                   </span>
                   <span
-                    class={`min-w-0 truncate text-[10px] ${
+                    class={`min-w-0 truncate text-xs ${
                       hasCollision()
                         ? "text-rose-200"
                         : isSelected()
@@ -171,7 +171,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
                   >
                     {route.routePath}
                   </span>
-                  <span class="min-w-0 space-y-1 text-[9px]">
+                  <span class="min-w-0 space-y-1 text-xs">
                     <For each={route.owners}>
                       {(owner) => (
                         <span
@@ -195,13 +195,13 @@ export function DistRouteLab(props: DistRouteLabProps) {
 
         <Show when={!buildPasses()}>
           <div class="mt-4 border-l border-rose-300/40 pl-3">
-            <p class="font-mono text-[10px] text-rose-200">{text().duplicate}</p>
-            <p class="mt-1 text-xs leading-relaxed text-slate-500">{text().noBinary}</p>
+            <p class="font-mono text-xs text-rose-200">{text().duplicate}</p>
+            <p class="mt-1 text-sm leading-relaxed text-slate-500">{text().noBinary}</p>
           </div>
         </Show>
 
         <output
-          class={`mt-5 block min-h-10 border-t pt-3 font-mono text-[9px] leading-relaxed ${
+          class={`mt-5 block min-h-10 border-t pt-3 font-mono text-xs leading-relaxed ${
             buildPasses()
               ? "border-cyan-200/15 text-slate-500"
               : "border-white/[0.06] text-slate-700"

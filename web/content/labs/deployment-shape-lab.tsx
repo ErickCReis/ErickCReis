@@ -44,7 +44,7 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
       data-concept-lab="deployment-shape"
     >
       <div class="border-l border-white/10 py-1 pl-4 sm:pl-6">
-        <p class="mb-5 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-600">
+        <p class="mb-5 font-mono text-xs uppercase tracking-[0.22em] text-slate-600">
           {text().label}
         </p>
 
@@ -53,7 +53,7 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
             type="button"
             onClick={() => setPath("request")}
             aria-pressed={path() === "request"}
-            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-[9px] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none ${
+            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-xs transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none ${
               path() === "request" ? "opacity-100" : "opacity-35 hover:opacity-70"
             }`}
           >
@@ -74,7 +74,7 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
             type="button"
             onClick={deployNext}
             aria-pressed={path() === "deploy"}
-            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-[9px] transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-200 motion-reduce:transition-none ${
+            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-xs transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-200 motion-reduce:transition-none ${
               path() === "deploy" ? "opacity-100" : "opacity-35 hover:opacity-70"
             }`}
           >
@@ -92,7 +92,7 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
           </button>
         </div>
 
-        <div class="ml-auto mt-1 w-[min(100%,16rem)] font-mono text-[9px]">
+        <div class="ml-auto mt-1 w-[min(100%,16rem)] font-mono text-xs">
           <div class="border-t border-white/15 pt-3 text-right">
             <span class="text-slate-300">{text().laptop}</span>
             <output
@@ -108,13 +108,13 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
             <span class="mr-3 w-px bg-amber-200/40" aria-hidden="true" />
             <div class="pt-3 text-right">
               <span class="block text-amber-200/80">{text().data}</span>
-              <span class="block text-[8px] text-slate-600">{text().survived(revision() - 1)}</span>
+              <span class="block text-xs text-slate-600">{text().survived(revision() - 1)}</span>
             </div>
           </div>
         </div>
 
         <output
-          class="mt-6 block max-w-md text-xs leading-relaxed text-slate-400"
+          class="mt-6 block max-w-md text-sm leading-relaxed text-slate-400"
           aria-live="polite"
           aria-atomic="true"
         >

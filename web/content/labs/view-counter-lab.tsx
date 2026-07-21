@@ -93,7 +93,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
   }
 
   const browserClass = (active: boolean) =>
-    `flex size-9 items-center justify-center border font-mono text-[10px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-200 motion-reduce:transition-none ${
+    `flex size-9 items-center justify-center border font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-200 motion-reduce:transition-none ${
       active
         ? "border-fuchsia-200 bg-fuchsia-200 text-slate-950"
         : "border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-200"
@@ -108,7 +108,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
       <div class="border-y border-white/10 py-5">
         <div class="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
           <div>
-            <p class="mb-2 font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+            <p class="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
               {text().browser}
             </p>
             <div class="flex gap-2">
@@ -136,7 +136,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
                   type="button"
                   onClick={toggleVisibility}
                   aria-pressed={visible()}
-                  class="mt-2 flex items-center gap-2 font-mono text-[8px] uppercase tracking-widest text-slate-500 hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-fuchsia-200"
+                  class="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-slate-500 hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-fuchsia-200"
                 >
                   <span
                     class={`size-1.5 ${visible() ? "bg-emerald-300" : "bg-amber-200"}`}
@@ -147,7 +147,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
               </div>
               <p class="text-right font-mono text-4xl leading-none tabular-nums text-fuchsia-200">
                 {total()}
-                <span class="mt-1 block text-[8px] uppercase tracking-widest text-slate-600">
+                <span class="mt-1 block text-xs uppercase tracking-widest text-slate-600">
                   {text().views}
                 </span>
               </p>
@@ -157,7 +157,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
               type="button"
               onClick={read}
               disabled={result() === "waiting"}
-              class="mt-6 w-full border border-fuchsia-200/50 py-2.5 font-mono text-[9px] uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:bg-fuchsia-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-100 disabled:cursor-wait disabled:border-amber-200/50 disabled:text-amber-100 motion-reduce:transition-none"
+              class="mt-6 w-full border border-fuchsia-200/50 py-2.5 font-mono text-xs uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:bg-fuchsia-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-100 disabled:cursor-wait disabled:border-amber-200/50 disabled:text-amber-100 motion-reduce:transition-none"
             >
               {result() === "waiting" ? text().queued : text().read}
             </button>
@@ -177,7 +177,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
                       result() === "waiting" && index() > 0 ? "bg-slate-700" : "bg-fuchsia-200"
                     }`}
                   />
-                  <span class="block truncate font-mono text-[8px] text-slate-500">{step}</span>
+                  <span class="block truncate font-mono text-xs text-slate-500">{step}</span>
                 </div>
                 <Show when={index() < 2}>
                   <span class="h-px w-4 bg-white/10" />
@@ -188,14 +188,14 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
         </div>
 
         <output
-          class="mt-4 block text-center text-xs leading-relaxed text-slate-400"
+          class="mt-4 block text-center text-sm leading-relaxed text-slate-400"
           aria-live="polite"
         >
           {text().results[result()]}
         </output>
 
         <div class="mt-5 flex items-end justify-between gap-4 border-t border-white/10 pt-3">
-          <div class="min-h-5 font-mono text-[8px]">
+          <div class="min-h-5 font-mono text-xs">
             <Show when={recent().length > 0} fallback={<span class="text-slate-700">24h —</span>}>
               <For each={recent()}>
                 {(row) => {
@@ -219,14 +219,14 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
             <button
               type="button"
               onClick={() => setClock((value) => value + 25)}
-              class="font-mono text-[8px] text-slate-500 hover:text-amber-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+              class="font-mono text-xs text-slate-500 hover:text-amber-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
             >
               {text().advance}
             </button>
             <button
               type="button"
               onClick={reset}
-              class="font-mono text-[8px] text-slate-600 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+              class="font-mono text-xs text-slate-600 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
             >
               {text().reset}
             </button>

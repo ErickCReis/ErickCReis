@@ -51,14 +51,14 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
   const outcome = createMemo(() => text().outcomes[architecture()][fault()]);
 
   const architectureClass = (active: boolean) =>
-    `border-b py-1 font-mono text-[10px] tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 motion-reduce:transition-none ${
+    `border-b py-1 font-mono text-xs tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 motion-reduce:transition-none ${
       active
         ? "border-cyan-200 text-cyan-100"
         : "border-transparent text-slate-600 hover:text-slate-300"
     }`;
 
   const faultClass = (active: boolean) =>
-    `group flex items-center gap-2 py-1 font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 motion-reduce:transition-none ${
+    `group flex items-center gap-2 py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 motion-reduce:transition-none ${
       active ? "text-slate-200" : "text-slate-600 hover:text-slate-300"
     }`;
 
@@ -127,7 +127,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
             aria-hidden="true"
           />
           <span
-            class="absolute -top-1 left-5 bg-slate-950 px-2 font-mono text-[8px] uppercase tracking-[0.2em] text-cyan-200/60"
+            class="absolute -top-1 left-5 bg-slate-950 px-2 font-mono text-xs uppercase tracking-[0.2em] text-cyan-200/60"
             aria-hidden="true"
           >
             {text().architectures.client}
@@ -144,7 +144,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                 aria-hidden="true"
               />
               <p
-                class={`font-mono text-[9px] ${documentReady() ? "text-emerald-200/70" : "text-rose-200/70"}`}
+                class={`font-mono text-xs ${documentReady() ? "text-emerald-200/70" : "text-rose-200/70"}`}
               >
                 {text().document}
               </p>
@@ -153,7 +153,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
             <Show
               when={documentReady()}
               fallback={
-                <p class="mt-5 max-w-52 text-xs leading-relaxed text-rose-200/70">
+                <p class="mt-5 max-w-52 text-sm leading-relaxed text-rose-200/70">
                   {text().waiting}
                 </p>
               }
@@ -175,7 +175,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                 aria-hidden="true"
               />
               <span
-                class="absolute -left-1 -top-4 bg-slate-950 px-1 font-mono text-[8px] text-cyan-200/50 sm:-left-2 sm:-top-5"
+                class="absolute -left-1 -top-4 bg-slate-950 px-1 font-mono text-xs text-cyan-200/50 sm:-left-2 sm:-top-5"
                 aria-hidden="true"
               >
                 {text().island}
@@ -191,7 +191,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                       class="block h-px w-5 border-t border-dashed border-slate-700"
                       aria-hidden="true"
                     />
-                    <p class="font-mono text-[9px]">{text().absent}</p>
+                    <p class="font-mono text-xs">{text().absent}</p>
                   </div>
                 }
               >
@@ -200,7 +200,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
                   aria-hidden="true"
                 />
                 <p
-                  class={`font-mono text-[10px] leading-relaxed ${streamReady() ? "text-slate-300" : "text-amber-200/70"}`}
+                  class={`font-mono text-xs leading-relaxed ${streamReady() ? "text-slate-300" : "text-amber-200/70"}`}
                 >
                   {streamReady() ? text().live : text().offline}
                 </p>
@@ -211,7 +211,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
       </div>
 
       <output
-        class="mt-6 block border-b border-white/10 pb-4 text-sm leading-relaxed text-slate-400"
+        class="mt-6 block border-b border-white/10 pb-4 text-base leading-relaxed text-slate-400"
         aria-live="polite"
         aria-atomic="true"
       >

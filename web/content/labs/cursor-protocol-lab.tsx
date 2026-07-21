@@ -115,7 +115,7 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
   }
 
   const gateClass = (open: boolean, failed: boolean) =>
-    `group flex min-w-24 items-center gap-2 rounded-md px-2 py-2 text-left font-mono text-[9px] leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200 motion-reduce:transition-none ${
+    `group flex min-w-24 items-center gap-2 rounded-md px-2 py-2 text-left font-mono text-xs leading-tight transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-200 motion-reduce:transition-none ${
       failed
         ? "bg-rose-400/10 text-rose-200"
         : open
@@ -130,7 +130,7 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
       data-concept-lab="cursor-protocol"
     >
       <div class="border-y border-white/10 py-4">
-        <div class="mb-3 flex items-center justify-between gap-3 font-mono text-[8px] uppercase tracking-[0.16em] text-slate-600">
+        <div class="mb-3 flex items-center justify-between gap-3 font-mono text-xs uppercase tracking-[0.16em] text-slate-600">
           <span>50 ms</span>
           <button
             type="button"
@@ -162,21 +162,21 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
             role="group"
             aria-label={text().move}
           >
-            <span class="absolute top-2.5 left-3 font-mono text-[8px] uppercase tracking-[0.14em] text-sky-200/45">
+            <span class="absolute top-2.5 left-3 font-mono text-xs uppercase tracking-[0.14em] text-sky-200/45">
               {text().viewport}
             </span>
-            <span class="absolute right-3 bottom-2.5 font-mono text-[8px] text-slate-600">
+            <span class="absolute right-3 bottom-2.5 font-mono text-xs text-slate-600">
               {text().hint}
             </span>
             <span
               class="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_0_4px_rgba(125,211,252,0.08)]"
               style={{ left: `${local().x}%`, top: `${local().y}%` }}
             >
-              <span class="absolute top-2 left-2 whitespace-nowrap font-mono text-[8px] text-sky-200">
+              <span class="absolute top-2 left-2 whitespace-nowrap font-mono text-xs text-sky-200">
                 {text().you}
               </span>
             </span>
-            <code class="absolute top-2.5 right-3 font-mono text-[8px] text-sky-100/55">
+            <code class="absolute top-2.5 right-3 font-mono text-xs text-sky-100/55">
               {Math.round((local().x / 100) * DOCUMENT_WIDTH)},
               {Math.round((local().y / 100) * VIEWPORT_HEIGHT)}
             </code>
@@ -215,10 +215,10 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
           </div>
 
           <div class="relative h-48 overflow-hidden rounded-sm bg-violet-300/[0.025] ring-1 ring-inset ring-violet-200/10">
-            <span class="absolute top-2.5 left-3 z-10 font-mono text-[8px] uppercase tracking-[0.14em] text-violet-200/45">
+            <span class="absolute top-2.5 left-3 z-10 font-mono text-xs uppercase tracking-[0.14em] text-violet-200/45">
               {text().document}
             </span>
-            <span class="absolute right-2 bottom-2 z-10 font-mono text-[8px] text-slate-600">
+            <span class="absolute right-2 bottom-2 z-10 font-mono text-xs text-slate-600">
               2400px
             </span>
             <span
@@ -238,7 +238,7 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
                     top: `${(point().documentY / DOCUMENT_HEIGHT) * 100}%`,
                   }}
                 >
-                  <span class="absolute top-2 left-2 -rotate-45 whitespace-nowrap font-mono text-[8px] text-violet-200">
+                  <span class="absolute top-2 left-2 -rotate-45 whitespace-nowrap font-mono text-xs text-violet-200">
                     {text().peer}
                   </span>
                 </span>
@@ -247,7 +247,7 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
           </div>
         </div>
 
-        <label class="mt-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 font-mono text-[9px] text-slate-500">
+        <label class="mt-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 font-mono text-xs text-slate-500">
           <span>{text().scroll}</span>
           <input
             type="range"
@@ -265,10 +265,10 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
         </label>
 
         <div class="mt-3 flex items-baseline justify-between gap-3 border-t border-white/[0.06] pt-3">
-          <output class="text-xs text-slate-400" aria-live="polite">
+          <output class="text-sm text-slate-400" aria-live="polite">
             {text().states[state()]}
           </output>
-          <code class="shrink-0 font-mono text-[8px] tabular-nums text-slate-600">
+          <code class="shrink-0 font-mono text-xs tabular-nums text-slate-600">
             x:{documentPoint().x} y:{documentPoint().y}
           </code>
         </div>

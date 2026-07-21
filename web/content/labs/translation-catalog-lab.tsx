@@ -84,7 +84,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
   }
 
   const tabClass = (active: boolean) =>
-    `border-b px-0.5 pb-1 font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 ${
+    `border-b px-0.5 pb-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-200 ${
       active
         ? "border-cyan-200 text-cyan-100"
         : "border-transparent text-slate-600 hover:text-slate-300"
@@ -113,7 +113,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
           <button
             type="button"
             onClick={() => reset()}
-            class="ml-auto font-mono text-[9px] text-slate-700 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-300"
+            class="ml-auto font-mono text-xs text-slate-700 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-300"
           >
             {text().reset}
           </button>
@@ -123,14 +123,12 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
           <span class="absolute -left-[1.85rem] top-1.5 size-2 rounded-full bg-emerald-200 ring-4 ring-slate-950 sm:-left-[2.35rem]" />
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
-              <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-700">
+              <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-700">
                 01 · {text().collect}
               </p>
-              <code class="mt-2 block truncate font-mono text-[11px] text-emerald-100">
-                {call()}
-              </code>
+              <code class="mt-2 block truncate font-mono text-sm text-emerald-100">{call()}</code>
             </div>
-            <code class="mt-5 shrink-0 font-mono text-[8px] text-slate-600">
+            <code class="mt-5 shrink-0 font-mono text-xs text-slate-600">
               {expression() === "dynamic" ? "key / unknown" : hash}
             </code>
           </div>
@@ -142,11 +140,11 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
               discovered() ? "bg-violet-200" : "bg-slate-800"
             }`}
           />
-          <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-700">
+          <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-700">
             02 · {text().catalog} / pt-BR.ts
           </p>
           <div class="mt-2 flex min-h-7 min-w-0 items-center gap-2 border-b border-white/10 pb-2">
-            <code class="min-w-0 truncate font-mono text-[10px] text-violet-100">
+            <code class="min-w-0 truncate font-mono text-xs text-violet-100">
               {expression() === "dynamic"
                 ? "// no entry"
                 : discovered()
@@ -159,7 +157,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
                 onInput={(event) => setDraft(event.currentTarget.value)}
                 aria-label={text().override}
                 placeholder={text().placeholder}
-                class="min-w-0 flex-1 bg-transparent font-mono text-[10px] text-slate-200 outline-none placeholder:text-slate-700"
+                class="min-w-0 flex-1 bg-transparent font-mono text-xs text-slate-200 outline-none placeholder:text-slate-700"
               />
             </Show>
           </div>
@@ -169,12 +167,12 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
           <button
             type="button"
             onClick={build}
-            class="font-mono text-[9px] text-cyan-100 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-100"
+            class="font-mono text-xs text-cyan-100 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cyan-100"
           >
             {text().build} →
           </button>
           <span class="h-px flex-1 bg-white/10" aria-hidden="true" />
-          <span class="font-mono text-[8px] text-slate-700">#{builds()}</span>
+          <span class="font-mono text-xs text-slate-700">#{builds()}</span>
         </div>
 
         <div class="relative">
@@ -184,7 +182,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
             }`}
           />
           <div class="flex flex-wrap items-start justify-between gap-3">
-            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-700">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-700">
               03 · {text().bundle}
             </p>
             <div class="flex gap-3">
@@ -203,13 +201,13 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
             </div>
           </div>
           <div class="mt-4 flex items-baseline justify-between gap-4">
-            <span class="font-mono text-[8px] text-slate-700">{text().preview}</span>
+            <span class="font-mono text-xs text-slate-700">{text().preview}</span>
             <output class="text-base text-slate-100">{output()}</output>
           </div>
         </div>
 
         <output
-          class="mt-7 block max-w-md text-[11px] leading-relaxed text-slate-500"
+          class="mt-7 block max-w-md text-sm leading-relaxed text-slate-500"
           aria-live="polite"
         >
           {message()}

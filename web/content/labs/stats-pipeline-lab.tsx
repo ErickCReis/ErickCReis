@@ -158,7 +158,7 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
     >
       <div class="border-y border-white/10 py-5">
         <div
-          class="flex items-center gap-2 overflow-hidden text-[9px] tracking-[0.12em] text-slate-500 uppercase"
+          class="flex items-center gap-2 overflow-hidden text-xs tracking-[0.12em] text-slate-500 uppercase"
           aria-hidden="true"
         >
           <span>{text().pipeline[0]}</span>
@@ -185,12 +185,12 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
                   <span class={`size-1.5 shrink-0 rounded-full ${colors[id]}`} aria-hidden="true" />
                   <span class="min-w-0">
                     <span class="flex items-baseline gap-2">
-                      <span class="truncate text-[11px] text-slate-200">{text().modules[id]}</span>
-                      <span class="truncate text-[9px] text-slate-600 transition-colors group-hover:text-slate-400">
+                      <span class="truncate text-sm text-slate-200">{text().modules[id]}</span>
+                      <span class="truncate text-xs text-slate-600 transition-colors group-hover:text-slate-400">
                         + {text().mutate[id]}
                       </span>
                     </span>
-                    <span class="mt-1 flex items-center gap-1.5 text-[8px] text-slate-600">
+                    <span class="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
                       <span>
                         {text().emitted} v{lastSeen()[id]}
                       </span>
@@ -201,7 +201,7 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
                     </span>
                   </span>
                 </span>
-                <span class="text-right text-sm tabular-nums text-slate-300">
+                <span class="text-right text-base tabular-nums text-slate-300">
                   {displayValue(id, modules()[id].value)}
                 </span>
               </button>
@@ -214,11 +214,11 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
           <button
             type="button"
             onClick={scan}
-            class="shrink-0 rounded-sm border border-amber-200/50 px-3 py-1.5 text-[9px] text-amber-100 transition-colors hover:bg-amber-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
+            class="shrink-0 rounded-sm border border-amber-200/50 px-3 py-1.5 text-xs text-amber-100 transition-colors hover:bg-amber-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
           >
             {text().scan}
             <Show when={pendingChanges()}>
-              <span class="ml-2 rounded-sm bg-amber-200 px-1 text-[8px] text-slate-950">
+              <span class="ml-2 rounded-sm bg-amber-200 px-1 text-xs text-slate-950">
                 {pendingChanges()}
               </span>
             </Show>
@@ -227,14 +227,14 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
         </div>
 
         <div class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          <span class="pt-px text-[8px] tracking-[0.12em] text-slate-600 uppercase">
+          <span class="pt-px text-xs tracking-[0.12em] text-slate-600 uppercase">
             {text().eventStream}
           </span>
           <Show
             when={packets().length > 0}
-            fallback={<span class="text-[9px] text-slate-700">—</span>}
+            fallback={<span class="text-xs text-slate-700">—</span>}
           >
-            <ul class="space-y-1.5 text-[9px]">
+            <ul class="space-y-1.5 text-xs">
               <For each={packets()}>
                 {(packet) => (
                   <li class="flex min-w-0 items-center gap-2">
@@ -248,16 +248,13 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
         </div>
 
         <div class="mt-5 flex items-end justify-between gap-4 border-t border-white/[0.06] pt-3">
-          <output
-            class="block max-w-sm text-[10px] leading-relaxed text-slate-400"
-            aria-live="polite"
-          >
+          <output class="block max-w-sm text-xs leading-relaxed text-slate-400" aria-live="polite">
             {message()}
           </output>
           <button
             type="button"
             onClick={reconnect}
-            class="shrink-0 text-[9px] text-slate-600 underline decoration-white/10 underline-offset-4 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+            class="shrink-0 text-xs text-slate-600 underline decoration-white/10 underline-offset-4 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
           >
             {text().reconnect}
           </button>

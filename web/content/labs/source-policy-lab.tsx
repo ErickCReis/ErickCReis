@@ -47,7 +47,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
   });
 
   const choiceClass = (active: boolean, tone: "green" | "blue") =>
-    `border-b py-1 font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 motion-reduce:transition-none ${
+    `border-b py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 motion-reduce:transition-none ${
       tone === "green" ? "focus-visible:outline-emerald-200" : "focus-visible:outline-sky-200"
     } ${
       active
@@ -68,7 +68,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
 
         <div class="grid items-start gap-x-8 gap-y-3 sm:grid-cols-[8.5rem_1fr]">
           <div>
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-200">
+            <p class="font-mono text-xs uppercase tracking-[0.18em] text-emerald-200">
               {text().spotify}
             </p>
             <div class="mt-2 flex flex-wrap gap-x-3" role="group" aria-label={text().spotify}>
@@ -110,7 +110,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
               </For>
             </div>
             <output
-              class="mt-2 block min-h-5 text-xs leading-relaxed text-slate-300"
+              class="mt-2 block min-h-5 text-sm leading-relaxed text-slate-300"
               aria-live="polite"
             >
               {text().spotifyResults[spotifyState()]}
@@ -123,7 +123,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
         <div class="absolute bottom-0 left-0 top-20 w-px bg-sky-300" aria-hidden="true" />
         <div class="grid items-start gap-x-8 gap-y-4 sm:grid-cols-[8.5rem_1fr]">
           <div>
-            <p class="font-mono text-[10px] uppercase tracking-[0.18em] text-sky-200">
+            <p class="font-mono text-xs uppercase tracking-[0.18em] text-sky-200">
               {text().github}
             </p>
             <div class="mt-2 flex gap-x-3" role="group" aria-label={text().github}>
@@ -143,7 +143,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
           </div>
 
           <div class="min-w-0">
-            <label class="block font-mono text-[9px] text-slate-500">
+            <label class="block font-mono text-xs text-slate-500">
               <span class="flex items-baseline justify-between gap-4">
                 <span>{text().cache}</span>
                 <output class={cacheFresh() ? "text-sky-200" : "text-amber-200"}>
@@ -163,7 +163,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
                   aria-hidden="true"
                 />
                 <span
-                  class="absolute top-0.5 -translate-x-1/2 font-mono text-[7px] text-slate-600"
+                  class="absolute top-0.5 -translate-x-1/2 font-mono text-xs text-slate-600"
                   style={{ left: `${30 / 0.45}%` }}
                   aria-hidden="true"
                 >
@@ -187,7 +187,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
               </span>
             </label>
             <output
-              class="mt-1 block min-h-5 text-xs leading-relaxed text-slate-300"
+              class="mt-1 block min-h-5 text-sm leading-relaxed text-slate-300"
               aria-live="polite"
             >
               {githubResult()}
@@ -197,10 +197,10 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
 
         <div class="mt-7 grid grid-cols-[1fr_auto_1fr] items-center gap-3" aria-hidden="true">
           <span class="h-px bg-gradient-to-r from-emerald-300/10 to-emerald-300/70" />
-          <span class="font-mono text-[9px] text-slate-600">+</span>
+          <span class="font-mono text-xs text-slate-600">+</span>
           <span class="h-px bg-gradient-to-l from-sky-300/10 to-sky-300/70" />
         </div>
-        <p class="mt-2 text-center font-mono text-[9px] leading-relaxed text-slate-500">
+        <p class="mt-2 text-center font-mono text-xs leading-relaxed text-slate-500">
           <span class="text-slate-700">{text().next} / </span>
           {text().contract}
         </p>

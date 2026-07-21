@@ -85,12 +85,12 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
 
   const selectedIndex = createMemo(() => scopes.indexOf(scope()));
   const selectClass = (choice: Scope) =>
-    `group relative min-w-0 pt-4 text-left font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-200 motion-reduce:transition-none ${
+    `group relative min-w-0 pt-4 text-left font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-200 motion-reduce:transition-none ${
       scope() === choice ? tones[choice] : "text-slate-600 hover:text-slate-300"
     }`;
 
   const controlClass = (choice: Scope) =>
-    `rounded-sm px-1 py-0.5 font-mono text-[9px] ${tones[choice]} underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current motion-reduce:transition-none`;
+    `rounded-sm px-1 py-0.5 font-mono text-xs ${tones[choice]} underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current motion-reduce:transition-none`;
 
   return (
     <section
@@ -100,10 +100,10 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
     >
       <div class="border-y border-white/10 py-5 sm:py-6">
         <div class="flex items-baseline justify-between gap-4">
-          <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500">
+          <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
             {text().position}
           </p>
-          <span class="font-mono text-[9px] tabular-nums text-slate-700" aria-hidden="true">
+          <span class="font-mono text-xs tabular-nums text-slate-700" aria-hidden="true">
             0{selectedIndex() + 1} / 04
           </span>
         </div>
@@ -139,10 +139,10 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
 
         <div class="mt-8 grid items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div>
-            <p class="font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">
+            <p class="font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
               {text().reading} · {text().scopes[scope()]}
             </p>
-            <p class="mt-2 max-w-md text-sm leading-relaxed text-slate-300">
+            <p class="mt-2 max-w-md text-base leading-relaxed text-slate-300">
               {text().questions[scope()]}
             </p>
           </div>
@@ -153,14 +153,14 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
             {value()}
           </output>
         </div>
-        <code class="mt-3 block overflow-x-auto whitespace-nowrap font-mono text-[9px] text-slate-600">
+        <code class="mt-3 block overflow-x-auto whitespace-nowrap font-mono text-xs text-slate-600">
           {evidence()}
         </code>
 
         <div class="mt-6 min-h-6 border-l border-white/10 pl-3">
           <Show when={scope() === "process"}>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <label class="flex min-w-48 flex-1 items-center gap-3 font-mono text-[9px] text-slate-500">
+              <label class="flex min-w-48 flex-1 items-center gap-3 font-mono text-xs text-slate-500">
                 <span class="shrink-0">{text().cpu}</span>
                 <input
                   type="range"
@@ -188,7 +188,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
 
           <Show when={scope() === "cgroup"}>
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <label class="flex min-w-48 flex-1 items-center gap-3 font-mono text-[9px] text-slate-500">
+              <label class="flex min-w-48 flex-1 items-center gap-3 font-mono text-xs text-slate-500">
                 <span class="shrink-0">{text().memory}</span>
                 <input
                   type="range"
@@ -228,7 +228,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
 
           <Show when={scope() === "outside"}>
             <div class="flex flex-wrap items-center justify-between gap-3">
-              <span class="font-mono text-[9px] text-slate-600">{text().processUp}</span>
+              <span class="font-mono text-xs text-slate-600">{text().processUp}</span>
               <button
                 type="button"
                 role="switch"
@@ -242,7 +242,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
           </Show>
         </div>
 
-        <p class="mt-6 flex gap-2 text-[10px] leading-relaxed text-slate-500">
+        <p class="mt-6 flex gap-2 text-xs leading-relaxed text-slate-500">
           <span class="shrink-0 font-mono uppercase tracking-wider text-slate-700">
             {text().cannotTell}
           </span>
