@@ -1,43 +1,25 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { LabFrame } from "@web/features/blog-series/components/lab-frame";
-import { selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
+import { resolveLocale, t, type Locale } from "virtual:translate";
 
-type DistRouteLabProps = { locale?: LabLocale };
-
-const copy = {
-  "en-US": {
-    label: "Build-time static route compiler",
-    addAsset: "+ asset",
-    addPage: "+ HTML page",
-    collide: "toggle collision",
-    reset: "reset",
-    build: "build",
-    passes: "passes",
-    stopped: "stopped",
-    duplicate: "duplicate /about owner",
-    noBinary: "No binary is emitted until every route has one owner.",
-    request: "request",
-    served: "served from",
-    cache: "cache",
-    empty: "Choose a route.",
-  },
-  "pt-BR": {
-    label: "Compilador de rotas estáticas em tempo de build",
-    addAsset: "+ asset",
-    addPage: "+ página HTML",
-    collide: "alternar conflito",
-    reset: "reiniciar",
-    build: "build",
-    passes: "aprovado",
-    stopped: "interrompido",
-    duplicate: "proprietário duplicado em /about",
-    noBinary: "Nenhum binário é emitido enquanto uma rota tiver mais de um proprietário.",
-    request: "requisição",
-    served: "servida por",
-    cache: "cache",
-    empty: "Escolha uma rota.",
-  },
-} as const;
+type DistRouteLabProps = { locale?: Locale };
+function getCopy(locale: Locale) {
+  return {
+    label: t(locale, "Build-time static route compiler"),
+    addAsset: t(locale, "+ asset"),
+    addPage: t(locale, "+ HTML page"),
+    collide: t(locale, "toggle collision"),
+    reset: t(locale, "reset"),
+    build: t(locale, "build"),
+    passes: t(locale, "passes"),
+    stopped: t(locale, "stopped"),
+    duplicate: t(locale, "duplicate /about owner"),
+    noBinary: t(locale, "No binary is emitted until every route has one owner."),
+    request: t(locale, "request"),
+    served: t(locale, "served from"),
+    cache: t(locale, "cache"),
+    empty: t(locale, "Choose a route."),
+  };
+}
 
 const initialFiles = ["index.html", "content/index.html", "about.html", "_astro/app.A1B2.js"];
 const conflictFile = "about/index.html";
@@ -64,7 +46,7 @@ function cacheFor(routePath: string, file: string) {
 }
 
 export function DistRouteLab(props: DistRouteLabProps) {
-  const text = () => selectLabCopy(props.locale, copy);
+  const text = createMemo(() => getCopy(resolveLocale(props.locale)));
   const [files, setFiles] = createSignal([...initialFiles]);
   const [selectedRoute, setSelectedRoute] = createSignal("/content/");
 
@@ -102,32 +84,47 @@ export function DistRouteLab(props: DistRouteLabProps) {
     setSelectedRoute("/content/");
   }
 
+  const controlClass =
+    "font-mono text-[9px] text-slate-600 transition-colors hover:text-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none";
+
   return (
-    <LabFrame id="dist-route-table" label={text().label} class="mx-auto max-w-2xl">
+    <section
+      class="not-prose my-10 mx-auto max-w-2xl"
+      aria-label={text().label}
+      data-concept-lab="dist-route-table"
+    >
       <div class="border-y border-white/10 py-4">
-        <div class="flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            onClick={() => add("assets/avatar.webp")}
-            class="rounded-full px-2.5 py-1.5 font-mono text-[9px] text-slate-500 hover:text-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-          >
+        <div class="flex min-w-0 items-center gap-3 font-mono">
+          <span class="shrink-0 text-[10px] text-emerald-200">dist/</span>
+          <span class="h-px min-w-4 flex-1 bg-white/10" aria-hidden="true" />
+          <span class="text-[8px] text-slate-700">{files().length}</span>
+          <span class="text-[9px] text-slate-600">→</span>
+          <span class="text-[8px] text-slate-700">{manifest().length}</span>
+          <span class="text-[9px] text-slate-600">→</span>
+          <span
+            class={`size-1.5 shrink-0 ${buildPasses() ? "bg-emerald-200" : "bg-rose-300"}`}
+            aria-hidden="true"
+          />
+          <span class={buildPasses() ? "text-[9px] text-emerald-200" : "text-[9px] text-rose-200"}>
+            {text().build} {buildPasses() ? text().passes : text().stopped}
+          </span>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" onClick={() => add("assets/avatar.webp")} class={controlClass}>
             {text().addAsset}
           </button>
-          <button
-            type="button"
-            onClick={() => add("notes.html")}
-            class="rounded-full px-2.5 py-1.5 font-mono text-[9px] text-slate-500 hover:text-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-          >
+          <button type="button" onClick={() => add("notes.html")} class={controlClass}>
             {text().addPage}
           </button>
           <button
             type="button"
             onClick={toggleCollision}
             aria-pressed={files().includes(conflictFile)}
-            class={`rounded-full px-2.5 py-1.5 font-mono text-[9px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-200 ${
+            class={`font-mono text-[9px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-rose-200 motion-reduce:transition-none ${
               files().includes(conflictFile)
-                ? "bg-rose-200 text-slate-950"
-                : "text-slate-500 hover:text-rose-200"
+                ? "text-rose-200 underline decoration-rose-300/40 underline-offset-4"
+                : "text-slate-600 hover:text-rose-200"
             }`}
           >
             {text().collide}
@@ -135,65 +132,102 @@ export function DistRouteLab(props: DistRouteLabProps) {
           <button
             type="button"
             onClick={reset}
-            class="ml-auto rounded-full px-2.5 py-1.5 font-mono text-[9px] text-slate-600 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+            class="ml-auto font-mono text-[9px] text-slate-700 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-300 motion-reduce:transition-none"
           >
             {text().reset}
           </button>
         </div>
 
-        <div class="mt-4 flex items-center gap-2 font-mono text-[9px]">
-          <span class="text-emerald-200">dist/</span>
-          <span class="text-slate-700">→</span>
-          <span class="text-amber-200">route table</span>
-          <span class="text-slate-700">→</span>
-          <span class={buildPasses() ? "text-cyan-200" : "text-rose-200"}>
-            {text().build} {buildPasses() ? text().passes : text().stopped}
-          </span>
-        </div>
+        <div class="mt-6">
+          <For each={manifest()}>
+            {(route, index) => {
+              const hasCollision = () => route.owners.length > 1;
+              const isSelected = () => selectedRoute() === route.routePath;
 
-        <Show
-          when={buildPasses()}
-          fallback={
-            <div class="mt-5">
-              <p class="font-mono text-[10px] text-rose-200">{text().duplicate}</p>
-              <p class="mt-2 text-xs text-slate-500">{text().noBinary}</p>
-            </div>
-          }
-        >
-          <div class="mt-5 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
-            <For each={manifest()}>
-              {(route) => (
+              return (
                 <button
                   type="button"
                   onClick={() => setSelectedRoute(route.routePath)}
-                  aria-pressed={selectedRoute() === route.routePath}
-                  class={`flex min-w-0 items-center justify-between gap-2 py-1 text-left font-mono text-[9px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 ${
-                    selectedRoute() === route.routePath ? "text-emerald-200" : "text-slate-500"
+                  aria-pressed={isSelected()}
+                  class={`group grid w-full grid-cols-[1.25rem_minmax(0,0.8fr)_minmax(0,1.2fr)] items-start gap-2 border-t py-2 text-left font-mono transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 motion-reduce:transition-none ${
+                    hasCollision()
+                      ? "border-rose-300/25 bg-rose-300/[0.035]"
+                      : isSelected()
+                        ? "border-emerald-200/25"
+                        : "border-white/[0.06] hover:border-white/15"
                   }`}
                 >
-                  <span class="truncate">{route.routePath}</span>
-                  <span class="truncate text-[8px] text-slate-700">{route.owners[0]}</span>
+                  <span class="pt-px text-[8px] tabular-nums text-slate-800">
+                    {String(index() + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    class={`min-w-0 truncate text-[10px] ${
+                      hasCollision()
+                        ? "text-rose-200"
+                        : isSelected()
+                          ? "text-emerald-200"
+                          : "text-slate-500 group-hover:text-slate-300"
+                    }`}
+                  >
+                    {route.routePath}
+                  </span>
+                  <span class="min-w-0 space-y-1 text-[9px]">
+                    <For each={route.owners}>
+                      {(owner) => (
+                        <span
+                          class={`flex min-w-0 items-center gap-2 ${
+                            hasCollision() ? "text-rose-200/70" : "text-slate-700"
+                          }`}
+                        >
+                          <span class="text-slate-800" aria-hidden="true">
+                            ←
+                          </span>
+                          <span class="truncate">{owner}</span>
+                        </span>
+                      )}
+                    </For>
+                  </span>
                 </button>
-              )}
-            </For>
+              );
+            }}
+          </For>
+        </div>
+
+        <Show when={!buildPasses()}>
+          <div class="mt-4 border-l border-rose-300/40 pl-3">
+            <p class="font-mono text-[10px] text-rose-200">{text().duplicate}</p>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">{text().noBinary}</p>
           </div>
         </Show>
 
-        <output class="mt-4 block min-h-8 text-xs text-slate-400" aria-live="polite">
+        <output
+          class={`mt-5 block min-h-10 border-t pt-3 font-mono text-[9px] leading-relaxed ${
+            buildPasses()
+              ? "border-cyan-200/15 text-slate-500"
+              : "border-white/[0.06] text-slate-700"
+          }`}
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <Show
             when={buildPasses() && activeRoute()}
             fallback={buildPasses() ? text().empty : text().noBinary}
           >
             {(route) => (
-              <>
-                {text().request} <code>{route().routePath}</code> · {text().served}{" "}
-                {route().owners[0]} · {text().cache}:{" "}
-                {cacheFor(route().routePath, route().owners[0])}
-              </>
+              <span class="grid gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                <span class="truncate text-cyan-200">
+                  {text().request} <code>{route().routePath}</code>
+                </span>
+                <span class="min-w-0 text-slate-600">
+                  {text().served} <span class="text-slate-400">{route().owners[0]}</span>
+                  <span class="mx-2 text-slate-800">·</span>
+                  {text().cache}: {cacheFor(route().routePath, route().owners[0])}
+                </span>
+              </span>
             )}
           </Show>
         </output>
       </div>
-    </LabFrame>
+    </section>
   );
 }

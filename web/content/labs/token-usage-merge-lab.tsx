@@ -1,8 +1,7 @@
 import { For, createMemo, createSignal } from "solid-js";
-import { LabFrame } from "@web/features/blog-series/components/lab-frame";
-import { resolveLabLocale, selectLabCopy, type LabLocale } from "@web/features/blog-series/types";
+import { resolveLocale, t, type Locale } from "virtual:translate";
 
-type TokenUsageMergeLabProps = { locale?: LabLocale };
+type TokenUsageMergeLabProps = { locale?: Locale };
 type Provider = "codex" | "claude" | "pi";
 type SourceId = "laptop" | "server";
 type SourceWindow = {
@@ -11,49 +10,41 @@ type SourceWindow = {
   totalTokens: number;
   generatedHoursAgo: number;
 };
-
-const copy = {
-  "en-US": {
-    label: "Replaceable token-source merge simulator",
-    provider: "provider",
-    source: "source",
-    tokens: "tokens",
-    age: "age",
-    add: "add source",
-    replace: "replace source",
-    apply: "apply sync",
-    reset: "reset",
-    stored: "stored total",
-    preview: "after sync",
-    sources: "private sources",
-    fresh: "fresh",
-    stale: "stale",
+function getCopy(locale: Locale) {
+  return {
+    label: t(locale, "Replaceable token-source merge simulator"),
+    provider: t(locale, "provider"),
+    source: t(locale, "source"),
+    tokens: t(locale, "tokens"),
+    age: t(locale, "age"),
+    add: t(locale, "add source"),
+    replace: t(locale, "replace source"),
+    apply: t(locale, "apply sync"),
+    reset: t(locale, "reset"),
+    stored: t(locale, "stored total"),
+    preview: t(locale, "after sync"),
+    sources: t(locale, "private sources"),
+    incoming: t(locale, "incoming window"),
+    existing: t(locale, "existing window"),
+    empty: t(locale, "no match"),
+    mergeKey: t(locale, "merge key"),
+    publicSide: t(locale, "public aggregate"),
+    freshness: t(locale, "aggregate freshness"),
+    fresh: t(locale, "fresh"),
+    stale: t(locale, "stale"),
     blind: (count: number) =>
-      `${count} stale source${count === 1 ? " is" : "s are"} hidden by the fresh aggregate flag.`,
-    boundary: "Public output keeps provider totals; source IDs and sessions stay private.",
-    result: (action: string, key: string) => `${key} was ${action}.`,
-  },
-  "pt-BR": {
-    label: "Simulador de combinação de origens substituíveis de tokens",
-    provider: "provedor",
-    source: "origem",
-    tokens: "tokens",
-    age: "idade",
-    add: "somar origem",
-    replace: "substituir origem",
-    apply: "aplicar sync",
-    reset: "reiniciar",
-    stored: "total armazenado",
-    preview: "após o sync",
-    sources: "origens privadas",
-    fresh: "atual",
-    stale: "desatualizada",
-    blind: (count: number) =>
-      `${count} origem${count === 1 ? " antiga fica" : "ens antigas ficam"} oculta${count === 1 ? "" : "s"} pelo estado atual do conjunto.`,
-    boundary: "A saída pública mantém totais por provedor; IDs e sessões ficam privados.",
-    result: (action: string, key: string) => `${key}: ${action}.`,
-  },
-} as const;
+      (count === 1
+        ? t(locale, "1 stale source is hidden by the fresh aggregate flag.")
+        : t(locale, "{count} stale sources are hidden by the fresh aggregate flag.")
+      ).replace("{count}", String(count)),
+    boundary: t(
+      locale,
+      "Public output keeps provider totals; source IDs and sessions stay private.",
+    ),
+    result: (action: string, key: string) =>
+      t(locale, "{key} was {action}.").replace("{key}", key).replace("{action}", action),
+  };
+}
 
 const providers: Provider[] = ["codex", "claude", "pi"];
 const sourceIds: SourceId[] = ["laptop", "server"];
@@ -69,8 +60,8 @@ const tones: Record<Provider, string> = {
 };
 
 export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
-  const text = () => selectLabCopy(props.locale, copy);
-  const locale = () => resolveLabLocale(props.locale);
+  const text = createMemo(() => getCopy(resolveLocale(props.locale)));
+  const locale = () => resolveLocale(props.locale);
   const [provider, setProvider] = createSignal<Provider>("codex");
   const [sourceId, setSourceId] = createSignal<SourceId>("laptop");
   const [totalTokens, setTotalTokens] = createSignal(180_000);
@@ -126,119 +117,202 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
   }
 
   return (
-    <LabFrame id="token-usage-source-merge" label={text().label} class="mx-auto max-w-2xl">
-      <div class="border-y border-white/10 py-4">
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <label class="font-mono text-[8px] text-slate-600">
-            {text().provider}
-            <select
-              value={provider()}
-              onChange={(event) => setProvider(event.currentTarget.value as Provider)}
-              class="mt-1 block w-full bg-transparent py-1 font-mono text-[10px] text-slate-300 outline-none focus:text-sky-200"
-            >
-              <For each={providers}>{(choice) => <option value={choice}>{choice}</option>}</For>
-            </select>
-          </label>
-          <label class="font-mono text-[8px] text-slate-600">
-            {text().source}
-            <select
-              value={sourceId()}
-              onChange={(event) => setSourceId(event.currentTarget.value as SourceId)}
-              class="mt-1 block w-full bg-transparent py-1 font-mono text-[10px] text-slate-300 outline-none focus:text-sky-200"
-            >
-              <For each={sourceIds}>{(choice) => <option value={choice}>{choice}</option>}</For>
-            </select>
-          </label>
-          <label class="font-mono text-[8px] text-slate-600">
-            <span class="flex justify-between gap-2">
-              <span>{text().tokens}</span>
-              <output>{format().format(totalTokens())}</output>
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="300000"
-              step="10000"
-              value={totalTokens()}
-              onInput={(event) => setTotalTokens(event.currentTarget.valueAsNumber)}
-              class="mt-1 w-full accent-sky-300"
-            />
-          </label>
-          <label class="font-mono text-[8px] text-slate-600">
-            <span class="flex justify-between gap-2">
-              <span>{text().age}</span>
-              <output>{generatedHoursAgo()}h</output>
-            </span>
-            <input
-              type="range"
-              min="0"
-              max="12"
-              value={generatedHoursAgo()}
-              onInput={(event) => setGeneratedHoursAgo(event.currentTarget.valueAsNumber)}
-              class="mt-1 w-full accent-sky-300"
-            />
-          </label>
+    <section
+      class="not-prose my-10 mx-auto max-w-2xl"
+      aria-label={text().label}
+      data-concept-lab="token-usage-source-merge"
+    >
+      <div class="border-l border-slate-700/70 pl-4 sm:pl-6">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="font-mono text-[8px] uppercase tracking-[0.24em] text-slate-600">
+              {text().mergeKey}
+            </p>
+            <div class="mt-1 flex items-center font-mono text-lg">
+              <select
+                aria-label={text().provider}
+                value={provider()}
+                onChange={(event) => setProvider(event.currentTarget.value as Provider)}
+                class={`appearance-none bg-transparent py-1 outline-none ${tones[provider()]} focus:underline`}
+              >
+                <For each={providers}>{(choice) => <option value={choice}>{choice}</option>}</For>
+              </select>
+              <span class="px-1 text-slate-700">/</span>
+              <select
+                aria-label={text().source}
+                value={sourceId()}
+                onChange={(event) => setSourceId(event.currentTarget.value as SourceId)}
+                class="appearance-none bg-transparent py-1 text-slate-200 outline-none focus:underline"
+              >
+                <For each={sourceIds}>{(choice) => <option value={choice}>{choice}</option>}</For>
+              </select>
+            </div>
+          </div>
+          <span
+            class={`border-b pb-1 font-mono text-[9px] uppercase tracking-widest ${
+              selectedSource()
+                ? "border-amber-300/40 text-amber-200"
+                : "border-emerald-300/40 text-emerald-200"
+            }`}
+          >
+            {selectedSource() ? text().replace : text().add}
+          </span>
         </div>
 
-        <div class="mt-5 flex flex-wrap items-baseline justify-between gap-3 font-mono">
-          <div>
-            <p class="text-[8px] text-slate-600">providerId + sourceId</p>
-            <p class={`mt-1 text-sm ${tones[provider()]}`}>
-              {provider()}/{sourceId()} · {selectedSource() ? text().replace : text().add}
+        <div class="mt-7 grid gap-x-6 gap-y-5 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+          <div class="min-w-0">
+            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+              {text().existing}
+            </p>
+            <p class="mt-2 font-mono text-2xl tabular-nums text-slate-500">
+              {selectedSource() ? format().format(selectedSource()!.totalTokens) : "∅"}
+            </p>
+            <p class="mt-1 font-mono text-[9px] text-slate-700">
+              {selectedSource()
+                ? `${selectedSource()!.generatedHoursAgo}h · ${
+                    selectedSource()!.generatedHoursAgo > STALE_AFTER_HOURS
+                      ? text().stale
+                      : text().fresh
+                  }`
+                : text().empty}
             </p>
           </div>
-          <p class="text-sm text-slate-300">
-            {format().format(aggregateTotal())} <span class="text-slate-700">→</span>{" "}
-            <span class="text-sky-200">{format().format(previewTotal())}</span>
-          </p>
+
+          <div class="hidden pb-2 font-mono text-lg text-slate-700 sm:block" aria-hidden="true">
+            →
+          </div>
+
+          <div class="min-w-0 border-l border-sky-300/30 pl-4">
+            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-sky-300/60">
+              {text().incoming}
+            </p>
+            <div class="mt-2 flex items-baseline justify-between gap-3">
+              <output class="font-mono text-2xl tabular-nums text-sky-100">
+                {format().format(totalTokens())}
+              </output>
+              <output class="font-mono text-[9px] text-slate-500">{generatedHoursAgo()}h</output>
+            </div>
+            <label class="mt-3 block">
+              <span class="sr-only">{text().tokens}</span>
+              <input
+                type="range"
+                min="0"
+                max="300000"
+                step="10000"
+                value={totalTokens()}
+                onInput={(event) => setTotalTokens(event.currentTarget.valueAsNumber)}
+                class="block h-1 w-full accent-sky-200"
+              />
+            </label>
+            <label class="mt-3 flex items-center gap-3 font-mono text-[8px] text-slate-600">
+              <span>{text().age}</span>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                value={generatedHoursAgo()}
+                onInput={(event) => setGeneratedHoursAgo(event.currentTarget.valueAsNumber)}
+                class="h-1 min-w-0 flex-1 accent-sky-200"
+              />
+            </label>
+          </div>
         </div>
 
-        <div class="mt-4 flex gap-1">
+        <div class="mt-7 flex flex-wrap items-center justify-between gap-4 border-y border-dashed border-slate-800 py-3">
+          <div class="font-mono tabular-nums">
+            <p class="text-[8px] uppercase tracking-[0.2em] text-slate-600">{text().publicSide}</p>
+            <p class="mt-1 text-xs text-slate-500">
+              {format().format(aggregateTotal())}
+              <span class="mx-2 text-slate-700">−</span>
+              {format().format(selectedSource()?.totalTokens ?? 0)}
+              <span class="mx-2 text-slate-700">+</span>
+              {format().format(totalTokens())}
+              <span class="mx-2 text-slate-700">=</span>
+              <strong class="font-normal text-sky-100">{format().format(previewTotal())}</strong>
+            </p>
+          </div>
           <button
             type="button"
             onClick={sync}
-            class="rounded-full bg-sky-200 px-3 py-1.5 font-mono text-[9px] text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
+            class="border border-sky-200/60 px-3 py-1.5 font-mono text-[9px] text-sky-100 transition-colors hover:bg-sky-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-100"
           >
-            {text().apply}
-          </button>
-          <button
-            type="button"
-            onClick={reset}
-            class="rounded-full px-3 py-1.5 font-mono text-[9px] text-slate-600 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
-          >
-            {text().reset}
+            {text().apply} →
           </button>
         </div>
 
-        <div class="mt-5">
-          <p class="font-mono text-[8px] text-slate-600">{text().sources}</p>
-          <ul class="mt-2 space-y-1">
-            <For each={sources()}>
-              {(item) => {
-                const stale = () => item.generatedHoursAgo > STALE_AFTER_HOURS;
-                return (
-                  <li class="flex items-center justify-between gap-3 font-mono text-[9px]">
-                    <span class={tones[item.provider]}>
-                      {item.provider}/{item.sourceId}
-                    </span>
-                    <span class="text-slate-500">{format().format(item.totalTokens)}</span>
-                    <span class={stale() ? "text-amber-200/70" : "text-emerald-200/70"}>
-                      {item.generatedHoursAgo}h · {stale() ? text().stale : text().fresh}
-                    </span>
-                  </li>
-                );
-              }}
-            </For>
-          </ul>
+        <div class="mt-5 grid gap-5 sm:grid-cols-[1fr_auto]">
+          <div>
+            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+              {text().sources}
+            </p>
+            <ul class="mt-2 space-y-1.5">
+              <For each={sources()}>
+                {(item) => {
+                  const stale = () => item.generatedHoursAgo > STALE_AFTER_HOURS;
+                  return (
+                    <li class="grid grid-cols-[1fr_auto_auto] items-center gap-3 font-mono text-[9px]">
+                      <span class={tones[item.provider]}>
+                        {item.provider}
+                        <span class="text-slate-700">/{item.sourceId}</span>
+                      </span>
+                      <span class="tabular-nums text-slate-500">
+                        {format().format(item.totalTokens)}
+                      </span>
+                      <span
+                        class={`flex items-center gap-1.5 tabular-nums ${
+                          stale() ? "text-amber-200/70" : "text-emerald-200/70"
+                        }`}
+                        title={stale() ? text().stale : text().fresh}
+                      >
+                        <span
+                          class={`h-1 w-1 rounded-full ${
+                            stale() ? "bg-amber-300/70" : "bg-emerald-300/70"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {item.generatedHoursAgo}h
+                      </span>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+          </div>
+          <div class="sm:text-right">
+            <p class="font-mono text-[8px] uppercase tracking-[0.2em] text-slate-600">
+              {text().freshness}
+            </p>
+            <p
+              class={`mt-2 font-mono text-[9px] ${
+                aggregateFresh() ? "text-emerald-200" : "text-amber-200"
+              }`}
+            >
+              {aggregateFresh() ? text().fresh : text().stale}
+            </p>
+          </div>
         </div>
 
-        <output class="mt-4 block min-h-4 text-xs text-slate-400" aria-live="polite">
+        <output
+          class="mt-5 block min-h-4 text-[11px] leading-relaxed text-slate-400"
+          aria-live="polite"
+        >
           {message()}
           {message() && maskedStale() ? " " : ""}
           {maskedStale() ? text().blind(maskedStale()) : ""}
         </output>
-        <p class="mt-2 font-mono text-[8px] text-slate-600">{text().boundary}</p>
+        <div class="mt-2 flex items-start justify-between gap-4 border-t border-slate-800/70 pt-3">
+          <p class="max-w-md font-mono text-[8px] leading-relaxed text-slate-600">
+            {text().boundary}
+          </p>
+          <button
+            type="button"
+            onClick={reset}
+            class="font-mono text-[8px] text-slate-700 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+          >
+            {text().reset}
+          </button>
+        </div>
       </div>
-    </LabFrame>
+    </section>
   );
 }
