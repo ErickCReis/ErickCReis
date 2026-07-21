@@ -1,11 +1,16 @@
 ---
 import { getCollection } from "astro:content";
 import { render } from "astro:content";
-import { ArrowLeft } from "lucide-astro";
+import { ArrowLeft, ArrowRight } from "lucide-astro";
 import { fade } from "astro:transitions";
 import { t, resolveLocale } from "virtual:translate";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
-import { getBlogEntry, getBlogStaticPaths, getBlogViewKey } from "@web/lib/blog";
+import {
+  getBlogEntries,
+  getBlogEntry,
+  getBlogStaticPaths,
+  getBlogViewKey,
+} from "@web/lib/blog";
 import { PostViewCounter } from "@web/islands/post-view-counter";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
@@ -17,9 +22,18 @@ export async function getStaticPaths() {
 }
 
 const { locale, slug } = Astro.props;
-const post = getBlogEntry(await getCollection("blog"), slug, locale, {
-  includeScheduled: import.meta.env.MODE === "development",
+const includeScheduled = import.meta.env.MODE === "development";
+const entries = await getCollection("blog");
+const post = getBlogEntry(entries, slug, locale, {
+  includeScheduled,
 })!;
+
+const posts = getBlogEntries(entries, locale, { includeScheduled }).sort(
+  (left, right) => right.entry.data.date.getTime() - left.entry.data.date.getTime(),
+);
+const postIndex = posts.findIndex((entry) => entry.slug === slug);
+const nextPost = postIndex > 0 ? posts[postIndex - 1] : undefined;
+const previousPost = postIndex >= 0 ? posts[postIndex + 1] : undefined;
 
 const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
   day: "numeric",
@@ -97,6 +111,49 @@ const contentPath = getLocalizedPath(locale, "content");
       <div class="prose prose-invert max-w-none prose-a:text-primary">
         <Content />
       </div>
+
+      {
+        (previousPost || nextPost) && (
+          <nav
+            class="grid gap-3 border-t border-border/70 pt-8 sm:grid-cols-2"
+            aria-label={t(locale, "Post navigation")}
+          >
+            {previousPost ? (
+              <a
+                href={getLocalizedPath(locale, `content/${previousPost.slug}`)}
+                rel="prev"
+                class="group flex min-h-28 flex-col gap-3 rounded-lg border border-border/70 p-4 transition-colors hover:border-primary/60"
+              >
+                <span class="flex items-center gap-2 font-mono text-xxs tracking-wider text-muted-foreground uppercase transition-colors group-hover:text-primary">
+                  <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
+                  {t(locale, "Previous post")}
+                </span>
+                <span class="font-serif text-lg leading-snug tracking-wide">
+                  {previousPost.entry.data.title}
+                </span>
+              </a>
+            ) : (
+              <span class="hidden sm:block" aria-hidden="true" />
+            )}
+
+            {nextPost && (
+              <a
+                href={getLocalizedPath(locale, `content/${nextPost.slug}`)}
+                rel="next"
+                class="group flex min-h-28 flex-col items-end gap-3 rounded-lg border border-border/70 p-4 text-right transition-colors hover:border-primary/60"
+              >
+                <span class="flex items-center gap-2 font-mono text-xxs tracking-wider text-muted-foreground uppercase transition-colors group-hover:text-primary">
+                  {t(locale, "Next post")}
+                  <ArrowRight aria-hidden="true" class="size-3.5 shrink-0" />
+                </span>
+                <span class="font-serif text-lg leading-snug tracking-wide">
+                  {nextPost.entry.data.title}
+                </span>
+              </a>
+            )}
+          </nav>
+        )
+      }
     </article>
   </main>
 </BaseLayout>

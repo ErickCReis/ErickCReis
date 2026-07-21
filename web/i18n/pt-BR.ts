@@ -513,6 +513,12 @@ const translations = {
   "1ed5jju": "posição do observador",
   // reading
   "0ctww6z": "leitura",
+  // Next post
+  "122dutu": "Próximo post",
+  // Post navigation
+  "0l7c143": "Navegação entre posts",
+  // Previous post
+  "1kyzcia": "Post anterior",
 } satisfies TranslationOverrides;
 
 export default translations;

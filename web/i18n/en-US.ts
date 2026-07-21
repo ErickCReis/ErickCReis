@@ -255,6 +255,9 @@ export const translations = {
   "1c1wwpt": "cannot tell",
   "1ed5jju": "observer position",
   "0ctww6z": "reading",
+  "122dutu": "Next post",
+  "0l7c143": "Post navigation",
+  "1kyzcia": "Previous post",
 } as const;
 
 export type TranslationHash = keyof typeof translations;
