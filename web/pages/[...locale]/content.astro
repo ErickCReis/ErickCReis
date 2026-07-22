@@ -5,7 +5,6 @@ import { fade } from "astro:transitions";
 import { t, locales, defaultLocale, resolveLocale } from "virtual:translate";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import { ContentViewCountsHydrator } from "@web/islands/content-view-counts-hydrator";
-import { ContentTelemetryToggle } from "@web/islands/content-telemetry-toggle";
 import { getBlogEntries, getBlogViewKey } from "@web/lib/blog";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
@@ -70,10 +69,7 @@ const contentPath = getLocalizedPath(locale, "content");
             <span>{t(locale, "Back")}</span>
           </a>
 
-          <div class="flex items-center gap-3">
-            <LocaleSwitcher locale={locale} path="content" />
-            <ContentTelemetryToggle client:only="solid-js" />
-          </div>
+          <LocaleSwitcher locale={locale} path="content" />
         </div>
         <h1 class="font-serif text-4xl tracking-wide md:text-5xl">
           {t(locale, "Content")}
