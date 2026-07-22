@@ -2,10 +2,12 @@
 title: "Por dentro da reescrita: Astro no documento, Solid na camada interativa"
 description: Como uma única ilha executada no cliente adiciona telemetria e presença de cursores sem entregar ao Solid o controle do portfólio inteiro.
 date: "2026-07-15"
-tags: [architecture, astro, solid]
+tags: [architecture, astro]
 ---
 
-No [post anterior](/pt-BR/content/rewriting-my-portfolio-for-self-hosting), resumi a arquitetura do frontend em uma frase: o [Astro](https://astro.build/) gera a maior parte do site como conteúdo estático, e o [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas.
+import { IslandBoundaryLab } from "@web/content/labs/island-boundary-lab";
+
+No [post anterior](/pt-BR/content/rewriting-my-portfolio-for-self-hosting), resumi a arquitetura do frontend em uma frase: o [Astro](https://astro.build/) transforma a maior parte do site em HTML, e o [Solid](https://www.solidjs.com/) inicia apenas as ilhas interativas no navegador.
 
 Essa frase esconde uma das fronteiras mais úteis da reescrita.
 
@@ -45,13 +47,19 @@ flowchart TB
 
 ## Por que esta ilha usa client:only
 
-A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) do Astro não renderiza o HTML do componente durante o build e deixa essa renderização para o navegador. Ela não é apenas uma forma curta de dizer “torne isto interativo”, nem representa automaticamente uma otimização de desempenho.
+A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) do Astro não renderiza o HTML do componente durante o build e deixa essa renderização para o navegador. Como não existe uma marcação do componente renderizada no servidor para ser retomada, trata-se de uma renderização no cliente, não da hidratação daquele componente. A diretiva não é apenas uma forma curta de dizer “torne isto interativo”, nem representa automaticamente uma otimização de desempenho.
 
 Para esta camada, deixar de renderizar o componente durante o build é a escolha correta. Ele depende de informações do navegador, como as dimensões da janela e a posição do ponteiro. Os dados de telemetria e dos cursores também não têm valor durante o build. Um painel de estatísticas gerado nesse momento já chegaria desatualizado ao navegador.
 
 Mais importante: o estado vazio é válido. Enquanto a ilha não inicia, não há painéis de telemetria flutuando pela tela nem cursores remotos. O título, os links dos projetos, a navegação e os metadados não precisam de um estado de carregamento porque nunca estiveram dentro da ilha.
 
 Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Esse modo de falha faz parte do design.
+
+O inspetor de fronteiras abaixo torna essa responsabilidade visível. Alterne entre a arquitetura que coloquei em produção e uma alternativa em que o cliente controla o documento; depois, injete uma falha no JavaScript ou no fluxo de dados. “Controlado pelo cliente” é intencionalmente mais específico do que “SPA”: a comparação mostra qual camada produziu o conteúdo, não pretende avaliar toda aplicação executada no cliente.
+
+<IslandBoundaryLab client:visible locale="pt-BR" />
+
+As duas falhas removem partes diferentes. Bloquear o JavaScript impede que a ilha interativa inicie; derrubar o fluxo mantém a ilha em execução, mas sem dados novos. Nos dois casos, o documento gerado pelo Astro continua disponível porque nenhuma dessas dependências o controla.
 
 ## Uma ilha em vez de duas
 
@@ -66,10 +74,7 @@ export function HomeLiveOverlay() {
 
   return (
     <>
-      <TelemetryBackdrop
-        placement="hero"
-        onStatsHoverChange={setIsStatsHovered}
-      />
+      <TelemetryBackdrop placement="hero" onStatsHoverChange={setIsStatsHovered} />
       <CursorPresenceLayer
         selfId={selfId()}
         cursors={cursors()}

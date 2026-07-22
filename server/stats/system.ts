@@ -3,6 +3,7 @@ import type { SystemStat } from "@shared/stats/system";
 import { getBatteryInfo } from "@server/lib/battery";
 import type { StatModule } from "@server/stats/types";
 import { readTextFile } from "@server/lib/file";
+import { resolveMemoryBoundary } from "@server/stats/system-memory";
 
 const MAX_HISTORY = 84;
 const SAMPLE_INTERVAL_MS = 1500;
@@ -78,13 +79,14 @@ function toMb(value: number) {
 }
 
 function getMemoryInfo() {
-  const cgroupUsed = getCgroupMemoryUsed();
-  const cgroupTotal = getCgroupMemoryLimit();
+  const hostTotalBytes = os.totalmem();
 
-  const usedBytes = cgroupUsed ?? os.totalmem() - os.freemem();
-  const totalBytes = cgroupTotal ?? os.totalmem();
-
-  return { usedBytes, totalBytes };
+  return resolveMemoryBoundary({
+    cgroupUsedBytes: getCgroupMemoryUsed(),
+    cgroupTotalBytes: getCgroupMemoryLimit(),
+    hostUsedBytes: hostTotalBytes - os.freemem(),
+    hostTotalBytes,
+  });
 }
 
 function sample(): SystemStat {

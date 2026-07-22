@@ -13,9 +13,16 @@ const cursorCookieSchema = t.Cookie(
 );
 
 export const liveRoutes = new Elysia({ name: "live-routes" })
-  .get("/live/id", ({ cookie }) => ({ cursorId: cookie.cursorId.value ?? createLiveId() }), {
-    cookie: cursorCookieSchema,
-  })
+  .get(
+    "/live/id",
+    ({ cookie }) => {
+      cookie.cursorId.value ??= createLiveId();
+      return { cursorId: cookie.cursorId.value };
+    },
+    {
+      cookie: cursorCookieSchema,
+    },
+  )
   .ws("/live", {
     body: cursorPayloadSchema,
     response: cursorPayloadSchema,
