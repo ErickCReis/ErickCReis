@@ -14,16 +14,18 @@ The surrounding interface has a different problem. Labels such as â€œAll posts,â
 I built a custom integration for that narrower requirement. It is not a general internationalization framework. It collects static source strings, generates hash-keyed TypeScript catalogs, exposes a virtual module, and falls back to the English source whenever a translation is absent.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["t() calls in source"] --> Parse["Vite ESTree transform"]
   Parse --> Collect["Sorted source strings"]
   Collect --> Hash["Hash keys"]
   Hash --> Default["en-US catalog"]
   Hash --> Locale["pt-BR overrides"]
+  Default ~~~ Locale
   Default --> Virtual["virtual:translate"]
   Locale --> Virtual
   Virtual --> Astro["Static Astro render"]
   Virtual --> Solid["Hydrated Solid islands"]
+  Astro ~~~ Solid
 ```
 
 ## The authoring API starts with English

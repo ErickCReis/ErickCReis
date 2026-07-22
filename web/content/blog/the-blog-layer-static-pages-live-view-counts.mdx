@@ -12,12 +12,15 @@ The [runtime telemetry post](/content/health-telemetry-from-the-real-runtime) en
 I wanted this blog to participate in the same live system without turning it into a dynamic publishing application. That led to a deliberately uneven split: Astro owns the complete article, while Elysia adds one narrow runtime value—how many deduplicated views each language version has received.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   MDX["MDX files"] --> Build["Astro content build"]
   Build --> Archive["Static archive"]
   Build --> Article["Static article HTML"]
+  Archive ~~~ Article
   SQLite["SQLite view totals"] --> ReadIsland["Archive count hydrator"]
   SQLite --> CountIsland["Article view counter"]
+  Article ~~~ SQLite
+  ReadIsland ~~~ CountIsland
   ReadIsland --> Archive
   CountIsland --> Article
 ```
@@ -62,19 +65,13 @@ The archive initially renders a placeholder beside each post. After the page loa
 The article page uses a different island, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). When mounted, it sends `POST /content/views` for that article's view key and displays the returned total. If the document opened in a background tab, the island waits until the document becomes visible before sending. A browser preload should not look like a person reading a post.
 
 ```mermaid center
-sequenceDiagram
-  participant Page as Static article
-  participant Island as Solid counter
-  participant API as Elysia content route
-  participant DB as SQLite
-
-  Page->>Island: mount
-  Island->>Island: wait until document is visible
-  Island->>API: POST view key
-  API->>DB: deduplicate and increment
-  DB-->>API: total + counted flag
-  API-->>Island: current total
-  Island-->>Page: replace placeholder
+flowchart TB
+  Page["Static article"] --> Mount["Solid counter mounts"]
+  Mount --> Visible["Wait until the document is visible"]
+  Visible --> Post["POST the article key"]
+  Post --> Store["SQLite deduplicates and increments"]
+  Store --> Result["Return the current total"]
+  Result --> Replace["Replace the placeholder"]
 ```
 
 If either request fails, the archive hides its count labels and the article removes its counter. The content, route, metadata, and navigation were never inside those islands, so the failure does not turn the post into an error page.
@@ -105,6 +102,7 @@ flowchart TB
   Request["Article + visitor ID"] --> Recent{"Counted within 24 hours?"}
   Recent -->|yes| Existing["Return total · counted false"]
   Recent -->|no| Visitor["Upsert recent visitor row"]
+  Existing ~~~ Visitor
   Visitor --> Total["Increment permanent total"]
   Total --> Result["Return total · counted true"]
 ```

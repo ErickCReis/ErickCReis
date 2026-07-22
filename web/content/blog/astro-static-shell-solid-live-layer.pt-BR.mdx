@@ -35,12 +35,14 @@ Essa posição foi intencional. O componente do Solid fica ao lado do conteúdo 
 
 ```mermaid center
 flowchart TB
-  Build["Build do Astro"] --> Document["HTML, metadados, rotas e projetos"]
+  Build["Build do Astro"] --> Document["HTML + metadados<br/>rotas + projetos"]
   Document --> Page["Página do portfólio"]
 
-  Browser["Navegador inicia"] --> Island["Camada interativa do Solid"]
-  Island --> Telemetry["Painéis de telemetria"]
-  Island --> Cursors["Presença de cursores"]
+  Browser["Navegador inicia"] --> Island["Camada Solid interativa"]
+  Page ~~~ Browser
+  Island --> Telemetry["Telemetria"]
+  Island --> Cursors["Cursores"]
+  Telemetry ~~~ Cursors
   Telemetry --> Page
   Cursors --> Page
 ```

@@ -15,14 +15,10 @@ Quando coloquei essas leituras lado a lado pela primeira vez, a proximidade fez 
 
 ```mermaid center
 flowchart LR
-  Process["Processo Bun"] --> CPU["Uso de CPU do processo"]
-  Cgroup["Cgroup do Linux"] --> Limits["Cota de CPU + uso e limite de memória"]
-  Host["power_supply do notebook"] --> Battery["Estado da bateria"]
-  Outside["UptimeRobot"] --> Availability["Disponibilidade pública"]
-  CPU --> Panels["Painéis de telemetria"]
-  Limits --> Panels
-  Battery --> Panels
-  Availability --> Panels
+  Process["Bun<br/>CPU"] --> Panels["Painéis de saúde"]
+  Cgroup["Cgroup<br/>CPU + memória"] --> Panels
+  Host["Notebook<br/>bateria"] --> Panels
+  Outside["UptimeRobot<br/>disponibilidade"] --> Panels
 ```
 
 ## A CPU é relativa à capacidade atribuída ao processo

@@ -38,15 +38,16 @@ flowchart TB
   Tunnel --> Host["Unused laptop"]
   Host --> Container["Portfolio container"]
   Container --> Server["Bun + Elysia server"]
-  Server --> Static["Astro static pages"]
+  Server --> Static["Static Astro"]
   Server --> Live["SSE + WebSocket"]
-  Server --> Data["SQLite + files in /app/data"]
+  Server --> Data["SQLite + /app/data"]
+  Static ~~~ Live ~~~ Data
 ```
 
 Dokploy is on a different path. It is the deployment control plane, not a hop that each request crosses:
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["Source repository"] --> Dokploy["Dokploy"]
   Dokploy --> Build["Docker build"]
   Build --> Image["Runtime image"]

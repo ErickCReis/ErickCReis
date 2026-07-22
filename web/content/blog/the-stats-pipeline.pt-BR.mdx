@@ -18,10 +18,11 @@ A página inicial combina hoje recursos do sistema, uptime externo, presença de
 O caminho resultante tem quatro camadas: coletores no servidor, uma resposta com o histórico inicial, um fluxo compartilhado de eventos enviados pelo servidor e pequenos stores do Solid.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Sources["Runtime e fontes externas"] --> Modules["Módulos de estatísticas"]
   Modules --> History["GET /stats/history"]
   Modules --> Stream["GET /stats/stream · SSE"]
+  History ~~~ Stream
   History --> Transport["Decodificadores compartilhados"]
   Stream --> Transport
   Transport --> Stores["Stores do Solid"]

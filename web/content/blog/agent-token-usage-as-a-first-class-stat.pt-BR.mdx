@@ -14,10 +14,11 @@ Esses arquivos já contêm eventos de uso de tokens. O portfólio já tem um pip
 O resultado aceita sessões do Codex, Pi e Claude. Um script do Bun lê seus arquivos na máquina em que existem, agrega as contagens por dia e envia payloads normalizados para um endpoint interno protegido. O servidor combina as fontes em uma estatística móvel de 30 dias e expõe apenas os totais diários por provedor no fluxo público de telemetria.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Codex["JSONL do Codex"] --> Local["Script local de sync"]
   Pi["JSONL do Pi"] --> Local
   Claude["JSONL do Claude"] --> Local
+  Codex ~~~ Pi ~~~ Claude
   Local -->|"contagens normalizadas + token Bearer"| Endpoint["Endpoint interno do Elysia"]
   Endpoint --> File["token-usage.json"]
   File --> Module["Módulo de uso de tokens"]
@@ -53,13 +54,10 @@ O Claude também registra uso em mensagens do assistente, mas sua contagem de en
 
 ```mermaid center
 flowchart TB
-  Raw["Registro do provedor"] --> Adapter{"Adaptador do provedor"}
-  Adapter -->|Codex| Delta["Total cumulativo → delta"]
-  Adapter -->|Pi| Message["Uso da mensagem do assistente"]
-  Adapter -->|Claude| Cache["Normalização de entrada e cache · deduplicação"]
-  Delta --> Day["Dia normalizado"]
-  Message --> Day
-  Cache --> Day
+  Record["Registro do provedor"] --> Codex["Codex · acumulado → delta"]
+  Record --> Pi["Pi · uso por mensagem"]
+  Record --> Claude["Claude · cache + dedupe"]
+  Codex ~~~ Pi ~~~ Claude
 ```
 
 Linhas JSON malformadas, tipos de eventos irrelevantes, timestamps inválidos e diretórios de sessão ausentes são ignorados em vez de interromper toda a leitura. Isso torna o coletor tolerante a logs com conteúdo variado, mas também permite que uma mudança no formato do provedor pareça uma queda silenciosa para zero. Os parsers precisam de fixtures e monitoramento conforme esses formatos externos evoluem.
@@ -118,10 +116,11 @@ Para cada uma das últimas 30 datas, ele soma as origens por provedor, ordena os
 O painel transforma cada dia em uma barra empilhada. Provedores conhecidos recebem cores e rótulos estáveis; IDs desconhecidos ainda recebem cores alternativas. O gatilho mostra o total compacto de hoje, o conteúdo mostra os totais exatos de hoje e dos 30 dias, e o rodapé mostra o `generatedAt` mais recente entre as origens.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Sources["Janelas por provedor e origem"] --> Merge["Soma por data e provedor"]
   Merge --> Providers["Lista ordenada de provedores"]
   Merge --> Daily["30 totais diários + segmentos alinhados"]
+  Providers ~~~ Daily
   Providers --> Bars["Gráfico de barras empilhadas"]
   Daily --> Bars
 ```

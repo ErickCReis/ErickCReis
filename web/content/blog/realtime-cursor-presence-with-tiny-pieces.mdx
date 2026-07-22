@@ -14,7 +14,7 @@ Move the pointer on the homepage and a small marker follows it. Open the page in
 The browser tracks a position. A shared schema defines the message. An Elysia WebSocket validates and broadcasts it. Solid keeps the current cursors reactive and renders them. No cursor position is stored after that.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Pointer["Pointer movement"] --> Hook["Solid presence hook"]
   Hook -->|"throttled position"| Socket["Typed WebSocket"]
   Socket --> Server["Elysia live route"]
@@ -83,10 +83,10 @@ The server also does not broadcast an explicit leave event. Each received cursor
 ```mermaid center
 stateDiagram-v2
   [*] --> Connected: first subscriber
-  Connected --> Reconnecting: close or network loss
-  Reconnecting --> Connected: retry after 1 second
+  Connected --> Reconnecting: connection lost
+  Reconnecting --> Connected: retry in 1 second
   Reconnecting --> [*]: no subscribers
-  Connected --> [*]: last subscriber leaves
+  Connected --> [*]: last subscriber
 ```
 
 ## Rendering presence without owning the page

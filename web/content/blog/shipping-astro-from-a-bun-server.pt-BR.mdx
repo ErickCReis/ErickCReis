@@ -14,7 +14,7 @@ Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicaçã
 A ligação é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático; o Elysia descobre quais arquivos ele produziu e depois serve exatamente esses arquivos ao lado dos endpoints dinâmicos.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["Código do Astro"] --> Astro["Build estático do Astro"]
   Astro --> Dist["Diretório dist"]
   Dist --> Macro["Macro do Bun percorre os arquivos"]

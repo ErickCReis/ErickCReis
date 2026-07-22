@@ -14,13 +14,15 @@ A portfolio can accidentally become an archive: every card points backward. I wa
 The panels look like neighboring pieces of telemetry, but their sources behave differently. Playback changes in seconds and can be absent. Contribution data changes slowly and remains useful after a restart. Treating both as “fetch an API every so often” would hide the product decisions that keep them timely, honest, and small.
 
 ```mermaid center
-flowchart LR
-  SpotifyAPI["Spotify Web API"] --> Spotify["Now-playing module"]
-  GitHubAPI["GitHub GraphQL API"] --> GitHub["Contribution module"]
-  Spotify --> Contract["Shared stat contracts"]
+flowchart TB
+  SpotifyAPI["Spotify"] --> Spotify["Now playing"]
+  GitHubAPI["GitHub"] --> GitHub["Contributions"]
+  SpotifyAPI ~~~ GitHubAPI
+  Spotify ~~~ GitHub
+  Spotify --> Contract["Stats"]
   GitHub --> Contract
-  Contract --> Stream["Site telemetry stream"]
-  Stream --> Panels["Solid panels"]
+  Contract --> Stream["Telemetry"]
+  Stream --> Panels["Panels"]
 ```
 
 I designed each adapter by answering the same three questions: how quickly can this value become misleading, what may cross the browser boundary, and what should happen when the source says “not now”? The answers—not the visual size of the panel—set its policy.
@@ -68,6 +70,7 @@ flowchart TB
   Days --> Year["This year"]
   Days --> Window["Last 30 days"]
   Days --> Last["Last active date"]
+  Today ~~~ Month ~~~ Year ~~~ Window ~~~ Last
 ```
 
 The implementation and compact UI call these values commits, but the upstream source is GitHub's contribution calendar. That calendar is the product metric GitHub exposes; it should not be read as a local `git log` or an audit of every commit.

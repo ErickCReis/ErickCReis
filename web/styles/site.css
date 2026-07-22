@@ -93,15 +93,15 @@
   margin: 2rem 0;
   border: 0;
   background: transparent;
-  overflow-x: auto;
+  overflow: visible;
   padding: 0;
 }
 
 .prose .mermaid-diagram svg {
   display: block;
-  width: auto;
-  max-width: none;
-  min-width: 520px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: auto;
   margin: 0;
 }
@@ -109,6 +109,7 @@
 .prose .mermaid-diagram text,
 .prose .mermaid-diagram .label {
   font-family: var(--font-family-mono) !important;
+  font-size: 16px !important;
 }
 
 .prose .mermaid-diagram .node rect {

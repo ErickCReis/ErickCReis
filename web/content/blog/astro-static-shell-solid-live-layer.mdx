@@ -35,12 +35,14 @@ The placement is intentional. The Solid component sits beside the main content i
 
 ```mermaid center
 flowchart TB
-  Build["Astro build"] --> Document["HTML, metadata, routes, projects"]
+  Build["Astro build"] --> Document["HTML + metadata<br/>routes + projects"]
   Document --> Page["Portfolio page"]
 
-  Browser["Browser starts"] --> Island["Solid live overlay"]
-  Island --> Telemetry["Telemetry panels"]
-  Island --> Cursors["Cursor presence"]
+  Browser["Browser starts"] --> Island["Solid live layer"]
+  Page ~~~ Browser
+  Island --> Telemetry["Telemetry"]
+  Island --> Cursors["Cursors"]
+  Telemetry ~~~ Cursors
   Telemetry --> Page
   Cursors --> Page
 ```

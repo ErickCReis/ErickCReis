@@ -12,12 +12,15 @@ O [post sobre a telemetria do runtime](/pt-BR/content/health-telemetry-from-the-
 Eu queria que este blog participasse do mesmo sistema dinâmico sem se transformar em uma aplicação de publicação dinâmica. Isso levou a uma divisão intencionalmente desigual: o Astro cuida do artigo completo, enquanto o Elysia acrescenta um único valor de runtime — quantas visualizações deduplicadas cada versão de idioma recebeu.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   MDX["Arquivos MDX"] --> Build["Build de conteúdo do Astro"]
   Build --> Archive["Listagem estática"]
   Build --> Article["HTML estático do artigo"]
+  Archive ~~~ Article
   SQLite["Totais no SQLite"] --> ReadIsland["Carregamento das contagens da listagem"]
   SQLite --> CountIsland["Contador do artigo"]
+  Article ~~~ SQLite
+  ReadIsland ~~~ CountIsland
   ReadIsland --> Archive
   CountIsland --> Article
 ```
@@ -62,19 +65,13 @@ A listagem do blog renderiza inicialmente um placeholder ao lado de cada post. D
 A página do artigo usa outra ilha, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). Ao ser montada, ela envia `POST /content/views` com a chave daquele artigo e exibe o total retornado. Se o documento for aberto em uma aba em segundo plano, a ilha espera até que ele fique visível. O pré-carregamento do navegador não deve parecer uma pessoa lendo um post.
 
 ```mermaid center
-sequenceDiagram
-  participant Page as Artigo estático
-  participant Island as Contador do Solid
-  participant API as Rota de conteúdo do Elysia
-  participant DB as SQLite
-
-  Page->>Island: montagem
-  Island->>Island: aguarda documento visível
-  Island->>API: POST da chave do artigo
-  API->>DB: deduplica e incrementa
-  DB-->>API: total + indicador counted
-  API-->>Island: total atual
-  Island-->>Page: substitui o placeholder
+flowchart TB
+  Page["Artigo estático"] --> Mount["Contador do Solid é montado"]
+  Mount --> Visible["Espera o documento ficar visível"]
+  Visible --> Post["Envia a chave do artigo"]
+  Post --> Store["SQLite deduplica e incrementa"]
+  Store --> Result["Retorna o total atual"]
+  Result --> Replace["Substitui o placeholder"]
 ```
 
 Se qualquer requisição falhar, a listagem esconde os rótulos de contagem, e o artigo remove seu contador. Conteúdo, rota, metadados e navegação nunca estiveram dentro dessas ilhas, portanto a falha não transforma o post em uma página de erro.
@@ -105,6 +102,7 @@ flowchart TB
   Request["Artigo + ID do visitante"] --> Recent{"Contado nas últimas 24 horas?"}
   Recent -->|sim| Existing["Retorna total · counted false"]
   Recent -->|não| Visitor["Atualiza registro recente"]
+  Existing ~~~ Visitor
   Visitor --> Total["Incrementa total permanente"]
   Total --> Result["Retorna total · counted true"]
 ```

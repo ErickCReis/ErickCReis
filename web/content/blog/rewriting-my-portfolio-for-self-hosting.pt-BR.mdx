@@ -38,15 +38,16 @@ flowchart TB
   Tunnel --> Host["Notebook parado"]
   Host --> Container["Container do portfólio"]
   Container --> Server["Servidor Bun + Elysia"]
-  Server --> Static["Páginas estáticas do Astro"]
+  Server --> Static["Astro estático"]
   Server --> Live["SSE + WebSocket"]
-  Server --> Data["SQLite + arquivos em /app/data"]
+  Server --> Data["SQLite + /app/data"]
+  Static ~~~ Live ~~~ Data
 ```
 
 O Dokploy participa de outro caminho. Ele controla o deploy, mas não é uma etapa pela qual cada requisição passa:
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["Repositório"] --> Dokploy["Dokploy"]
   Dokploy --> Build["Docker build"]
   Build --> Image["Imagem de runtime"]

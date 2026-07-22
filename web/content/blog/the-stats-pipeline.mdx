@@ -18,10 +18,11 @@ The homepage currently combines system resources, external uptime, visitor prese
 The resulting path has four layers: collectors on the server, an initial history response, a shared server-sent event stream, and small Solid stores.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Sources["Runtime and external sources"] --> Modules["Stat modules"]
   Modules --> History["GET /stats/history"]
   Modules --> Stream["GET /stats/stream · SSE"]
+  History ~~~ Stream
   History --> Transport["Shared transport decoders"]
   Stream --> Transport
   Transport --> Stores["Solid stores"]

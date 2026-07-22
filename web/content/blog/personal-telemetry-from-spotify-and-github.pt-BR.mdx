@@ -14,13 +14,15 @@ Um portfólio pode virar um arquivo sem querer: cada cartão aponta para trás. 
 Os painéis aparecem lado a lado como peças de telemetria, mas suas fontes se comportam de formas diferentes. A reprodução muda em segundos e pode nem existir. Os dados de contribuições mudam devagar e continuam úteis depois de uma reinicialização. Tratar os dois apenas como “consultar uma API de tempos em tempos” esconderia as decisões de produto que os mantêm atuais, honestos e pequenos.
 
 ```mermaid center
-flowchart LR
-  SpotifyAPI["API Web do Spotify"] --> Spotify["Módulo de reprodução atual"]
-  GitHubAPI["API GraphQL do GitHub"] --> GitHub["Módulo de contribuições"]
-  Spotify --> Contract["Contratos compartilhados de estatísticas"]
+flowchart TB
+  SpotifyAPI["Spotify"] --> Spotify["Reprodução"]
+  GitHubAPI["GitHub"] --> GitHub["Contribuições"]
+  SpotifyAPI ~~~ GitHubAPI
+  Spotify ~~~ GitHub
+  Spotify --> Contract["Stats"]
   GitHub --> Contract
-  Contract --> Stream["Fluxo de telemetria do site"]
-  Stream --> Panels["Painéis do Solid"]
+  Contract --> Stream["Telemetria"]
+  Stream --> Panels["Painéis"]
 ```
 
 Projetei cada adaptador respondendo às mesmas três perguntas: com que rapidez esse valor pode se tornar enganoso, o que pode atravessar a fronteira do navegador e o que deve acontecer quando a fonte diz “agora não”? As respostas — e não o tamanho visual do painel — definem a política.
@@ -68,6 +70,7 @@ flowchart TB
   Days --> Year["Este ano"]
   Days --> Window["Últimos 30 dias"]
   Days --> Last["Última data ativa"]
+  Today ~~~ Month ~~~ Year ~~~ Window ~~~ Last
 ```
 
 A implementação e a interface compacta chamam esses valores de commits, mas a fonte é o calendário de contribuições do GitHub. Esse calendário é a métrica que o produto expõe; ele não deve ser interpretado como um `git log` local nem como uma auditoria de todos os commits.

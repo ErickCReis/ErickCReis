@@ -15,14 +15,10 @@ When I first put these readings beside one another, their proximity made them lo
 
 ```mermaid center
 flowchart LR
-  Process["Bun process"] --> CPU["Process CPU usage"]
-  Cgroup["Linux cgroup"] --> Limits["CPU quota + memory usage/limit"]
-  Host["Laptop power_supply"] --> Battery["Battery state"]
-  Outside["UptimeRobot"] --> Availability["Public availability"]
-  CPU --> Panels["Telemetry panels"]
-  Limits --> Panels
-  Battery --> Panels
-  Availability --> Panels
+  Process["Bun<br/>CPU"] --> Panels["Health panels"]
+  Cgroup["Cgroup<br/>CPU + memory"] --> Panels
+  Host["Laptop<br/>battery"] --> Panels
+  Outside["UptimeRobot<br/>availability"] --> Panels
 ```
 
 ## CPU is relative to the process allowance

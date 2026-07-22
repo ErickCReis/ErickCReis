@@ -14,7 +14,7 @@ I wanted that single entry point without turning Astro into a server-rendered ap
 The seam is a route table generated during the build. Astro remains a static-site generator; Elysia learns which files it produced and later serves those exact files beside the live endpoints.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["Astro source"] --> Astro["Astro static build"]
   Astro --> Dist["dist directory"]
   Dist --> Macro["Bun macro walks files"]

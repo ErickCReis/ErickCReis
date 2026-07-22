@@ -51,7 +51,7 @@ async function getMermaid() {
         arrowheadColor: "#7ce3fd",
         edgeLabelBackground: "#090f15",
         fontFamily: "monospace",
-        fontSize: "14px",
+        fontSize: "16px",
         radius: 9,
         strokeWidth: 1.25,
       },
@@ -78,26 +78,10 @@ function getDiagramClassName(meta?: string) {
   return classes.join(" ");
 }
 
-function preserveDiagramScale(svg: string) {
-  const viewBox = svg.match(/\bviewBox="([^"]+)"/)?.[1];
-  const width = viewBox
-    ?.trim()
-    .split(/[\s,]+/)
-    .map(Number)[2];
-
-  if (!width || !Number.isFinite(width)) {
-    return svg;
-  }
-
-  // Mermaid emits width="100%", which shrinks wide diagrams before the
-  // figure's horizontal scroller can preserve readable label sizes.
-  return svg.replace(/\bwidth="100%"/, `width="${width}"`);
-}
-
 async function renderMermaid(source: string, id: string, meta?: string) {
   const mermaid = await getMermaid();
   const { svg } = await mermaid.render(id, source);
-  return `<figure class="${getDiagramClassName(meta)}">${preserveDiagramScale(svg)}</figure>`;
+  return `<figure class="${getDiagramClassName(meta)}">${svg}</figure>`;
 }
 
 // Sätteri (Astro 7's default Markdown processor) plugin. The `code` visitor

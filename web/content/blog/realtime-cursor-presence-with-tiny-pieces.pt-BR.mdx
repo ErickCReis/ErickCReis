@@ -14,7 +14,7 @@ Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a p�
 O navegador acompanha uma posição. Um schema compartilhado define a mensagem. Um WebSocket do Elysia valida e transmite essa mensagem. O Solid mantém os cursores atuais reativos e os renderiza. Nenhuma posição é armazenada depois disso.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Pointer["Movimento do ponteiro"] --> Hook["Hook de presença do Solid"]
   Hook -->|"posição amostrada"| Socket["WebSocket tipado"]
   Socket --> Server["Rota em tempo real do Elysia"]
@@ -82,11 +82,11 @@ O servidor também não transmite uma mensagem explícita de saída. Cada cursor
 
 ```mermaid center
 stateDiagram-v2
-  [*] --> Connected: primeiro assinante
-  Connected --> Reconnecting: encerramento ou perda da rede
-  Reconnecting --> Connected: nova tentativa após 1 segundo
-  Reconnecting --> [*]: nenhum assinante
-  Connected --> [*]: último assinante sai
+  [*] --> Connected: primeiro acesso
+  Connected --> Reconnecting: conexão perdida
+  Reconnecting --> Connected: nova tentativa em 1 segundo
+  Reconnecting --> [*]: sem assinantes
+  Connected --> [*]: último assinante
 ```
 
 ## Renderizando presença sem controlar a página

@@ -14,16 +14,18 @@ A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “
 Criei uma integração sob medida para esse requisito mais estreito. Ela não é um framework genérico de internacionalização. A integração coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e usa o texto em inglês sempre que uma tradução está ausente.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Source["Chamadas de t() no código"] --> Parse["Transform ESTree do Vite"]
   Parse --> Collect["Strings de origem ordenadas"]
   Collect --> Hash["Chaves em hash"]
   Hash --> Default["Catálogo en-US"]
   Hash --> Locale["Overrides pt-BR"]
+  Default ~~~ Locale
   Default --> Virtual["virtual:translate"]
   Locale --> Virtual
   Virtual --> Astro["Renderização estática do Astro"]
   Virtual --> Solid["Ilhas hidratadas do Solid"]
+  Astro ~~~ Solid
 ```
 
 ## A API de autoria começa em inglês

@@ -14,10 +14,11 @@ Those files already contain token-usage events. The portfolio already has a pipe
 The result supports Codex, Pi, and Claude sessions. A Bun script reads their files on the machine where they exist, aggregates counts by day, and sends normalized payloads to a protected internal endpoint. The server merges sources into a rolling 30-day stat and exposes only daily provider totals to the public telemetry stream.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Codex["Codex JSONL"] --> Local["Local sync script"]
   Pi["Pi JSONL"] --> Local
   Claude["Claude JSONL"] --> Local
+  Codex ~~~ Pi ~~~ Claude
   Local -->|"normalized counts + Bearer token"| Endpoint["Internal Elysia endpoint"]
   Endpoint --> File["token-usage.json"]
   File --> Module["Token usage stat module"]
@@ -53,13 +54,10 @@ Claude also records assistant-message usage, but its input accounting separates 
 
 ```mermaid center
 flowchart TB
-  Raw["Provider record"] --> Adapter{"Provider adapter"}
-  Adapter -->|Codex| Delta["Cumulative total → delta"]
-  Adapter -->|Pi| Message["Assistant message usage"]
-  Adapter -->|Claude| Cache["Input + cache normalization · message dedupe"]
-  Delta --> Day["Normalized day"]
-  Message --> Day
-  Cache --> Day
+  Record["Provider record"] --> Codex["Codex · cumulative → delta"]
+  Record --> Pi["Pi · assistant-message usage"]
+  Record --> Claude["Claude · cache + dedupe"]
+  Codex ~~~ Pi ~~~ Claude
 ```
 
 Malformed JSON lines, irrelevant event types, invalid timestamps, and absent session directories are skipped instead of aborting the whole scan. That makes the collector tolerant of mixed log contents, but it also means a provider format change can look like a quiet drop to zero. Provider parsers need fixtures and monitoring as those upstream formats evolve.
@@ -118,10 +116,11 @@ For each of the last 30 date keys, it sums sources by provider, sorts provider I
 The panel maps each day to a stacked bar. Known providers receive stable colors and labels; unknown provider IDs still get fallback colors. The trigger shows today's compact total, the body shows exact today and 30-day totals, and the footer shows the newest `generatedAt` time across the sources.
 
 ```mermaid center
-flowchart LR
+flowchart TB
   Sources["Provider + source windows"] --> Merge["Sum by date and provider"]
   Merge --> Providers["Sorted provider list"]
   Merge --> Daily["30 daily totals + aligned segments"]
+  Providers ~~~ Daily
   Providers --> Bars["Stacked bar chart"]
   Daily --> Bars
 ```
