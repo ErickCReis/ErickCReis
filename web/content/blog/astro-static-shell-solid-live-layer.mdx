@@ -59,7 +59,7 @@ If the JavaScript fails to start, the page is still a portfolio. If the stats st
 
 The boundary inspector below makes that ownership visible. Switch between the architecture I shipped and a counterfactual where the client owns the document, then inject a JavaScript or stream failure. “Client-owned” is deliberately narrower than “SPA”: the comparison is about which layer produced the content, not a verdict on every client-side application.
 
-<IslandBoundaryLab client:visible locale="en-US" />
+<IslandBoundaryLab client:load locale="en-US" />
 
 The two failures remove different things. Blocking JavaScript prevents the live island from starting; dropping the stream leaves the island running but without fresh data. In both cases, the generated Astro document remains available because neither dependency owns it.
 

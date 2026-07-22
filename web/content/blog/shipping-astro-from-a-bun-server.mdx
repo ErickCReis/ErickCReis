@@ -106,7 +106,7 @@ The clean aliases and the original `.html` route point to the same file and ther
 
 The lab below compresses the macro and runtime handler into one view. Pick a route to trace it to its file and response header. Add a regular asset and it receives one literal route; add an HTML file and its clean alias appears. Then inject the conflicting `about/index.html`: `/about` gains two owners, the build stops, and there is no binary available to answer the request.
 
-<DistRouteLab client:visible locale="en-US" />
+<DistRouteLab client:load locale="en-US" />
 
 That failure is the useful result. The invalid state never becomes a rule that production has to resolve.
 

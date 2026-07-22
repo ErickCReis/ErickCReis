@@ -81,7 +81,7 @@ O loop de 500 milissegundos não faz as fontes lentas consultarem suas APIs mais
 
 A verificação de versões fica mais fácil de enxergar como um filtro. No laboratório abaixo, mude o mesmo coletor mais de uma vez antes de verificar as versões: o contador dele avança a cada mudança, mas o fluxo emite um único evento apenas com o retrato mais novo. Abrir uma nova conexão SSE envia todos os retratos atuais porque aquela resposta começa sem versões em `lastSeen`.
 
-<StatsPipelineLab client:visible locale="pt-BR" />
+<StatsPipelineLab client:load locale="pt-BR" />
 
 Se o fluxo termina, o cliente espera um segundo e assina novamente enquanto a ilha continua montada. Um `AbortController` encerra esse loop quando a navegação do Astro remove a camada interativa. A nova resposta SSE começa com um mapa `lastSeen` vazio, então emite novamente as versões atuais sem precisar de um protocolo com token de retomada.
 

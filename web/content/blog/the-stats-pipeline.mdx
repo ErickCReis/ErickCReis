@@ -81,7 +81,7 @@ The 500-millisecond loop does not make slow sources poll faster. It only notices
 
 The version check is easiest to see as a gate. In the lab below, change the same collector more than once before inspecting the versions: its counter advances each time, but the stream emits one event containing only the newest snapshot. Opening a new SSE connection sends every current snapshot because that response starts with no versions in `lastSeen`.
 
-<StatsPipelineLab client:visible locale="en-US" />
+<StatsPipelineLab client:load locale="en-US" />
 
 If the stream ends, the client waits one second and subscribes again while the island is mounted. An `AbortController` ends that loop when Astro navigation removes the overlay. The next SSE response has a fresh `lastSeen` map, so it emits the current versions again without a resume-token protocol.
 

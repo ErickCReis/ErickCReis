@@ -84,7 +84,7 @@ That choice makes the English source both the fallback copy and the entry's iden
 
 The workbench below makes the loop concrete. A literal and a static concatenation converge on the same key, while a runtime variable never enters the catalog. Run one build, edit the generated override, run the next, and switch the preview locale to watch the English fallback give way to the bundled Portuguese value.
 
-<TranslationCatalogLab client:visible locale="en-US" />
+<TranslationCatalogLab client:load locale="en-US" />
 
 Hashing keeps the generated catalog keys short, but it gives up the readability of source keys and currently has no collision check. Two different source strings producing the same 32-bit hash would silently share one entry. The catalog is small enough that this is unlikely, but “unlikely” is not validation. If the translation surface grows, the generator should fail when one hash maps to two sources.
 

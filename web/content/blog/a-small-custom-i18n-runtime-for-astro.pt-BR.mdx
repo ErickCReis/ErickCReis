@@ -84,7 +84,7 @@ Essa escolha faz do texto em inglês tanto o fallback quanto a identidade da ent
 
 A bancada abaixo torna o ciclo concreto. Um literal e uma concatenação estática convergem na mesma chave, enquanto uma variável de runtime nunca entra no catálogo. Rode um build, edite o override gerado, rode o próximo e troque o idioma da prévia para ver o fallback em inglês dar lugar ao valor em português incluído no bundle.
 
-<TranslationCatalogLab client:visible locale="pt-BR" />
+<TranslationCatalogLab client:load locale="pt-BR" />
 
 O hash mantém curtas as chaves geradas dos catálogos, mas abre mão da legibilidade de uma chave textual e hoje não tem uma verificação de colisões. Duas strings de origem diferentes que produzissem o mesmo hash de 32 bits compartilhariam silenciosamente uma entrada. O catálogo é pequeno o bastante para tornar isso improvável, mas “improvável” não é validação. Se a superfície de tradução crescer, o gerador deve falhar quando um hash apontar para duas origens.
 

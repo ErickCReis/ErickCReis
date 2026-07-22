@@ -111,7 +111,7 @@ A transação imediata impede que duas requisições simultâneas leiam o mesmo 
 
 O laboratório abaixo torna essa transação visível. Simule duas leituras do navegador A: a primeira requisição incrementa o total, enquanto a segunda encontra o token ativo e não o altera. O navegador B tem um token independente. Você também pode ocultar a aba para reter uma leitura no controle de visibilidade ou avançar o relógio em 25 horas e tornar um navegador elegível novamente. Note que o conteúdo em MDX nunca muda; apenas o número em runtime e o conjunto de tokens temporários se movimentam.
 
-<ViewCounterLab client:visible locale="pt-BR" />
+<ViewCounterLab client:load locale="pt-BR" />
 
 As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. Este é um pequeno contador, não uma ferramenta de análise anônima, e essa distinção faz parte da sua descrição de privacidade.
 

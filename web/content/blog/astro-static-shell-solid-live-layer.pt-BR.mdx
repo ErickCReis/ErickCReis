@@ -59,7 +59,7 @@ Se o JavaScript não carregar, a página continua sendo um portfólio. Se o flux
 
 O inspetor de fronteiras abaixo torna essa responsabilidade visível. Alterne entre a arquitetura que coloquei em produção e uma alternativa em que o cliente controla o documento; depois, injete uma falha no JavaScript ou no fluxo de dados. “Controlado pelo cliente” é intencionalmente mais específico do que “SPA”: a comparação mostra qual camada produziu o conteúdo, não pretende avaliar toda aplicação executada no cliente.
 
-<IslandBoundaryLab client:visible locale="pt-BR" />
+<IslandBoundaryLab client:load locale="pt-BR" />
 
 As duas falhas removem partes diferentes. Bloquear o JavaScript impede que a ilha interativa inicie; derrubar o fluxo mantém a ilha em execução, mas sem dados novos. Nos dois casos, o documento gerado pelo Astro continua disponível porque nenhuma dessas dependências o controla.
 

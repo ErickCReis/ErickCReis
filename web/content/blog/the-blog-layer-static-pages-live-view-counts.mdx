@@ -111,7 +111,7 @@ The immediate transaction prevents two concurrent requests from reading the same
 
 The lab below makes that transaction visible. Read as browser A twice: the first request increments the total, while the second finds the active token and leaves it alone. Browser B has an independent token. You can also hide the tab to hold a read at the visibility gate, or advance the clock by 25 hours and make a browser eligible again. Notice that the MDX half never changes; only the runtime number and short-lived token set move.
 
-<ViewCounterLab client:visible locale="en-US" />
+<ViewCounterLab client:load locale="en-US" />
 
 The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. This is a small counter, not anonymous analytics, and that distinction belongs in its privacy description.
 

@@ -106,7 +106,7 @@ Os aliases limpos e a rota original com `.html` apontam para o mesmo arquivo e, 
 
 O laboratório abaixo comprime a macro e o handler de runtime em uma única visão. Escolha uma rota para seguir o caminho até seu arquivo e o header da resposta. Adicione um asset comum e ele recebe uma rota literal; adicione um arquivo HTML e seu alias limpo aparece. Depois, injete o conflito `about/index.html`: `/about` ganha dois proprietários, o build é interrompido e nenhum binário fica disponível para responder à requisição.
 
-<DistRouteLab client:visible locale="pt-BR" />
+<DistRouteLab client:load locale="pt-BR" />
 
 Essa falha é o resultado útil. O estado inválido nunca se transforma em uma regra que a produção precisa resolver.
 
