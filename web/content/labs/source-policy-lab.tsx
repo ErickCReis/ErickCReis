@@ -1,210 +1,158 @@
-import { For, createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import { resolveLocale, t, type Locale } from "virtual:translate";
 
 type SourcePolicyLabProps = { locale?: Locale };
-type SpotifyState = "playing" | "idle" | "limited";
-type GitHubState = "ready" | "limited";
+type SpotifyState = "playing" | "idle";
+type GitHubState = "fresh" | "expired";
+
 function getCopy(locale: Locale) {
   return {
     label: t(locale, "Spotify and GitHub source policy simulator"),
     spotify: t(locale, "Spotify"),
     github: t(locale, "GitHub"),
-    states: {
-      playing: t(locale, "playing"),
-      idle: t(locale, "idle"),
-      limited: t(locale, "429"),
-      ready: t(locale, "available"),
-    },
-    cache: t(locale, "cache age"),
-    next: t(locale, "next"),
-    spotifyResults: {
-      playing: t(locale, "poll in 2.5s · keep 84 snapshots in memory"),
-      idle: t(locale, "poll in 15s · publish an empty playback state"),
-      limited: t(locale, "honor Retry-After · try again in 42s"),
-    },
-    githubResults: {
-      cache: t(locale, "serve the disk cache · no API call"),
-      fetch: t(locale, "cache expired · fetch a new 30-day window"),
-      limited: t(locale, "rate limited · retry after reset (15 min fallback)"),
-    },
-    contract: t(locale, "both publish one normalized snapshot to the shared stream"),
+    playing: t(locale, "playing"),
+    idle: t(locale, "idle"),
+    fresh: t(locale, "fresh"),
+    expired: t(locale, "expired"),
+    cache: t(locale, "cache"),
+    contract: t(locale, "one normalized snapshot → shared stream"),
   };
 }
-
-const spotifyStates: SpotifyState[] = ["playing", "idle", "limited"];
-const githubStates: GitHubState[] = ["ready", "limited"];
 
 export function SourcePolicyLab(props: SourcePolicyLabProps) {
   const text = createMemo(() => getCopy(resolveLocale(props.locale)));
   const [spotifyState, setSpotifyState] = createSignal<SpotifyState>("playing");
-  const [cacheAge, setCacheAge] = createSignal(12);
-  const [githubState, setGitHubState] = createSignal<GitHubState>("ready");
-
-  const cacheFresh = createMemo(() => cacheAge() < 30);
-  const githubResult = createMemo(() => {
-    if (cacheFresh()) return text().githubResults.cache;
-    return githubState() === "limited" ? text().githubResults.limited : text().githubResults.fetch;
-  });
+  const [githubState, setGitHubState] = createSignal<GitHubState>("fresh");
 
   const choiceClass = (active: boolean, tone: "green" | "blue") =>
-    `border-b py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 motion-reduce:transition-none ${
-      tone === "green" ? "focus-visible:outline-emerald-200" : "focus-visible:outline-sky-200"
-    } ${
+    `rounded-full px-3 py-1.5 font-mono text-xs font-semibold transition-colors motion-reduce:transition-none ${
       active
         ? tone === "green"
-          ? "border-emerald-300 text-emerald-100"
-          : "border-sky-300 text-sky-100"
-        : "border-transparent text-slate-600 hover:text-slate-300"
+          ? "bg-emerald-300 text-emerald-950"
+          : "bg-sky-300 text-sky-950"
+        : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
     }`;
 
   return (
     <section
-      class="not-prose my-10 mx-auto max-w-2xl"
+      class="not-prose mx-auto my-10 max-w-xl"
       aria-label={text().label}
       data-concept-lab="source-policy"
     >
-      <div class="relative overflow-hidden border-l border-white/10 pl-4 sm:pl-6">
-        <div class="absolute left-0 top-0 h-14 w-px bg-emerald-300" aria-hidden="true" />
-
-        <div class="grid items-start gap-x-8 gap-y-3 sm:grid-cols-[8.5rem_1fr]">
-          <div>
-            <p class="font-mono text-xs uppercase tracking-[0.18em] text-emerald-200">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-3xl bg-emerald-300/[0.07] p-4 sm:p-5">
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-mono text-xs font-bold uppercase tracking-[0.16em] text-emerald-200">
               {text().spotify}
-            </p>
-            <div class="mt-2 flex flex-wrap gap-x-3" role="group" aria-label={text().spotify}>
-              <For each={spotifyStates}>
-                {(state) => (
-                  <button
-                    type="button"
-                    onClick={() => setSpotifyState(state)}
-                    aria-pressed={spotifyState() === state}
-                    class={choiceClass(spotifyState() === state, "green")}
-                  >
-                    {text().states[state]}
-                  </button>
-                )}
-              </For>
+            </span>
+            <div
+              class="flex rounded-full bg-black/20 p-0.5"
+              role="group"
+              aria-label={text().spotify}
+            >
+              <button
+                type="button"
+                onClick={() => setSpotifyState("playing")}
+                aria-pressed={spotifyState() === "playing"}
+                class={choiceClass(spotifyState() === "playing", "green")}
+              >
+                {text().playing}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSpotifyState("idle")}
+                aria-pressed={spotifyState() === "idle"}
+                class={choiceClass(spotifyState() === "idle", "green")}
+              >
+                {text().idle}
+              </button>
             </div>
           </div>
 
-          <div class="min-w-0 pt-1">
-            <div class="flex h-3 items-center gap-1" aria-hidden="true">
-              <For each={[0, 1, 2, 3, 4, 5, 6]}>
-                {(_, index) => (
-                  <span
-                    class={`h-px flex-1 ${
-                      spotifyState() === "limited"
-                        ? index() < 2
-                          ? "bg-rose-300"
-                          : "bg-white/5"
-                        : spotifyState() === "idle"
-                          ? index() === 0
-                            ? "bg-emerald-300"
-                            : "bg-white/5"
-                          : index() % 2
-                            ? "bg-emerald-300/30"
-                            : "bg-emerald-300"
-                    }`}
-                  />
-                )}
-              </For>
-            </div>
+          <div class="mt-8 flex items-end justify-between gap-4">
             <output
-              class="mt-2 block min-h-5 text-sm leading-relaxed text-slate-300"
+              class="font-mono text-4xl font-black tracking-[-0.08em] text-emerald-100"
               aria-live="polite"
             >
-              {text().spotifyResults[spotifyState()]}
+              {spotifyState() === "playing" ? "2.5s" : "15s"}
             </output>
+            <div class="mb-1 flex h-8 items-end gap-1" aria-hidden="true">
+              <span
+                class={`w-1 rounded-full bg-emerald-300 ${spotifyState() === "playing" ? "h-3" : "h-1"}`}
+              />
+              <span
+                class={`w-1 rounded-full bg-emerald-300 ${spotifyState() === "playing" ? "h-7" : "h-1"}`}
+              />
+              <span
+                class={`w-1 rounded-full bg-emerald-300 ${spotifyState() === "playing" ? "h-5" : "h-1"}`}
+              />
+              <span
+                class={`w-1 rounded-full bg-emerald-300 ${spotifyState() === "playing" ? "h-8" : "h-1"}`}
+              />
+              <span
+                class={`w-1 rounded-full bg-emerald-300 ${spotifyState() === "playing" ? "h-4" : "h-1"}`}
+              />
+            </div>
           </div>
         </div>
 
-        <div class="my-6 h-px bg-white/10" aria-hidden="true" />
-
-        <div class="absolute bottom-0 left-0 top-20 w-px bg-sky-300" aria-hidden="true" />
-        <div class="grid items-start gap-x-8 gap-y-4 sm:grid-cols-[8.5rem_1fr]">
-          <div>
-            <p class="font-mono text-xs uppercase tracking-[0.18em] text-sky-200">
+        <div class="rounded-3xl bg-sky-300/[0.07] p-4 sm:p-5">
+          <div class="flex items-center justify-between gap-3">
+            <span class="font-mono text-xs font-bold uppercase tracking-[0.16em] text-sky-200">
               {text().github}
-            </p>
-            <div class="mt-2 flex gap-x-3" role="group" aria-label={text().github}>
-              <For each={githubStates}>
-                {(state) => (
-                  <button
-                    type="button"
-                    onClick={() => setGitHubState(state)}
-                    aria-pressed={githubState() === state}
-                    class={choiceClass(githubState() === state, "blue")}
-                  >
-                    {state === "ready" ? text().states.ready : text().states.limited}
-                  </button>
-                )}
-              </For>
+            </span>
+            <div
+              class="flex rounded-full bg-black/20 p-0.5"
+              role="group"
+              aria-label={text().github}
+            >
+              <button
+                type="button"
+                onClick={() => setGitHubState("fresh")}
+                aria-pressed={githubState() === "fresh"}
+                class={choiceClass(githubState() === "fresh", "blue")}
+              >
+                {text().fresh}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGitHubState("expired")}
+                aria-pressed={githubState() === "expired"}
+                class={choiceClass(githubState() === "expired", "blue")}
+              >
+                {text().expired}
+              </button>
             </div>
           </div>
 
-          <div class="min-w-0">
-            <label class="block font-mono text-xs text-slate-500">
-              <span class="flex items-baseline justify-between gap-4">
-                <span>{text().cache}</span>
-                <output class={cacheFresh() ? "text-sky-200" : "text-amber-200"}>
-                  {cacheAge()}m
-                </output>
-              </span>
-              <span class="relative mt-2 block h-5">
-                <span class="absolute inset-x-0 top-2 h-px bg-white/10" aria-hidden="true" />
-                <span
-                  class="absolute left-0 top-2 h-px bg-sky-300/60"
-                  style={{ width: `${Math.min(cacheAge(), 30) / 0.45}%` }}
-                  aria-hidden="true"
-                />
-                <span
-                  class="absolute top-0 h-4 w-px bg-amber-300/70"
-                  style={{ left: `${30 / 0.45}%` }}
-                  aria-hidden="true"
-                />
-                <span
-                  class="absolute top-0.5 -translate-x-1/2 font-mono text-xs text-slate-600"
-                  style={{ left: `${30 / 0.45}%` }}
-                  aria-hidden="true"
-                >
-                  30m
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max="45"
-                  value={cacheAge()}
-                  onInput={(event) => setCacheAge(event.currentTarget.valueAsNumber)}
-                  class="absolute inset-x-0 top-0 h-5 w-full cursor-ew-resize opacity-0 focus-visible:opacity-100 focus-visible:accent-sky-300"
-                />
-                <span
-                  class={`pointer-events-none absolute top-1 h-2.5 w-2.5 -translate-x-1/2 rounded-full border ${
-                    cacheFresh() ? "border-sky-200 bg-sky-300" : "border-amber-200 bg-amber-300"
-                  }`}
-                  style={{ left: `${cacheAge() / 0.45}%` }}
-                  aria-hidden="true"
-                />
-              </span>
-            </label>
+          <div class="mt-8 flex items-end justify-between gap-4">
             <output
-              class="mt-1 block min-h-5 text-sm leading-relaxed text-slate-300"
+              class="font-mono text-4xl font-black uppercase tracking-[-0.08em] text-sky-100"
               aria-live="polite"
             >
-              {githubResult()}
+              {githubState() === "fresh" ? text().cache : "API"}
             </output>
+            <div class="relative mb-1 h-8 w-10" aria-hidden="true">
+              <span class="absolute inset-x-0 bottom-0 h-5 rounded-md bg-sky-300/25" />
+              <span class="absolute inset-x-1 bottom-1 h-5 rounded-md bg-sky-300/45" />
+              <span
+                class={`absolute inset-x-2 h-5 rounded-md bg-sky-300 transition-[bottom] motion-reduce:transition-none ${
+                  githubState() === "fresh" ? "bottom-2" : "bottom-3"
+                }`}
+              />
+            </div>
           </div>
         </div>
-
-        <div class="mt-7 grid grid-cols-[1fr_auto_1fr] items-center gap-3" aria-hidden="true">
-          <span class="h-px bg-gradient-to-r from-emerald-300/10 to-emerald-300/70" />
-          <span class="font-mono text-xs text-slate-600">+</span>
-          <span class="h-px bg-gradient-to-l from-sky-300/10 to-sky-300/70" />
-        </div>
-        <p class="mt-2 text-center font-mono text-xs leading-relaxed text-slate-500">
-          <span class="text-slate-700">{text().next} / </span>
-          {text().contract}
-        </p>
       </div>
+
+      <div class="mx-auto grid w-2/3 grid-cols-[1fr_auto_1fr] items-start" aria-hidden="true">
+        <span class="h-7 rounded-br-2xl border-b border-r border-emerald-300/50" />
+        <span class="mt-6 h-2 w-2 rotate-45 bg-slate-100" />
+        <span class="h-7 rounded-bl-2xl border-b border-l border-sky-300/50" />
+      </div>
+      <p class="mt-2 text-center font-mono text-xs font-semibold text-slate-400">
+        {text().contract}
+      </p>
     </section>
   );
 }

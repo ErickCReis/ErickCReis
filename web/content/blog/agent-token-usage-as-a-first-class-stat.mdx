@@ -2,7 +2,7 @@
 title: "Agent token usage as a first-class stat"
 description: How a local multi-provider parser sends normalized daily counts into the same telemetry path as system, Spotify, GitHub, and uptime data.
 date: "2026-09-05"
-tags: [agents, telemetry, tokens]
+tags: [telemetry]
 ---
 
 import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
@@ -93,7 +93,7 @@ That compound identity—not the token count—is the merge instruction. Repeati
 
 The defaults prefix a machine fingerprint with the provider. On Linux the script uses the stable label `vps-prod`; on other systems it normalizes the hostname. Multiple Linux machines therefore need explicit source-ID overrides or they would replace one another. Stable merging depends on stable IDs also being unique.
 
-The lab starts with a stale `codex/laptop` window and a fresh `claude/laptop` window. Keep the selected key to preview a replacement, or switch `sourceId` to `server` to preview an additive merge. Changing the generated age also reveals the gap between per-source freshness and the single aggregate flag.
+Choose a provider/source key, adjust its token total, and sync it. An existing key replaces its previous window; a new source adds another window to the public aggregate.
 
 <TokenUsageMergeLab client:visible locale="en-US" />
 

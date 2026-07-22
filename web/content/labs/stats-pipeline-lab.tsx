@@ -4,7 +4,8 @@ import { resolveLocale, t, type Locale } from "virtual:translate";
 type StatsPipelineLabProps = { locale?: Locale };
 type ModuleId = "system" | "users" | "spotify";
 type ModuleState = { version: number; value: number };
-type Packet = { id: ModuleId; tuple: string; skipped: number };
+type Packet = { id: ModuleId; version: number };
+
 function getCopy(locale: Locale) {
   return {
     label: t(locale, "Interactive version-gated SSE pipeline"),
@@ -20,17 +21,11 @@ function getCopy(locale: Locale) {
     },
     scan: t(locale, "check versions"),
     reconnect: t(locale, "new connection"),
-    current: t(locale, "current"),
-    emitted: t(locale, "emitted"),
-    eventStream: t(locale, "SSE stream"),
     mutateLabel: (module: string, action: string) =>
       t(locale, "{action} {module}").replace("{action}", action).replace("{module}", module),
-    pipeline: [
-      t(locale, "collectors"),
-      t(locale, "version gate"),
-      t(locale, "SSE"),
-      t(locale, "stores"),
-    ],
+    collectors: t(locale, "collectors"),
+    gate: t(locale, "version gate"),
+    stream: t(locale, "SSE stream"),
     ready: t(locale, "Change a source, then check its version."),
     pending: (count: number) =>
       (count === 1 ? t(locale, "1 change waiting") : t(locale, "{count} changes waiting")).replace(
@@ -51,20 +46,20 @@ function getCopy(locale: Locale) {
       ).replace("{count}", String(skipped));
       return `${emitted} · ${skippedVersions}`;
     },
-    fresh: t(locale, "Fresh connection replayed every current snapshot."),
+    fresh: t(locale, "Replayed all current snapshots."),
   };
 }
 
 const ids: ModuleId[] = ["system", "users", "spotify"];
-const colors: Record<ModuleId, string> = {
-  system: "bg-sky-300",
-  users: "bg-emerald-300",
-  spotify: "bg-violet-300",
+const sourceStyles: Record<ModuleId, string> = {
+  system: "hover:bg-cyan-400/10 focus-visible:outline-cyan-300",
+  users: "hover:bg-lime-400/10 focus-visible:outline-lime-300",
+  spotify: "hover:bg-fuchsia-400/10 focus-visible:outline-fuchsia-300",
 };
-const packetColors: Record<ModuleId, string> = {
-  system: "text-sky-200",
-  users: "text-emerald-200",
-  spotify: "text-violet-200",
+const signalStyles: Record<ModuleId, string> = {
+  system: "bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,0.65)]",
+  users: "bg-lime-300 shadow-[0_0_14px_rgba(190,242,100,0.65)]",
+  spotify: "bg-fuchsia-300 shadow-[0_0_14px_rgba(240,171,252,0.65)]",
 };
 
 function initialModules(): Record<ModuleId, ModuleState> {
@@ -83,11 +78,6 @@ function displayValue(id: ModuleId, value: number) {
   if (id === "system") return `${value}%`;
   if (id === "spotify") return `#${String(value).padStart(2, "0")}`;
   return String(value);
-}
-
-function wireTuple(id: ModuleId, value: number) {
-  if (id === "spotify") return `[true,"track-${value}",…]`;
-  return `[t,${value},…]`;
 }
 
 export function StatsPipelineLab(props: StatsPipelineLabProps) {
@@ -120,11 +110,7 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
   }
 
   function packetFor(id: ModuleId): Packet {
-    return {
-      id,
-      tuple: wireTuple(id, modules()[id].value),
-      skipped: Math.max(0, modules()[id].version - lastSeen()[id] - 1),
-    };
+    return { id, version: modules()[id].version };
   }
 
   function markSeen() {
@@ -137,11 +123,14 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
   }
 
   function scan() {
-    const next = pending().map(packetFor);
-    const skipped = next.reduce((total, packet) => total + packet.skipped, 0);
-    setPackets(next);
+    const changed = pending();
+    const skipped = changed.reduce(
+      (total, id) => total + Math.max(0, modules()[id].version - lastSeen()[id] - 1),
+      0,
+    );
+    setPackets(changed.map(packetFor));
     markSeen();
-    setMessage(next.length ? text().sent(next.length, skipped) : text().empty);
+    setMessage(changed.length ? text().sent(changed.length, skipped) : text().empty);
   }
 
   function reconnect() {
@@ -152,114 +141,119 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
 
   return (
     <section
-      class="not-prose my-10 mx-auto max-w-xl font-mono"
+      class="not-prose mx-auto my-10 max-w-2xl font-mono"
       aria-label={text().label}
       data-concept-lab="stats-pipeline"
     >
-      <div class="border-y border-white/10 py-5">
-        <div
-          class="flex items-center gap-2 overflow-hidden text-xs tracking-[0.12em] text-slate-500 uppercase"
-          aria-hidden="true"
-        >
-          <span>{text().pipeline[0]}</span>
-          <span class="h-px min-w-3 flex-1 bg-white/10" />
-          <span class={pending().length ? "text-amber-200" : "text-slate-400"}>
-            {text().pipeline[1]}
-          </span>
-          <span class="h-px min-w-3 flex-1 bg-white/10" />
-          <span>{text().pipeline[2]}</span>
-          <span class="h-px min-w-3 flex-1 bg-white/10" />
-          <span>{text().pipeline[3]}</span>
-        </div>
-
-        <div class="mt-5 divide-y divide-white/[0.06] border-y border-white/[0.06]">
-          <For each={ids}>
-            {(id) => (
-              <button
-                type="button"
-                onClick={() => update(id)}
-                aria-label={text().mutateLabel(text().modules[id], text().mutate[id])}
-                class="group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
-              >
-                <span class="flex min-w-0 items-center gap-3">
-                  <span class={`size-1.5 shrink-0 rounded-full ${colors[id]}`} aria-hidden="true" />
-                  <span class="min-w-0">
-                    <span class="flex items-baseline gap-2">
-                      <span class="truncate text-sm text-slate-200">{text().modules[id]}</span>
-                      <span class="truncate text-xs text-slate-600 transition-colors group-hover:text-slate-400">
-                        + {text().mutate[id]}
-                      </span>
+      <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1fr)] sm:items-stretch">
+        <div class="rounded-2xl bg-slate-950/70 p-2 ring-1 ring-white/8">
+          <p class="px-2 pt-1 pb-2 text-xs font-bold tracking-[0.16em] text-slate-500 uppercase">
+            {text().collectors}
+          </p>
+          <div class="space-y-1">
+            <For each={ids}>
+              {(id) => (
+                <button
+                  type="button"
+                  onClick={() => update(id)}
+                  aria-label={text().mutateLabel(text().modules[id], text().mutate[id])}
+                  class={`group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 ${sourceStyles[id]}`}
+                >
+                  <span
+                    class={`size-2 shrink-0 rounded-full ${signalStyles[id]}`}
+                    aria-hidden="true"
+                  />
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-semibold text-slate-100">
+                      {text().modules[id]}
                     </span>
-                    <span class="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
-                      <span>
-                        {text().emitted} v{lastSeen()[id]}
-                      </span>
-                      <span aria-hidden="true">→</span>
-                      <span class={modules()[id].version > lastSeen()[id] ? "text-amber-200" : ""}>
-                        {text().current} v{modules()[id].version}
-                      </span>
+                    <span class="block truncate text-xs text-slate-500 group-hover:text-slate-300">
+                      + {text().mutate[id]}
                     </span>
                   </span>
-                </span>
-                <span class="text-right text-base tabular-nums text-slate-300">
-                  {displayValue(id, modules()[id].value)}
-                </span>
-              </button>
-            )}
-          </For>
+                  <span class="text-right">
+                    <strong class="block text-base font-bold tabular-nums text-white">
+                      {displayValue(id, modules()[id].value)}
+                    </strong>
+                    <span
+                      class={`block text-xs font-bold tabular-nums ${
+                        modules()[id].version > lastSeen()[id] ? "text-amber-300" : "text-slate-600"
+                      }`}
+                    >
+                      v{modules()[id].version}
+                    </span>
+                  </span>
+                </button>
+              )}
+            </For>
+          </div>
         </div>
 
-        <div class="mt-4 flex items-center gap-3">
-          <span class="h-px flex-1 bg-white/10" aria-hidden="true" />
+        <div class="relative flex min-h-20 items-center justify-center overflow-hidden rounded-2xl bg-amber-300 px-3 py-4 text-slate-950">
+          <div
+            class="absolute inset-x-0 top-1/2 h-px bg-slate-950/15 sm:inset-y-0 sm:left-1/2 sm:h-auto sm:w-px"
+            aria-hidden="true"
+          />
           <button
             type="button"
             onClick={scan}
-            class="shrink-0 rounded-sm border border-amber-200/50 px-3 py-1.5 text-xs text-amber-100 transition-colors hover:bg-amber-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
+            class="relative z-10 flex min-w-24 flex-col items-center rounded-xl bg-slate-950 px-4 py-3 text-center text-amber-200 shadow-lg shadow-amber-950/20 transition-transform hover:scale-[1.03] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
           >
-            {text().scan}
-            <Show when={pendingChanges()}>
-              <span class="ml-2 rounded-sm bg-amber-200 px-1 text-xs text-slate-950">
+            <span class="text-xs font-bold tracking-[0.12em] uppercase">{text().gate}</span>
+            <span class="mt-1 text-sm font-bold">{text().scan}</span>
+            <Show when={pendingChanges() > 0}>
+              <span class="mt-1.5 rounded-full bg-amber-300 px-2 py-0.5 text-xs font-black text-slate-950">
                 {pendingChanges()}
               </span>
             </Show>
           </button>
-          <span class="h-px flex-1 bg-white/10" aria-hidden="true" />
         </div>
 
-        <div class="mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-          <span class="pt-px text-xs tracking-[0.12em] text-slate-600 uppercase">
-            {text().eventStream}
-          </span>
-          <Show
-            when={packets().length > 0}
-            fallback={<span class="text-xs text-slate-700">—</span>}
-          >
-            <ul class="space-y-1.5 text-xs">
-              <For each={packets()}>
-                {(packet) => (
-                  <li class="flex min-w-0 items-center gap-2">
-                    <span class={packetColors[packet.id]}>event:{packet.id}</span>
-                    <code class="truncate text-slate-500">data: {packet.tuple}</code>
-                  </li>
-                )}
-              </For>
-            </ul>
-          </Show>
-        </div>
+        <div class="flex min-h-32 flex-col rounded-2xl bg-slate-900/55 p-3 ring-1 ring-white/8">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-xs font-bold tracking-[0.16em] text-slate-500 uppercase">
+              {text().stream}
+            </p>
+            <button
+              type="button"
+              onClick={reconnect}
+              class="text-xs font-semibold text-slate-400 underline decoration-slate-600 underline-offset-4 transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
+            >
+              {text().reconnect}
+            </button>
+          </div>
 
-        <div class="mt-5 flex items-end justify-between gap-4 border-t border-white/[0.06] pt-3">
-          <output class="block max-w-sm text-xs leading-relaxed text-slate-400" aria-live="polite">
-            {message()}
-          </output>
-          <button
-            type="button"
-            onClick={reconnect}
-            class="shrink-0 text-xs text-slate-600 underline decoration-white/10 underline-offset-4 transition-colors hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
-          >
-            {text().reconnect}
-          </button>
+          <div class="flex flex-1 items-center py-4">
+            <Show
+              when={packets().length > 0}
+              fallback={<span class="mx-auto text-2xl font-black text-slate-700">∅</span>}
+            >
+              <ul class="w-full space-y-2">
+                <For each={packets()}>
+                  {(packet) => (
+                    <li class="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-2">
+                      <span
+                        class={`size-2 shrink-0 rounded-full ${signalStyles[packet.id]}`}
+                        aria-hidden="true"
+                      />
+                      <span class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-200">
+                        {text().modules[packet.id]}
+                      </span>
+                      <strong class="text-sm font-black tabular-nums text-white">
+                        v{packet.version}
+                      </strong>
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </Show>
+          </div>
         </div>
       </div>
+
+      <output class="mt-3 block text-center text-xs font-medium text-slate-400" aria-live="polite">
+        {message()}
+      </output>
     </section>
   );
 }

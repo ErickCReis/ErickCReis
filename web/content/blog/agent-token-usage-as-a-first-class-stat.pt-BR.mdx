@@ -2,7 +2,7 @@
 title: "Uso de tokens de agentes como estatística de primeira classe"
 description: Como um parser local para vários provedores envia contagens diárias normalizadas pelo mesmo caminho de telemetria usado por sistema, Spotify, GitHub e uptime.
 date: "2026-09-05"
-tags: [agentes, telemetria, tokens]
+tags: [telemetry]
 ---
 
 import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
@@ -93,7 +93,7 @@ Essa identidade composta — e não a contagem de tokens — é a instrução de
 
 Os padrões adicionam o provedor como prefixo de uma impressão digital da máquina. No Linux, o script usa o rótulo estável `vps-prod`; nos outros sistemas, normaliza o hostname. Várias máquinas Linux, portanto, precisam de IDs de origem explícitos ou substituirão os dados umas das outras. Uma combinação estável depende de IDs que sejam estáveis e também únicos.
 
-O laboratório começa com uma janela antiga de `codex/laptop` e outra atual de `claude/laptop`. Mantenha a chave selecionada para antecipar uma substituição ou troque o `sourceId` para `server` e veja uma combinação aditiva. Alterar o horário de geração também revela a diferença entre a atualização de cada origem e o indicador único do conjunto.
+Escolha uma chave de provedor e origem, ajuste o total de tokens e sincronize. Uma chave existente substitui a janela anterior; uma nova origem acrescenta outra janela ao total público.
 
 <TokenUsageMergeLab client:visible locale="pt-BR" />
 

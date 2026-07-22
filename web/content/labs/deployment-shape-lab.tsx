@@ -3,6 +3,7 @@ import { resolveLocale, t, type Locale } from "virtual:translate";
 
 type DeploymentShapeLabProps = { locale?: Locale };
 type Path = "request" | "deploy";
+
 function getCopy(locale: Locale) {
   return {
     label: t(locale, "One laptop, two paths"),
@@ -15,15 +16,6 @@ function getCopy(locale: Locale) {
     laptop: t(locale, "laptop"),
     container: t(locale, "container"),
     data: t(locale, "/app/data"),
-    survived: (count: number) =>
-      (count === 1
-        ? t(locale, "survived 1 replacement")
-        : t(locale, "survived {count} replacements")
-      ).replace("{count}", String(count)),
-    summaries: {
-      request: t(locale, "The request reaches Bun without crossing Dokploy."),
-      deploy: t(locale, "The container changes; the mounted data does not."),
-    },
   };
 }
 
@@ -39,87 +31,77 @@ export function DeploymentShapeLab(props: DeploymentShapeLabProps) {
 
   return (
     <section
-      class="not-prose my-8 mx-auto max-w-xl"
+      class="not-prose mx-auto my-10 max-w-xl font-mono"
       aria-label={text().label}
       data-concept-lab="deployment-shape"
     >
-      <div class="border-l border-white/10 py-1 pl-4 sm:pl-6">
-        <p class="mb-5 font-mono text-xs uppercase tracking-[0.22em] text-slate-600">
-          {text().label}
-        </p>
-
-        <div class="space-y-1" role="group" aria-label={text().label}>
+      <div class="grid gap-4 sm:grid-cols-[9rem_minmax(0,1fr)] sm:items-stretch">
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-1" role="group" aria-label={text().label}>
           <button
             type="button"
             onClick={() => setPath("request")}
             aria-pressed={path() === "request"}
-            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-xs transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-200 motion-reduce:transition-none ${
-              path() === "request" ? "opacity-100" : "opacity-35 hover:opacity-70"
+            class={`rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 motion-reduce:transition-none ${
+              path() === "request"
+                ? "bg-cyan-300 text-slate-950"
+                : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
-            <span class="min-w-0">
-              <span class="block truncate text-emerald-200">{text().request}</span>
-              <span class="block truncate text-slate-400">{text().visitor}</span>
-            </span>
-            <span class="flex min-w-0 items-center" aria-hidden="true">
-              <span class="truncate text-slate-300">{text().tunnel}</span>
-              <span class="ml-3 h-px flex-1 bg-emerald-200/40 transition-colors group-hover:bg-emerald-200/70 motion-reduce:transition-none" />
-            </span>
-            <span class="text-emerald-200" aria-hidden="true">
-              ↘
-            </span>
+            {text().request}
           </button>
-
           <button
             type="button"
             onClick={deployNext}
             aria-pressed={path() === "deploy"}
-            class={`group grid w-full grid-cols-[minmax(4.5rem,0.85fr)_1fr_auto] items-center gap-3 py-2 text-left font-mono text-xs transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-200 motion-reduce:transition-none ${
-              path() === "deploy" ? "opacity-100" : "opacity-35 hover:opacity-70"
+            class={`rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 motion-reduce:transition-none ${
+              path() === "deploy"
+                ? "bg-violet-300 text-slate-950"
+                : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
-            <span class="min-w-0">
-              <span class="block truncate text-sky-200">{text().deploy}</span>
-              <span class="block truncate text-slate-400">{text().repository}</span>
-            </span>
-            <span class="flex min-w-0 items-center" aria-hidden="true">
-              <span class="truncate text-slate-300">{text().control}</span>
-              <span class="ml-3 h-px flex-1 bg-sky-200/40 transition-colors group-hover:bg-sky-200/70 motion-reduce:transition-none" />
-            </span>
-            <span class="text-sky-200" aria-hidden="true">
-              ↗
-            </span>
+            {text().deploy}
           </button>
         </div>
 
-        <div class="ml-auto mt-1 w-[min(100%,16rem)] font-mono text-xs">
-          <div class="border-t border-white/15 pt-3 text-right">
-            <span class="text-slate-300">{text().laptop}</span>
-            <output
-              class="ml-2 text-slate-500"
-              aria-label={`${text().container} r${String(revision()).padStart(2, "0")}`}
-              aria-live="polite"
-              aria-atomic="true"
+        <div class="grid min-h-44 grid-cols-[minmax(0,1fr)_3rem_minmax(7rem,0.8fr)] grid-rows-[1fr_auto] overflow-hidden rounded-2xl bg-slate-950 shadow-[inset_0_0_0_1px_rgb(51_65_85)]">
+          <div class="flex min-w-0 flex-col justify-center px-4 py-5 sm:px-5">
+            <span
+              class={`truncate text-sm font-semibold ${
+                path() === "request" ? "text-cyan-200" : "text-violet-200"
+              }`}
             >
-              {text().container} r{String(revision()).padStart(2, "0")}
+              {path() === "request" ? text().visitor : text().repository}
+            </span>
+            <span class="mt-1 truncate text-xs text-slate-500">
+              {path() === "request" ? text().tunnel : text().control}
+            </span>
+          </div>
+
+          <div class="relative" aria-hidden="true">
+            <span
+              class={`absolute top-1/2 right-0 left-0 h-0.5 -translate-y-1/2 ${
+                path() === "request" ? "bg-cyan-300" : "bg-violet-300"
+              }`}
+            />
+            <span
+              class={`absolute top-1/2 right-0 size-2 -translate-y-1/2 rotate-45 border-t-2 border-r-2 ${
+                path() === "request" ? "border-cyan-300" : "border-violet-300"
+              }`}
+            />
+          </div>
+
+          <div class="flex flex-col justify-center bg-slate-900 px-4 py-5">
+            <span class="text-xs font-medium text-slate-500">{text().laptop}</span>
+            <output class="mt-1 text-sm font-bold text-white" aria-live="polite" aria-atomic="true">
+              {text().container} {String(revision()).padStart(2, "0")}
             </output>
           </div>
-          <div class="ml-auto flex w-fit items-stretch">
-            <span class="mr-3 w-px bg-amber-200/40" aria-hidden="true" />
-            <div class="pt-3 text-right">
-              <span class="block text-amber-200/80">{text().data}</span>
-              <span class="block text-xs text-slate-600">{text().survived(revision() - 1)}</span>
-            </div>
+
+          <div class="col-span-3 flex items-center justify-between bg-amber-300 px-4 py-2.5 text-slate-950 sm:px-5">
+            <span class="text-xs font-semibold">{text().data}</span>
+            <span class="h-1.5 w-12 rounded-full bg-slate-950/25" aria-hidden="true" />
           </div>
         </div>
-
-        <output
-          class="mt-6 block max-w-md text-sm leading-relaxed text-slate-400"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {text().summaries[path()]}
-        </output>
       </div>
     </section>
   );

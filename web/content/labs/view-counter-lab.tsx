@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, createMemo, createSignal } from "solid-js";
 import { resolveLocale, t, type Locale } from "virtual:translate";
 
 type ViewCounterLabProps = { locale?: Locale };
@@ -17,21 +17,12 @@ function getCopy(locale: Locale) {
     queued: t(locale, "read queued"),
     advance: t(locale, "+25h"),
     reset: t(locale, "reset"),
-    steps: {
-      idle: [t(locale, "visibility"), t(locale, "24h token"), t(locale, "total")],
-      waiting: [t(locale, "waiting"), t(locale, "not checked"), t(locale, "unchanged")],
-      counted: [t(locale, "passed"), t(locale, "new token"), t(locale, "+1")],
-      deduped: [t(locale, "passed"), t(locale, "token found"), t(locale, "unchanged")],
-    },
     results: {
       idle: t(locale, "Choose a browser and read the article."),
-      waiting: t(locale, "The hidden tab holds the request until it becomes visible."),
-      counted: t(locale, "SQLite stored a token and incremented the permanent total."),
-      deduped: t(locale, "This browser already has an active token; the total stays put."),
+      waiting: t(locale, "Waiting for a visible tab."),
+      counted: t(locale, "Token stored. Total +1."),
+      deduped: t(locale, "Active token found. Total unchanged."),
     },
-    token: t(locale, "token"),
-    active: t(locale, "active"),
-    expired: t(locale, "expired"),
   };
 }
 
@@ -93,30 +84,57 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
   }
 
   const browserClass = (active: boolean) =>
-    `flex size-9 items-center justify-center border font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-200 motion-reduce:transition-none ${
+    `flex min-h-11 flex-1 items-center justify-center rounded-xl font-mono text-sm font-black transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-950 disabled:cursor-wait motion-reduce:transition-none ${
       active
-        ? "border-fuchsia-200 bg-fuchsia-200 text-slate-950"
-        : "border-white/10 text-slate-500 hover:border-white/30 hover:text-slate-200"
+        ? "bg-indigo-950 text-white"
+        : "bg-black/5 text-slate-500 hover:bg-black/10 hover:text-indigo-950"
     }`;
 
   return (
     <section
-      class="not-prose my-8 mx-auto max-w-xl"
+      class="not-prose mx-auto my-10 max-w-xl py-3"
       aria-label={text().label}
       data-concept-lab="view-counter-transaction"
     >
-      <div class="border-y border-white/10 py-5">
-        <div class="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-start">
+      <div class="overflow-hidden rounded-[2rem] bg-[#f3efe3] text-indigo-950 shadow-[0_24px_80px_-40px_rgba(99,102,241,0.7)]">
+        <div class="flex items-center justify-between bg-[#ff6b4a] px-5 py-4 sm:px-7">
+          <p class="font-mono text-sm font-black uppercase tracking-wider">{text().article}</p>
+          <button
+            type="button"
+            onClick={toggleVisibility}
+            aria-pressed={visible()}
+            class="flex min-h-10 items-center gap-2 rounded-full bg-indigo-950 px-4 font-mono text-sm font-black text-white transition hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-950 motion-reduce:transition-none"
+          >
+            <span
+              class={`size-2.5 rounded-full ${visible() ? "bg-lime-300" : "bg-orange-300"}`}
+              aria-hidden="true"
+            />
+            {visible() ? text().visible : text().hidden}
+          </button>
+        </div>
+
+        <div class="grid gap-6 px-5 py-6 sm:grid-cols-[1fr_auto] sm:items-end sm:px-7">
           <div>
-            <p class="mb-2 font-mono text-xs uppercase tracking-[0.2em] text-slate-600">
-              {text().browser}
+            <p class="font-mono text-sm font-bold uppercase tracking-widest text-indigo-950/50">
+              {text().views}
             </p>
+            <p class="mt-1 text-6xl font-black leading-none tabular-nums tracking-[-0.07em]">
+              {total()}
+            </p>
+          </div>
+
+          <div class="sm:w-44">
+            <p class="mb-2 font-mono text-sm font-bold text-indigo-950/50">{text().browser}</p>
             <div class="flex gap-2">
               <For each={visitors}>
                 {(choice) => (
                   <button
                     type="button"
-                    onClick={() => setVisitor(choice)}
+                    onClick={() => {
+                      setVisitor(choice);
+                      setResult("idle");
+                    }}
+                    disabled={result() === "waiting"}
                     aria-label={`${text().browser} ${choice}`}
                     aria-pressed={visitor() === choice}
                     class={browserClass(visitor() === choice)}
@@ -127,109 +145,41 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
               </For>
             </div>
           </div>
-
-          <div class="min-w-0 border-l border-white/10 pl-5">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <p class="font-serif text-xl text-slate-200">{text().article}</p>
-                <button
-                  type="button"
-                  onClick={toggleVisibility}
-                  aria-pressed={visible()}
-                  class="mt-2 flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-slate-500 hover:text-slate-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-fuchsia-200"
-                >
-                  <span
-                    class={`size-1.5 ${visible() ? "bg-emerald-300" : "bg-amber-200"}`}
-                    aria-hidden="true"
-                  />
-                  {visible() ? text().visible : text().hidden}
-                </button>
-              </div>
-              <p class="text-right font-mono text-4xl leading-none tabular-nums text-fuchsia-200">
-                {total()}
-                <span class="mt-1 block text-xs uppercase tracking-widest text-slate-600">
-                  {text().views}
-                </span>
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={read}
-              disabled={result() === "waiting"}
-              class="mt-6 w-full border border-fuchsia-200/50 py-2.5 font-mono text-xs uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:bg-fuchsia-200 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-100 disabled:cursor-wait disabled:border-amber-200/50 disabled:text-amber-100 motion-reduce:transition-none"
-            >
-              {result() === "waiting" ? text().queued : text().read}
-            </button>
-          </div>
         </div>
 
-        <div
-          class="mt-6 grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2"
-          aria-hidden="true"
-        >
-          <For each={text().steps[result()]}>
-            {(step, index) => (
-              <>
-                <div class="min-w-0 text-center">
-                  <span
-                    class={`mx-auto mb-1.5 block size-1.5 ${
-                      result() === "waiting" && index() > 0 ? "bg-slate-700" : "bg-fuchsia-200"
-                    }`}
-                  />
-                  <span class="block truncate font-mono text-xs text-slate-500">{step}</span>
-                </div>
-                <Show when={index() < 2}>
-                  <span class="h-px w-4 bg-white/10" />
-                </Show>
-              </>
-            )}
-          </For>
-        </div>
+        <div class="bg-indigo-950 p-5 sm:p-7">
+          <button
+            type="button"
+            onClick={read}
+            disabled={result() === "waiting"}
+            class="min-h-14 w-full rounded-2xl bg-lime-300 px-5 font-mono text-base font-black text-indigo-950 transition hover:bg-lime-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-lime-300 disabled:cursor-wait disabled:bg-orange-300 motion-reduce:transition-none"
+          >
+            {result() === "waiting" ? text().queued : text().read}
+          </button>
 
-        <output
-          class="mt-4 block text-center text-sm leading-relaxed text-slate-400"
-          aria-live="polite"
-        >
-          {text().results[result()]}
-        </output>
-
-        <div class="mt-5 flex items-end justify-between gap-4 border-t border-white/10 pt-3">
-          <div class="min-h-5 font-mono text-xs">
-            <Show when={recent().length > 0} fallback={<span class="text-slate-700">24h —</span>}>
-              <For each={recent()}>
-                {(row) => {
-                  const age = () => clock() - row.at;
-                  const expired = () => age() > WINDOW_HOURS;
-                  return (
-                    <span
-                      class={`mr-3 inline-block ${
-                        expired() ? "text-amber-200/70 line-through" : "text-fuchsia-200/70"
-                      }`}
-                    >
-                      {text().token} {row.visitor} / {age()}h /{" "}
-                      {expired() ? text().expired : text().active}
-                    </span>
-                  );
+          <div class="mt-4 flex min-h-10 flex-wrap items-center justify-between gap-3">
+            <output class="text-sm font-semibold text-white/75" aria-live="polite">
+              {text().results[result()]}
+            </output>
+            <div class="flex shrink-0 gap-4 font-mono text-sm font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  setClock((value) => value + 25);
+                  setResult("idle");
                 }}
-              </For>
-            </Show>
-          </div>
-          <div class="flex shrink-0 gap-3">
-            <button
-              type="button"
-              onClick={() => setClock((value) => value + 25)}
-              class="font-mono text-xs text-slate-500 hover:text-amber-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
-            >
-              {text().advance}
-            </button>
-            <button
-              type="button"
-              onClick={reset}
-              class="font-mono text-xs text-slate-600 hover:text-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-300"
-            >
-              {text().reset}
-            </button>
+                class="text-lime-300 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-300 motion-reduce:transition-none"
+              >
+                {text().advance}
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                class="text-white/45 transition hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white motion-reduce:transition-none"
+              >
+                {text().reset}
+              </button>
+            </div>
           </div>
         </div>
       </div>

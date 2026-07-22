@@ -143,18 +143,12 @@ const translations = {
   "1qdbs0p": "{count} eventos emitidos",
   // {count} intermediate versions skipped
   "1id03dy": "{count} versões intermediárias ignoradas",
-  // {count} stale sources are hidden by the fresh aggregate flag.
-  "0w8uc9o": "{count} origens antigas ficam ocultas pelo estado atual do conjunto.",
-  // {key} was {action}.
-  "0vir2ht": "{key}: {action}.",
   // /app/data
   "0h3gui6": "/app/data",
   // + asset
   "0xkidx6": "+ asset",
   // + HTML page
   "0otjna2": "+ página HTML",
-  // +1
-  "06wbfgh": "+1",
   // +25h
   "0yo83ul": "+25h",
   // 1 change waiting
@@ -163,54 +157,22 @@ const translations = {
   "1g7gmyo": "1 evento emitido",
   // 1 intermediate version skipped
   "0zo6h79": "1 versão intermediária ignorada",
-  // 1 stale source is hidden by the fresh aggregate flag.
-  "1br4rqf": "1 origem antiga fica oculta pelo estado atual do conjunto.",
-  // 24h token
-  "0sj0ks0": "token de 24h",
-  // 429
-  "19tu4lq": "429",
-  // active
-  "1oc52r3": "ativo",
   // add source
   "09uy9ih": "somar origem",
-  // after sync
-  "17hyj30": "após o sync",
-  // age
-  "0ca1uak": "idade",
-  // allowance
-  "1ojr0ut": "capacidade",
   // apply sync
   "0b4w0ke": "aplicar sync",
   // article HTML
   "0r6d3di": "HTML do artigo",
   // Astro + island
   "1jp3vbq": "Astro + ilha",
-  // available
-  "0skramw": "disponível",
-  // both publish one normalized snapshot to the shared stream
-  "1lxhxv3": "os dois publicam um retrato normalizado no fluxo compartilhado",
   // browser
   "0215wnj": "navegador",
   // build
   "1i9vvkz": "build",
   // Build-time static route compiler
   "18fcj7n": "Compilador de rotas estáticas em tempo de build",
-  // Bun process: up 7d
-  "1fzlizj": "Processo Bun: ativo há 7d",
-  // bundle
-  "051esxx": "bundle",
   // cache
   "0an863p": "cache",
-  // cache age
-  "1ikh5c6": "idade do cache",
-  // cache expired · fetch a new 30-day window
-  "0pkmbto": "cache expirado · buscar outra janela de 30 dias",
-  // Can a visitor reach the public route?
-  "06dusc9": "Um visitante alcança a rota pública?",
-  // Can the container read the laptop battery?
-  "1m23kn6": "O container consegue ler a bateria do notebook?",
-  // catalog
-  "0wqatco": "catálogo",
   // cgroup
   "1ke9h7p": "cgroup",
   // Change a source, then check its version.
@@ -219,22 +181,16 @@ const translations = {
   "19b8mdo": "verificar versões",
   // Choose a browser and read the article.
   "0zq8qy7": "Escolha um navegador e leia o artigo.",
-  // Choose a route.
-  "08gqu64": "Escolha uma rota.",
   // client-owned
   "1tz30hu": "controlado pelo cliente",
   // cloudflared
   "0e5ohni": "cloudflared",
-  // collect
-  "13obqcx": "coleta",
   // collectors
   "08cadm9": "coletores",
   // container
   "13b9w1k": "container",
   // CPU
   "0gorp9l": "CPU",
-  // CPU time
-  "0zo0daa": "tempo de CPU",
   // Cursor protocol workbench
   "19p5dqw": "Bancada do protocolo de cursores",
   // deploy next
@@ -243,32 +199,18 @@ const translations = {
   "1xp33vr": "documento aguardando JavaScript",
   // Dokploy
   "0ann3jt": "Dokploy",
-  // down
-  "0h4k3yt": "fora do ar",
-  // drag or use arrow keys
-  "0naaqvu": "arraste ou use as setas",
-  // duplicate /about owner
-  "1u9l9q3": "proprietário duplicado em /about",
   // expired
   "0eazr5e": "vencido",
   // fresh
   "1c1n0vj": "atual",
-  // Fresh connection replayed every current snapshot.
-  "1eaecy1": "A nova conexão repetiu todos os retratos atuais.",
   // GitHub
   "1dfs3xu": "GitHub",
   // healthy
   "0ocgeo2": "funcionando",
   // hidden
   "1wa75fd": "oculta",
-  // honor Retry-After · try again in 42s
-  "1akkeia": "respeitar Retry-After · tentar em 42s",
   // host
   "1ctymwf": "host",
-  // How close is the container to its memory limit?
-  "0wsco0n": "Quão perto o container está do limite de memória?",
-  // How much of Bun's allotted CPU is busy?
-  "0cxfd5b": "Quanto da CPU atribuída ao Bun está ocupada?",
   // ID match
   "03ulev5": "IDs iguais",
   // idle
@@ -283,82 +225,48 @@ const translations = {
   "194imw1": "ilha ausente",
   // Island boundary failure lab
   "1npktkj": "Laboratório de falhas na fronteira da ilha",
-  // JavaScript renders the document and live layer.
-  "0a4xm5v": "O JavaScript renderiza o documento e a camada ao vivo.",
   // join
   "1jt36gp": "entrada",
   // laptop
   "0pf4pbh": "notebook",
-  // limit
-  "0e3z3uc": "limite",
   // literal
   "1tol884": "literal",
-  // memory charged
-  "0899wfe": "memória contabilizada",
   // Move the local cursor
   "0inxtc2": "Mova o cursor local",
   // new connection
   "16qncvn": "nova conexão",
-  // new token
-  "0bbwd7k": "novo token",
-  // next
-  "0pq32lk": "próximo passo",
   // next track
   "1lcqj3z": "próxima faixa",
-  // No binary is emitted until every route has one owner.
-  "19ii4h6": "Nenhum binário é emitido enquanto uma rota tiver mais de um proprietário.",
   // no JavaScript
   "0yr7h91": "sem JavaScript",
   // No newer versions to emit.
   "1vc1f9y": "Nenhuma versão nova para emitir.",
-  // No override was bundled, so Portuguese falls back to English.
-  "070b8x2": "Nenhum override foi incluído, então o português usa o inglês como fallback.",
   // no stream
   "1oe5fqm": "sem fluxo",
   // not Bun heap or free host RAM
   "1xt9dk0": "não é o heap do Bun nem a RAM livre do host",
-  // not checked
-  "1xq10kv": "não consultado",
   // not total laptop CPU
   "0r9k5l2": "não é a CPU total do notebook",
-  // Nothing can render without JavaScript.
-  "0i0pa7r": "Nada pode ser renderizado sem JavaScript.",
   // One laptop, two paths
   "085ipoh": "Um notebook, dois caminhos",
   // only the hardware deliberately mounted
   "1ucl52g": "somente o hardware montado de propósito",
   // outside
   "1i9dl1g": "externo",
-  // passed
-  "0mjgec9": "liberado",
   // passes
   "0r99n4s": "aprovado",
   // peer
   "1f2qvd5": "par",
   // playing
   "0vm2bed": "tocando",
-  // poll in 15s · publish an empty playback state
-  "0kvunyo": "consultar em 15s · publicar reprodução vazia",
-  // poll in 2.5s · keep 84 snapshots in memory
-  "1jgy01w": "consultar em 2,5s · manter 84 retratos na memória",
-  // power_supply mount
-  "1d5wkdp": "montagem power_supply",
   // preview
   "0ksxopj": "prévia",
-  // private sources
-  "1342s1i": "origens privadas",
   // process
   "17jcdbu": "processo",
   // provider
   "1ezgf5o": "provedor",
   // pt-BR override
   "0ait2eo": "override pt-BR",
-  // Public output keeps provider totals; source IDs and sessions stay private.
-  "0vmshtb": "A saída pública mantém totais por provedor; IDs e sessões ficam privados.",
-  // public route
-  "1ae88vh": "rota pública",
-  // rate limited · retry after reset (15 min fallback)
-  "0lscwjw": "limite atingido · tentar após a renovação (padrão de 15 min)",
   // reachability, not the failing internal layer
   "10n8v6s": "acessibilidade, não qual camada interna falhou",
   // reachable
@@ -367,8 +275,6 @@ const translations = {
   "1nefbfz": "ler artigo",
   // read queued
   "0tw4gk6": "leitura na fila",
-  // remote cursor expired after 7 seconds
-  "0gh0lzo": "cursor remoto expirou após 7 segundos",
   // replace source
   "0f1ri04": "substituir origem",
   // Replaceable token-source merge simulator
@@ -385,24 +291,12 @@ const translations = {
   "1j64cts": "Laboratório dos limites de observação do runtime",
   // runtime value
   "12l59zy": "valor de runtime",
-  // Runtime values are skipped because the collector cannot know their key.
-  "0cwk112": "Valores de runtime são ignorados porque o coletor não conhece a chave.",
   // sample
   "15v6o4n": "coletar",
-  // sample delivered to the remote document
-  "084qna8": "amostra entregue ao documento remoto",
-  // sample dropped: identity mismatch
-  "0knknvj": "amostra descartada: identidades diferentes",
-  // sample dropped: socket closed
-  "0d21ul2": "amostra descartada: socket fechado",
   // scroll
   "1pekw8c": "rolagem",
   // Selected work · notes · contact
   "04imigo": "Trabalhos · notas · contato",
-  // serve the disk cache · no API call
-  "1a0ljg2": "servir o cache em disco · sem chamada à API",
-  // served from
-  "03cpwu8": "servida por",
   // skip 7s
   "0tkik34": "avançar 7s",
   // socket
@@ -415,96 +309,36 @@ const translations = {
   "0fsveqd": "Spotify",
   // Spotify and GitHub source policy simulator
   "1yd7bgg": "Simulador das políticas de origem do Spotify e do GitHub",
-  // SQLite stored a token and incremented the permanent total.
-  "0dtdvwq": "O SQLite guardou um token e incrementou o total permanente.",
-  // SSE
-  "0gobdxu": "SSE",
-  // stale
-  "0sxi6bi": "desatualizada",
   // static +
   "02is9zy": "soma estática",
   // static MDX
   "065ob1k": "MDX estático",
   // stopped
   "0urm4i6": "interrompido",
-  // stored total
-  "0001eb8": "total armazenado",
-  // stores
-  "043v0br": "stores",
-  // survived {count} replacements
-  "0gtmfp1": "sobreviveu a {count} substituições",
-  // survived 1 replacement
-  "13lgsx0": "sobreviveu a 1 substituição",
   // telemetry · 2 visitors
   "0549v5i": "telemetria · 2 visitantes",
   // telemetry · offline
   "1anek5a": "telemetria · desconectada",
-  // The catalog has not seen this call yet.
-  "10cn7yb": "O catálogo ainda não encontrou esta chamada.",
-  // The container changes; the mounted data does not.
-  "0mlh9t6": "O container muda; os dados montados não.",
-  // The document and live layer are available.
-  "0bb95bg": "O documento e a camada ao vivo estão disponíveis.",
-  // The document survives; the island does not start.
-  "0eem58l": "O documento sobrevive; a ilha não inicia.",
-  // The document survives; the island reports offline.
-  "0oanbfv": "O documento sobrevive; a ilha informa a desconexão.",
-  // The first build created a null entry. Edit it, then build again.
-  "02lhld0": "O primeiro build criou uma entrada null. Edite-a e rode o build novamente.",
-  // The hidden tab holds the request until it becomes visible.
-  "1wi33p6": "A aba oculta retém a requisição até voltar a ficar visível.",
-  // The rendered document stays; live data stops.
-  "1ts4fu0": "O documento renderizado fica; os dados ao vivo param.",
-  // The request reaches Bun without crossing Dokploy.
-  "0uax3hr": "A requisição chega ao Bun sem atravessar o Dokploy.",
-  // The second build bundled the Portuguese override.
-  "19w9kha": "O segundo build incluiu o override em português.",
-  // This browser already has an active token; the total stays put.
-  "1a1plvc": "Este navegador já tem um token ativo; o total permanece igual.",
   // toggle collision
   "007zrht": "alternar conflito",
-  // token
-  "15735ma": "token",
-  // token found
-  "1eq65tu": "token encontrado",
   // tokens
   "1y6cuoj": "tokens",
-  // total
-  "01c3cot": "total",
   // Type Nada tocando
   "0i1uikx": "Digite Nada tocando",
-  // unchanged
-  "1ufp29q": "sem alteração",
   // version gate
   "1ac6ole": "controle",
-  // visibility
-  "0zar1et": "visibilidade",
   // visible
   "0nktwgx": "visível",
   // visitor
   "1sqi80x": "visitante",
   // visitors
   "174qtxy": "visitantes",
-  // waiting
-  "1u9tm7c": "aguardando",
-  // aggregate freshness
-  "11ajpaf": "atualidade do agregado",
-  // existing window
-  "0820wx4": "janela existente",
-  // incoming window
-  "1ygncs3": "janela recebida",
   // merge key
   "1eumyzw": "chave de mesclagem",
-  // no match
-  "16l7jzb": "sem correspondência",
   // public aggregate
   "1fpmc77": "agregado público",
   // {action} {module}
   "1bdaxax": "{action} {module}",
-  // current
-  "1obisii": "atual",
-  // emitted
-  "0i5frqj": "emitida",
   // SSE stream
   "069u38m": "fluxo SSE",
   // cannot tell
@@ -519,6 +353,40 @@ const translations = {
   "0l7c143": "Navegação entre posts",
   // Previous post
   "1kyzcia": "Post anterior",
+  // Active token found. Total unchanged.
+  "0uo509v": "Token ativo encontrado. Total mantido.",
+  // delivered
+  "0rai68f": "entregue",
+  // Document and live data ready.
+  "0wb841i": "Documento e dados ao vivo prontos.",
+  // Document stays; island offline.
+  "0dsjml7": "Documento permanece; ilha offline.",
+  // Document stays; island stops.
+  "1r8rrrx": "Documento permanece; ilha parada.",
+  // Document stays; live data stops.
+  "0kzyaiy": "Documento permanece; dados ao vivo param.",
+  // dropped · ID mismatch
+  "0mlu7p7": "descartado · IDs diferentes",
+  // dropped · socket closed
+  "0p861s7": "descartado · socket fechado",
+  // expired · 7s
+  "09zt6p7": "expirado · 7s",
+  // JavaScript rendered both layers.
+  "12pnwha": "O JavaScript renderizou as duas camadas.",
+  // Nothing renders.
+  "0e04dmv": "Nada renderiza.",
+  // one normalized snapshot → shared stream
+  "034x7wh": "um retrato normalizado → fluxo compartilhado",
+  // Replayed all current snapshots.
+  "1f6t3rq": "Todos os retratos atuais foram repetidos.",
+  // Runtime key cannot be collected.
+  "0d64eh3": "A chave dinâmica não pode ser coletada.",
+  // Token stored. Total +1.
+  "0x222st": "Token salvo. Total +1.",
+  // Totals public; source IDs private.
+  "07wt22m": "Totais públicos; IDs das origens privados.",
+  // Waiting for a visible tab.
+  "15v0qy5": "Aguardando uma aba visível.",
 } satisfies TranslationOverrides;
 
 export default translations;
