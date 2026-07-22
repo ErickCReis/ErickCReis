@@ -1,5 +1,5 @@
 ---
-title: "Telemetria de saúde a partir do runtime real"
+title: "Telemetria de saúde do ambiente real de execução"
 description: Como CPU do processo, memória do cgroup, arquivos da bateria do host e um monitor externo descrevem partes diferentes do mesmo deploy.
 date: "2026-08-15"
 tags: [telemetry, self-hosting]
@@ -25,19 +25,19 @@ flowchart LR
   Availability --> Panels
 ```
 
-## A CPU é relativa à capacidade do processo
+## A CPU é relativa à capacidade atribuída ao processo
 
-O arquivo [`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) coleta uma amostra a cada 1,5 segundos. Para a CPU, ele começa com `process.cpuUsage()`, que informa o tempo de CPU gasto pelo processo Bun em espaço de usuário e de sistema. O módulo compara esses valores cumulativos com a amostra anterior e divide o trabalho pelo tempo real transcorrido.
+O arquivo [`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) coleta uma amostra a cada 1,5 segundos. Para a CPU, ele começa com `process.cpuUsage()`, que informa o tempo de CPU gasto pelo processo Bun em espaço de usuário e de sistema. O módulo compara esses valores cumulativos com a amostra anterior e divide o trabalho pelo tempo decorrido.
 
-O denominador também inclui a quantidade de CPUs disponível para o deploy. No cgroup v2, o módulo lê `cpu.max` e divide a cota pelo período. Ele aceita os arquivos equivalentes do cgroup v1 e usa `os.cpus().length` quando não há uma cota finita disponível.
+O denominador também inclui o número de CPUs disponível para o deploy. No cgroup v2, o módulo lê `cpu.max` e divide a cota pelo período. Ele aceita os arquivos equivalentes do cgroup v1 e usa `os.cpus().length` quando não há uma cota finita disponível.
 
 ```ts
 const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 ```
 
-O resultado, portanto, não significa “quanto todos os processos do notebook estão ocupados?”. Ele representa a parcela da capacidade de CPU do deploy consumida por este processo, limitada entre zero e 100 por cento. Hoje, o Docker Compose limita o serviço a uma CPU, então o painel responde à pergunta operacionalmente útil: quanto da CPU atribuída a esta aplicação está sendo consumido pelo processo Bun?
+O resultado, portanto, não significa “qual é a carga de todos os processos do notebook?”. Ele representa a parcela da capacidade de CPU do deploy consumida por este processo, limitada entre zero e 100 por cento. Hoje, o Docker Compose limita o serviço a uma CPU, então o painel responde à pergunta operacionalmente útil: quanto da CPU atribuída a esta aplicação está sendo consumido pelo processo Bun?
 
-A contagem de CPUs calculada a partir do cgroup arredonda a cota para um número inteiro e nunca fica abaixo de um. Isso é suficiente para o limite atual de uma CPU, mas seria um modelo aproximado para cotas fracionárias. A telemetria só é útil quando sua interpretação e suas limitações permanecem visíveis.
+O número de CPUs calculado a partir do cgroup arredonda a cota para um inteiro e nunca fica abaixo de um. Isso é suficiente para o limite atual de uma CPU, mas seria um modelo aproximado para cotas fracionárias. A telemetria só é útil quando sua interpretação e suas limitações permanecem visíveis.
 
 ## A memória deve respeitar o cgroup
 
@@ -51,7 +51,7 @@ Esse número também não é o heap do Bun. `memory.current` contabiliza memóri
 
 Essa distinção importa antes de uma interrupção por falta de memória. Um host com RAM livre ainda pode encerrar um container que ultrapassa seu próprio limite.
 
-## A bateria é um vazamento intencional do host
+## A bateria é uma exposição intencional do host
 
 A aplicação roda em um notebook, por isso o estado da energia é relevante de uma forma incomum. O Linux o expõe por `/sys/class/power_supply`, mas esse caminho pertence ao host.
 
@@ -68,19 +68,19 @@ O arquivo [`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blo
 
 Se a montagem, a bateria ou os arquivos não existirem, o leitor retorna valores `null`, e o painel mostra `n/a`. A telemetria da bateria do host é uma capacidade opcional, não uma suposição que todo deploy precisa atender.
 
-Esse é um vazamento intencional e estreito pela fronteira do container. Montar todo o sistema de arquivos do host facilitaria a criação do painel e tornaria a aplicação muito mais difícil de confiar. Expor apenas o diretório de alimentação declara exatamente qual detalhe do host a aplicação tem permissão para observar.
+Essa é uma exposição intencional e estreita pela fronteira do container. Montar todo o sistema de arquivos do host facilitaria a criação do painel, mas reduziria muito a confiabilidade da aplicação. Expor apenas o diretório de alimentação declara exatamente qual detalhe do host a aplicação tem permissão para observar.
 
 ## O uptime precisa de um ponto de vista externo
 
-O valor original de uptime era próximo de um contador do processo. Ele pode dizer há quanto tempo o processo atual está vivo, mas não informa se DNS, túnel da Cloudflare, rede, container e servidor HTTP formaram um caminho público funcional.
+O valor original de uptime se parecia com um contador do processo. Ele pode dizer há quanto tempo o processo atual está vivo, mas não informa se DNS, túnel da Cloudflare, rede, container e servidor HTTP formaram um caminho público funcional.
 
 O arquivo [`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/server.ts) agora consulta o [UptimeRobot](https://uptimerobot.com/) a cada cinco minutos. A requisição pede 30 intervalos diários explícitos em UTC, uma taxa de 30 dias e os logs recentes de disponibilidade. O monitor retornado se transforma em três dados do produto:
 
 - disponibilidade diária para a barra dos últimos 30 dias;
 - disponibilidade geral durante essa janela;
-- sequência atual de disponibilidade, calculada a partir do último log de recuperação.
+- período contínuo de disponibilidade, calculado a partir do último log de recuperação.
 
-Os dias anteriores à criação do monitor permanecem como `null` em vez de se tornarem períodos com zero por cento de disponibilidade. Entre dois retratos do servidor, o painel do Solid avança localmente uma sequência bem-sucedida a cada segundo, fazendo o contador visível se mover sem consultar a API externa a cada segundo.
+Os dias anteriores à criação do monitor permanecem como `null` em vez de se tornarem períodos com zero por cento de disponibilidade. Entre dois retratos do servidor, o painel do Solid prolonga localmente esse período a cada segundo, fazendo o contador visível avançar sem consultar a API externa a cada segundo.
 
 A requisição tem um timeout de 15 segundos e novas tentativas curtas após falhas de rede, respostas `429` e erros do servidor. Se essas tentativas falharem depois que o módulo já obteve um monitor válido, ele mantém o último retrato bem-sucedido e tenta o ciclo de polling novamente após um minuto. Uma indisponibilidade da API de monitoramento não deve reescrever imediatamente como zero a última disponibilidade conhecida do site.
 

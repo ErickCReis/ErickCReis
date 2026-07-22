@@ -1,5 +1,5 @@
 ---
-title: "A camada do blog: páginas estáticas, contagens dinâmicas"
+title: "A camada do blog: páginas estáticas, contagens em tempo real"
 description: Como as coleções de conteúdo do Astro cuidam da publicação no build enquanto duas pequenas ilhas do Solid adicionam totais deduplicados no SQLite.
 date: "2026-08-22"
 tags: [astro, architecture]
@@ -16,7 +16,7 @@ flowchart LR
   MDX["Arquivos MDX"] --> Build["Build de conteúdo do Astro"]
   Build --> Archive["Listagem estática"]
   Build --> Article["HTML estático do artigo"]
-  SQLite["Totais no SQLite"] --> ReadIsland["Hidratador de contagens da listagem"]
+  SQLite["Totais no SQLite"] --> ReadIsland["Carregamento das contagens da listagem"]
   SQLite --> CountIsland["Contador do artigo"]
   ReadIsland --> Archive
   CountIsland --> Article
@@ -59,7 +59,7 @@ O agendamento, portanto, continua sendo uma responsabilidade estática. Não há
 
 A listagem do blog renderiza inicialmente um placeholder ao lado de cada post. Depois que a página carrega, um componente do Solid executado apenas no cliente envia uma única requisição em lote para `GET /content/views` com as entradas listadas e substitui os placeholders pelos totais. Abrir a listagem não registra uma visualização de artigo.
 
-A página do artigo usa outra ilha, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). Ao ser montada, ela envia `POST /content/views` com a chave daquele artigo e exibe o total retornado. Se o documento for aberto em uma aba em segundo plano, a ilha espera até que ele fique visível. O preload de um navegador não deve parecer uma pessoa lendo um post.
+A página do artigo usa outra ilha, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). Ao ser montada, ela envia `POST /content/views` com a chave daquele artigo e exibe o total retornado. Se o documento for aberto em uma aba em segundo plano, a ilha espera até que ele fique visível. O pré-carregamento do navegador não deve parecer uma pessoa lendo um post.
 
 ```mermaid center
 sequenceDiagram
@@ -111,11 +111,11 @@ flowchart TB
 
 A transação imediata impede que duas requisições simultâneas leiam o mesmo estado antigo e façam dois incrementos fora da sequência desejada. Ela também mantém o registro do visitante e a atualização do total juntos.
 
-O laboratório abaixo torna essa transação visível. Leia como o navegador A duas vezes: a primeira requisição incrementa o total, enquanto a segunda encontra o token ativo e não o altera. O navegador B tem um token independente. Você também pode ocultar a aba para reter uma leitura no controle de visibilidade ou avançar o relógio em 25 horas e tornar um navegador elegível novamente. Note que a metade MDX nunca muda; apenas o número de runtime e o conjunto de tokens temporários se movimentam.
+O laboratório abaixo torna essa transação visível. Simule duas leituras do navegador A: a primeira requisição incrementa o total, enquanto a segunda encontra o token ativo e não o altera. O navegador B tem um token independente. Você também pode ocultar a aba para reter uma leitura no controle de visibilidade ou avançar o relógio em 25 horas e tornar um navegador elegível novamente. Note que o conteúdo em MDX nunca muda; apenas o número em runtime e o conjunto de tokens temporários se movimentam.
 
 <ViewCounterLab client:visible locale="pt-BR" />
 
-As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. Este é um pequeno contador, não analytics anônimo, e essa distinção faz parte da sua descrição de privacidade.
+As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. Este é um pequeno contador, não uma ferramenta de análise anônima, e essa distinção faz parte da sua descrição de privacidade.
 
 ## Estático primeiro, dinâmico na borda
 

@@ -1,6 +1,6 @@
 ---
-title: "Telemetria pessoal a partir do Spotify e do GitHub"
-description: Por que dois pequenos painéis dinâmicos precisam de políticas diferentes de polling, cache, privacidade e falhas, mesmo sob o mesmo contrato de interface.
+title: "Telemetria pessoal do Spotify e do GitHub"
+description: Por que dois pequenos painéis dinâmicos precisam de políticas diferentes de polling, cache, privacidade e falhas, mesmo com o mesmo contrato de interface.
 date: "2026-07-25"
 tags: [telemetry]
 ---
@@ -9,7 +9,7 @@ import { SourcePolicyLab } from "@web/content/labs/source-policy-lab";
 
 A [funcionalidade de presença de cursores](/pt-BR/content/realtime-cursor-presence-with-tiny-pieces) movimenta dados temporários entre navegadores. As duas próximas superfícies dinâmicas seguem na direção oposta: trazem contexto externo para dentro do portfólio.
 
-Um portfólio pode virar um arquivo sem querer: cada card aponta para trás. Eu queria que o meu mantivesse um pequeno pulso. Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api); outro resume minha atividade recente a partir da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles permitem que a página inicial diga algo sobre o presente em vez de apenas listar trabalhos do passado.
+Um portfólio pode virar um arquivo sem querer: cada cartão aponta para trás. Eu queria que o meu mantivesse um pequeno pulso. Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api); outro resume minha atividade recente com dados da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles permitem que a página inicial diga algo sobre o presente em vez de apenas listar trabalhos do passado.
 
 Os painéis aparecem lado a lado como peças de telemetria, mas suas fontes se comportam de formas diferentes. A reprodução muda em segundos e pode nem existir. Os dados de contribuições mudam devagar e continuam úteis depois de uma reinicialização. Tratar os dois apenas como “consultar uma API de tempos em tempos” esconderia as decisões de produto que os mantêm atuais, honestos e pequenos.
 
@@ -76,7 +76,7 @@ O módulo consulta a API a cada 30 minutos. Depois de uma requisição bem-suced
 
 Esse cache não é um segundo banco de analytics. Ele contém os mesmos valores agregados enviados ao navegador e existe para evitar um painel vazio e uma chamada redundante à API depois que o processo reinicia. O Valibot valida o arquivo antes do uso, portanto um cache antigo ou malformado resulta em uma nova consulta em vez de entrar silenciosamente no fluxo de estatísticas.
 
-Os limites da API do GitHub têm seu próprio relógio. Diante de uma resposta por excesso de requisições, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
+Os limites da API do GitHub têm seu próprio relógio. Ao receber uma resposta de limite excedido, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
 
 Experimente deixar o Spotify parado ou limitado e depois arraste o cache do GitHub além da fronteira de validade de 30 minutos. Os controles mudam as condições das fontes; a faixa inferior é o contrato estável que os dois adaptadores continuam produzindo.
 

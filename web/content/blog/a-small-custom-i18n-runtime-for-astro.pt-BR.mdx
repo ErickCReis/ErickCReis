@@ -1,5 +1,5 @@
 ---
-title: "Um pequeno runtime customizado de i18n para o Astro"
+title: "Um pequeno runtime de i18n feito sob medida para o Astro"
 description: Como a coleta de strings estáticas, catálogos tipados gerados, um módulo virtual do Vite e rotas localizadas sustentam um pequeno site bilíngue.
 date: "2026-08-29"
 tags: [astro, architecture]
@@ -11,7 +11,7 @@ A [camada do blog](/pt-BR/content/the-blog-layer-static-pages-live-view-counts) 
 
 A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “Bateria” e “Nada tocando” aparecem em páginas do Astro e componentes hidratados do Solid. Eles precisam de uma pequena API de tradução, do mesmo idioma e de uma estratégia de caminhos que funcione durante o build estático e depois que o JavaScript inicia.
 
-Criei uma integração customizada para esse requisito mais estreito. Ela não é um framework genérico de internacionalização. A integração coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e volta ao texto em inglês sempre que uma tradução está ausente.
+Criei uma integração sob medida para esse requisito mais estreito. Ela não é um framework genérico de internacionalização. A integração coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e usa o texto em inglês sempre que uma tradução está ausente.
 
 ```mermaid center
 flowchart LR
@@ -40,7 +40,7 @@ Um componente no cliente pode usar a forma mais curta:
 <PanelHeader title={t("Now Playing")} />
 ```
 
-As duas funções vêm de `virtual:translate`, junto com `locales`, `defaultLocale`, `resolveLocale`, `getPathLocale` e `getLocale`. A integração injeta uma declaração para esse módulo virtual, incluindo uma união `Locale` derivada da lista de idiomas configurada e overloads para as duas formas de `t()`.
+As duas funções vêm de `virtual:translate`, junto com `locales`, `defaultLocale`, `resolveLocale`, `getPathLocale` e `getLocale`. A integração injeta uma declaração para esse módulo virtual, incluindo um tipo união `Locale` derivado da lista de idiomas configurada e overloads para as duas formas de `t()`.
 
 Essa API deixa a restrição visível no ponto de uso. O código do Astro já sabe qual caminho estático está gerando, portanto passa o idioma. O código no navegador pode ler o idioma do documento renderizado. Não existe um “idioma da requisição atual” global ao processo que possa vazar de uma página estática para outra.
 
@@ -116,6 +116,6 @@ O layout base completa o contrato das rotas. Ele define `<html lang>`, cria uma 
 
 Esse runtime não oferece mensagens ICU, negociação de idioma, regras gramaticais de plural, interpolação de rich text, serviços de tradução nem um fluxo de gerenciamento de conteúdo. O site ainda usa `Intl` diretamente para datas e números, e posts completos continuam em arquivos próprios.
 
-São essas ausências que mantêm a ferramenta customizada compreensível. Para dois idiomas conhecidos e algumas dezenas de strings estáticas da interface, um hook do Astro, um plugin do Vite, dois catálogos gerados e um pequeno runtime resolvem o problema real. Um produto mais amplo cruzaria o ponto em que manter todas essas capacidades ausentes custa mais do que adotar um sistema de i18n estabelecido.
+São essas ausências que mantêm a ferramenta sob medida compreensível. Para dois idiomas conhecidos e algumas dezenas de strings estáticas da interface, um hook do Astro, um plugin do Vite, dois catálogos gerados e um pequeno runtime resolvem o problema real. Um produto mais amplo cruzaria o ponto em que manter todas essas capacidades ausentes custa mais do que adotar um sistema de i18n estabelecido.
 
 O post final acrescenta mais uma fonte de dados pessoais ao pipeline compartilhado de telemetria: uso normalizado de tokens a partir de sessões locais de agentes, sincronizado sem enviar o conteúdo das sessões.

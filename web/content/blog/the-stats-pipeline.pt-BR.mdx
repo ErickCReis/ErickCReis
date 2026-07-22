@@ -1,6 +1,6 @@
 ---
 title: "O pipeline de estatísticas"
-description: Como coletores independentes, transportes compactos compartilhados, SSE do Elysia e stores do Solid transformam várias frequências de atualização em uma camada dinâmica.
+description: Como coletores independentes, payloads compactos e compartilhados, SSE do Elysia e stores do Solid transformam várias frequências de atualização em uma camada dinâmica.
 date: "2026-08-01"
 tags: [telemetry, architecture]
 ---
@@ -11,9 +11,9 @@ Os [painéis do Spotify e do GitHub](/pt-BR/content/personal-telemetry-from-spot
 
 Esse é o trabalho do pipeline de estatísticas.
 
-A parte difícil não era encontrar mais um timer. Era deixar cada fonte manter o próprio relógio e, ao mesmo tempo, dar ao navegador um único lugar para iniciar, escutar e decodificar. Eu queria que os painéis parecessem coordenados sem fazer seus coletores fingirem que trabalham no mesmo ritmo.
+A parte difícil não era encontrar mais um timer. Era deixar cada fonte manter o próprio relógio e, ao mesmo tempo, dar ao navegador um único lugar para carregar o estado inicial, escutar e decodificar. Eu queria que os painéis parecessem coordenados sem fazer seus coletores fingirem que trabalham no mesmo ritmo.
 
-A página inicial combina hoje recursos do sistema, uptime externo, presença de visitantes, reprodução do Spotify, contribuições do GitHub e uso de tokens por agentes. Algumas fontes mudam a cada poucos segundos; outras, a cada 30 minutos ou apenas quando outro processo as sincroniza. A interface precisa de um gráfico inicial para cada uma delas e de novos retratos depois que começa a rodar, sem seis implementações de rede independentes.
+A página inicial combina hoje recursos do sistema, uptime externo, presença de visitantes, reprodução do Spotify, contribuições do GitHub e uso de tokens por agentes. Algumas fontes mudam a cada poucos segundos; outras, a cada 30 minutos ou apenas quando outro processo as sincroniza. A interface precisa de um gráfico inicial para cada uma delas e de novas amostras depois que começa a rodar, sem seis implementações de rede independentes.
 
 O caminho resultante tem quatro camadas: coletores no servidor, uma resposta com o histórico inicial, um fluxo compartilhado de eventos enviados pelo servidor e pequenos stores do Solid.
 
@@ -53,7 +53,7 @@ A aplicação inicia os módulos uma única vez, depois que o Elysia começa a e
 
 Um gráfico precisa de contexto recente, mas um evento ao vivo precisa do estado atual completo. Enviar o retrato inteiro em cada ponto histórico repetiria campos que o gráfico nunca lê.
 
-O arquivo [`server/stats/history.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) projeta registros históricos menores de forma intencional. O histórico do sistema mantém timestamp, uso de CPU e uso de memória; o retrato mais recente também inclui totais de memória, quantidade de CPUs e estado da bateria. O histórico do Spotify guarda o necessário para encontrar a faixa anterior, enquanto o retrato mais recente também leva o álbum, o link, o progresso e a duração.
+O arquivo [`server/stats/history.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) projeta registros históricos menores de forma intencional. O histórico do sistema mantém timestamp, uso de CPU e uso de memória; o retrato mais recente também inclui totais de memória, número de CPUs e estado da bateria. O histórico do Spotify guarda o necessário para encontrar a faixa anterior, enquanto o retrato mais recente também leva o álbum, o link, o progresso e a duração.
 
 `GET /stats/history` retorna os dois formatos para todos os módulos e usa `Cache-Control: no-store`. A resposta é um retrato inicial do estado do processo, não um arquivo estático cuja atualização possa ser delegada a um cache intermediário.
 
@@ -78,7 +78,7 @@ for (const { name, mod } of statModules) {
 
 O loop de 500 milissegundos não faz as fontes lentas consultarem suas APIs mais depressa. Ele apenas observa suas versões. Também combina várias mudanças ocorridas entre duas verificações no retrato mais recente, o que é adequado para um painel ao vivo: o navegador precisa do valor atual, não de um log de auditoria de cada mutação intermediária.
 
-A verificação de versões fica mais fácil de enxergar como um controle de passagem. No laboratório abaixo, mude o mesmo coletor mais de uma vez antes de verificar as versões: o contador dele avança a cada mudança, mas o fluxo emite um único evento apenas com o retrato mais novo. Abrir uma nova conexão SSE envia todos os retratos atuais porque aquela resposta começa sem versões em `lastSeen`.
+A verificação de versões fica mais fácil de enxergar como um filtro. No laboratório abaixo, mude o mesmo coletor mais de uma vez antes de verificar as versões: o contador dele avança a cada mudança, mas o fluxo emite um único evento apenas com o retrato mais novo. Abrir uma nova conexão SSE envia todos os retratos atuais porque aquela resposta começa sem versões em `lastSeen`.
 
 <StatsPipelineLab client:visible locale="pt-BR" />
 

@@ -1,5 +1,5 @@
 ---
-title: "Presença de cursores em tempo real com peças pequenas"
+title: "Presença de cursores em tempo real com poucas peças"
 description: Como o rastreamento do ponteiro, um WebSocket tipado, uma identidade baseada em cookie e o Solid formam uma interação em tempo real.
 date: "2026-07-18"
 tags: [realtime, architecture]
@@ -9,15 +9,15 @@ import { CursorProtocolLab } from "@web/content/labs/cursor-protocol-lab";
 
 O [post anterior](/pt-BR/content/astro-static-shell-solid-live-layer) terminou na fronteira da ilha do Solid. Este acompanha um ponteiro atravessando essa fronteira.
 
-Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página for aberta em outro navegador, esse marcador aparece ali como um cursor remoto. Gosto do resultado visível porque ele é divertido; gosto da implementação porque ela continua pequena. É um bom exemplo da arquitetura por trás do site: algumas peças, cada uma responsável por uma ponta da interação.
+Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página for aberta em outro navegador, esse marcador aparece ali como um cursor remoto. Gosto do resultado visível porque ele é divertido; gosto da implementação porque ela continua enxuta. É um bom exemplo da arquitetura por trás do site: poucas peças, cada uma responsável por uma ponta da interação.
 
 O navegador acompanha uma posição. Um schema compartilhado define a mensagem. Um WebSocket do Elysia valida e transmite essa mensagem. O Solid mantém os cursores atuais reativos e os renderiza. Nenhuma posição é armazenada depois disso.
 
 ```mermaid center
 flowchart LR
   Pointer["Movimento do ponteiro"] --> Hook["Hook de presença do Solid"]
-  Hook -->|"posição limitada"| Socket["WebSocket tipado"]
-  Socket --> Server["Rota live do Elysia"]
+  Hook -->|"posição amostrada"| Socket["WebSocket tipado"]
+  Socket --> Server["Rota em tempo real do Elysia"]
   Server -->|"broadcast"| Peers["Outros navegadores"]
   Peers --> Layer["Camada de cursores do Solid"]
 ```
@@ -41,9 +41,9 @@ Resisti a adicionar mensagens para entrada, saída ou salas. O site tem uma úni
 
 ## A identidade pertence à conexão
 
-O navegador precisa de um identificador para que os outros clientes diferenciem suas atualizações. Permitir que ele escolhesse qualquer identificador também abriria espaço para se passar por outro cursor.
+O navegador precisa de um identificador para que os outros clientes diferenciem suas atualizações. Permitir que ele escolhesse qualquer identificador também permitiria que se passasse por outro cursor.
 
-Por isso, as [rotas live](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) atribuem ao WebSocket um ID em um cookie HTTP-only durante o upgrade. O cookie usa `same-site` estrito, é seguro em produção e não pode ser acessado pelo JavaScript do cliente. Um pequeno endpoint `GET /live/id` retorna o ID existente ou, quando o cookie está ausente, cria um ID, armazena-o no mesmo cookie HTTP-only e então o retorna. Assim, a camada de renderização descobre o próprio ID sem tornar o cookie legível.
+Por isso, as [rotas em tempo real](https://github.com/ErickCReis/ErickCReis/blob/main/server/live/routes.ts) atribuem ao WebSocket um ID em um cookie `HttpOnly` durante o upgrade. O cookie usa `SameSite=Strict`, é seguro em produção e não pode ser acessado pelo JavaScript do cliente. Um pequeno endpoint `GET /live/id` retorna o ID existente ou, quando o cookie está ausente, cria um ID, armazena-o no mesmo cookie `HttpOnly` e então o retorna. Assim, a camada de renderização descobre o próprio ID sem tornar o cookie legível.
 
 Cada mensagem recebida ainda inclui um ID, mas esse campo é apenas uma alegação. A autoridade é o cookie da conexão. O servidor só transmite a mensagem quando o ID declarado corresponde ao ID associado à conexão:
 
@@ -97,6 +97,6 @@ O cursor local fica mais discreto e se move sem interpolação; os cursores remo
 
 Existem limitações evidentes. Todas as conexões vivem em um único processo de servidor. Não há transmissão entre instâncias, participação durável, histórico nem um registro de presença expirada no servidor. Uma reinicialização limpa tudo — o que, para posições de cursores, é a política de persistência correta.
 
-A funcionalidade funciona porque não exijo que ela seja maior do que é. Uma identidade definida pelo servidor, uma mensagem de posição validada, um emissor limitado, um socket que se reconecta e um estado temporário no cliente são suficientes para dar vida a uma página que, fora isso, continua estática.
+A funcionalidade funciona porque não exijo que ela seja maior do que é. Uma identidade definida pelo servidor, uma mensagem de posição validada, envios limitados, um socket que se reconecta e um estado temporário no cliente são suficientes para dar vida a uma página que, fora isso, continua estática.
 
-O próximo post reutilizará essa preferência por peças pequenas com dados que mudam mais devagar: a reprodução do Spotify e as contribuições do GitHub coletadas pelo servidor e apresentadas como telemetria pessoal.
+O próximo post reutilizará essa preferência por soluções pequenas com dados que mudam mais devagar: a reprodução do Spotify e as contribuições do GitHub coletadas pelo servidor e apresentadas como telemetria pessoal.

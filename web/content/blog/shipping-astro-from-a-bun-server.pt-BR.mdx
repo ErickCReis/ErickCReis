@@ -74,9 +74,9 @@ A macro se recusa a compilar quando `dist` é obrigatório, mas não existe. O e
 
 ## Aliases duplicados devem interromper o build
 
-Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Não quero que a ordem de travessia do sistema de arquivos decida qual página vence.
+Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Não quero que a ordem de percurso do sistema de arquivos decida qual página vence.
 
-O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem da travessia torna o diagnóstico estável, mas o importante é a interrupção: trato uma rota estática ambígua como um problema de build, não como uma política para resolver em produção.
+O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem do percurso torna o diagnóstico estável, mas o importante é a interrupção: trato uma rota estática ambígua como um problema de build, não como uma política para resolver em produção.
 
 Essa verificação cobre colisões entre os arquivos gerados pelo Astro. As rotas de API continuam como rotas explícitas do Elysia em `server/index.ts`, registradas antes do subroteador estático exclusivo de produção. Manter o registro das rotas estáticas em um subroteador deixa essa fronteira visível.
 
