@@ -104,6 +104,28 @@ describe("createBlogPostViewsStore", () => {
     expect(result.counted).toBe(true);
   });
 
+  it("stores daily and Sunday-to-Saturday weekly aggregates", () => {
+    const store = createMemoryStore();
+    const saturday = Date.parse("2026-07-25T23:30:00-03:00");
+    const sunday = Date.parse("2026-07-26T00:30:00-03:00");
+
+    store.registerPostView({
+      slug: "example-post",
+      visitorId: createBlogVisitorId(),
+      nowMs: saturday,
+    });
+    store.registerPostView({
+      slug: "example-post",
+      visitorId: createBlogVisitorId(),
+      nowMs: sunday,
+    });
+
+    expect(store.getDailyViewCounts("2026-07-25")).toEqual([{ slug: "example-post", views: 1 }]);
+    expect(store.getDailyViewCounts("2026-07-26")).toEqual([{ slug: "example-post", views: 1 }]);
+    expect(store.getWeeklyViewCounts("2026-07-19")).toEqual([{ slug: "example-post", views: 1 }]);
+    expect(store.getWeeklyViewCounts("2026-07-26")).toEqual([{ slug: "example-post", views: 1 }]);
+  });
+
   it("prunes stale dedupe rows without losing totals", () => {
     const db = new Database(":memory:");
     const store = trackStore(createBlogPostViewsStore({ client: db }));

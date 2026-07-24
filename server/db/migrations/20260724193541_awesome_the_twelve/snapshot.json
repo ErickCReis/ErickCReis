@@ -1,0 +1,215 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "94214d17-ebba-42f1-9543-692fba7c3462",
+  "prevIds": ["dd2764e5-fc37-46e6-af70-bf7fa2eccfd2"],
+  "ddl": [
+    {
+      "name": "blog_post_daily_views",
+      "entityType": "tables"
+    },
+    {
+      "name": "blog_post_view_totals",
+      "entityType": "tables"
+    },
+    {
+      "name": "blog_post_view_visitors",
+      "entityType": "tables"
+    },
+    {
+      "name": "blog_post_weekly_views",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "date",
+      "entityType": "columns",
+      "table": "blog_post_daily_views"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_daily_views"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "views",
+      "entityType": "columns",
+      "table": "blog_post_daily_views"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total_views",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at_ms",
+      "entityType": "columns",
+      "table": "blog_post_view_totals"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "visitor_id",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_counted_at_ms",
+      "entityType": "columns",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "week_start",
+      "entityType": "columns",
+      "table": "blog_post_weekly_views"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "slug",
+      "entityType": "columns",
+      "table": "blog_post_weekly_views"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "views",
+      "entityType": "columns",
+      "table": "blog_post_weekly_views"
+    },
+    {
+      "columns": ["date", "slug"],
+      "nameExplicit": false,
+      "name": "blog_post_daily_views_pk",
+      "entityType": "pks",
+      "table": "blog_post_daily_views"
+    },
+    {
+      "columns": ["slug", "visitor_id"],
+      "nameExplicit": false,
+      "name": "blog_post_view_visitors_pk",
+      "entityType": "pks",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "columns": ["week_start", "slug"],
+      "nameExplicit": false,
+      "name": "blog_post_weekly_views_pk",
+      "entityType": "pks",
+      "table": "blog_post_weekly_views"
+    },
+    {
+      "columns": ["slug"],
+      "nameExplicit": false,
+      "name": "blog_post_view_totals_pk",
+      "table": "blog_post_view_totals",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "date",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "blog_post_daily_views_date_idx",
+      "entityType": "indexes",
+      "table": "blog_post_daily_views"
+    },
+    {
+      "columns": [
+        {
+          "value": "last_counted_at_ms",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "blog_post_view_visitors_last_counted_at_idx",
+      "entityType": "indexes",
+      "table": "blog_post_view_visitors"
+    },
+    {
+      "columns": [
+        {
+          "value": "week_start",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "blog_post_weekly_views_week_start_idx",
+      "entityType": "indexes",
+      "table": "blog_post_weekly_views"
+    }
+  ],
+  "renames": []
+}

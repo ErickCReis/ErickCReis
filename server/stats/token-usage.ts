@@ -12,17 +12,12 @@ import {
 } from "@shared/stats/token-usage";
 import type { StatModule } from "@server/stats/types";
 import { getDataPath } from "@server/data-dir";
+import { addCalendarDays, getDateKey } from "@server/lib/date";
 
 const DEFAULT_STALE_AFTER_MINUTES = 180;
 const TOKEN_USAGE_REFRESH_INTERVAL_MS = 30_000;
 const MAX_DAILY_POINTS = 30;
 const TOKEN_USAGE_TIMEZONE = Bun.env.TOKEN_USAGE_TIMEZONE?.trim() || "America/Sao_Paulo";
-const TOKEN_USAGE_DATE_FORMATTER = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: TOKEN_USAGE_TIMEZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
 const nonNegativeNumber = v.pipe(v.number(), v.minValue(0));
 
 const persistedSourceSchema = v.object({
@@ -50,13 +45,6 @@ function createEmptyStore(): InternalStore {
   return { sources: [] };
 }
 
-function formatUtcDate(date: Date) {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function getStaleAfterMs() {
   const configuredMinutes = Number.parseFloat(Bun.env.TOKEN_USAGE_STALE_AFTER_MINUTES ?? "");
   const minutes =
@@ -67,17 +55,14 @@ function getStaleAfterMs() {
 }
 
 function getTodayDateKey() {
-  return TOKEN_USAGE_DATE_FORMATTER.format(new Date());
+  return getDateKey(new Date(), TOKEN_USAGE_TIMEZONE);
 }
 
 function getWindowDateKeys() {
-  const today = new Date(`${getTodayDateKey()}T00:00:00Z`);
-
-  return Array.from({ length: MAX_DAILY_POINTS }, (_, index) => {
-    const date = new Date(today);
-    date.setUTCDate(today.getUTCDate() - (MAX_DAILY_POINTS - index - 1));
-    return formatUtcDate(date);
-  });
+  const today = getTodayDateKey();
+  return Array.from({ length: MAX_DAILY_POINTS }, (_, index) =>
+    addCalendarDays(today, index - MAX_DAILY_POINTS + 1),
+  );
 }
 
 function getUsageFilePath() {

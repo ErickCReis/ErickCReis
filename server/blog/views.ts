@@ -1,6 +1,12 @@
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { createServerDatabase, type CreateServerDatabaseOptions } from "@server/db/client";
-import { blogPostViewTotals, blogPostViewVisitors } from "@server/db/schema";
+import {
+  blogPostDailyViews,
+  blogPostWeeklyViews,
+  blogPostViewTotals,
+  blogPostViewVisitors,
+} from "@server/db/schema";
+import { getDateKey, getWeekStart, SAO_PAULO_TIME_ZONE } from "@server/lib/date";
 
 const BLOG_POST_VIEW_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -27,6 +33,28 @@ export function createBlogPostViewsStore(options: CreateServerDatabaseOptions = 
       }
 
       return viewMap;
+    },
+
+    getDailyViewCounts(date: string) {
+      return db
+        .select({
+          slug: blogPostDailyViews.slug,
+          views: blogPostDailyViews.views,
+        })
+        .from(blogPostDailyViews)
+        .where(eq(blogPostDailyViews.date, date))
+        .all();
+    },
+
+    getWeeklyViewCounts(weekStart: string) {
+      return db
+        .select({
+          slug: blogPostWeeklyViews.slug,
+          views: blogPostWeeklyViews.views,
+        })
+        .from(blogPostWeeklyViews)
+        .where(eq(blogPostWeeklyViews.weekStart, weekStart))
+        .all();
     },
 
     registerPostView(input: { slug: string; visitorId: string; nowMs?: number }) {
@@ -94,6 +122,36 @@ export function createBlogPostViewsStore(options: CreateServerDatabaseOptions = 
               set: {
                 totalViews: sql`${blogPostViewTotals.totalViews} + 1`,
                 updatedAtMs: nowMs,
+              },
+            })
+            .run();
+
+          const date = getDateKey(nowMs, SAO_PAULO_TIME_ZONE);
+          tx.insert(blogPostDailyViews)
+            .values({
+              date,
+              slug,
+              views: 1,
+            })
+            .onConflictDoUpdate({
+              target: [blogPostDailyViews.date, blogPostDailyViews.slug],
+              set: {
+                views: sql`${blogPostDailyViews.views} + 1`,
+              },
+            })
+            .run();
+
+          const weekStart = getWeekStart(date);
+          tx.insert(blogPostWeeklyViews)
+            .values({
+              weekStart,
+              slug,
+              views: 1,
+            })
+            .onConflictDoUpdate({
+              target: [blogPostWeeklyViews.weekStart, blogPostWeeklyViews.slug],
+              set: {
+                views: sql`${blogPostWeeklyViews.views} + 1`,
               },
             })
             .run();
