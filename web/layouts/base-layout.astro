@@ -23,8 +23,11 @@ interface Props {
 const { title, description, lang = "en-US", seo } = Astro.props;
 const locale = resolveLocale(lang);
 const pathname = Astro.url.pathname.replace(/\/+$/g, "") || "/";
-const canonicalPath = pathname === "/" ? "/" : `${pathname}/`;
 const pageType = seo?.type ?? "website";
+
+function withTrailingSlash(path: string) {
+  return path === "/" ? path : `${path.replace(/\/+$/g, "")}/`;
+}
 
 function getContentPath(path: string) {
   if (locale === defaultLocale) return path === "/" ? "" : path.slice(1);
@@ -34,22 +37,18 @@ function getContentPath(path: string) {
   return path === prefix ? "" : path.slice(prefix.length + 1);
 }
 
-const contentPath = getContentPath(pathname);
-function getAlternateUrl(alternateLocale: string) {
-  const localizedPath = getLocalizedPath(alternateLocale, contentPath);
-  const canonicalLocalizedPath =
-    localizedPath === "/" ? "/" : `${localizedPath.replace(/\/+$/g, "")}/`;
-
-  return new URL(canonicalLocalizedPath, Astro.site!);
+function getCanonicalUrl(path: string) {
+  return new URL(withTrailingSlash(path), Astro.site!);
 }
 
+const contentPath = getContentPath(pathname);
 const alternates = [
   ...locales.map((alternateLocale) => ({
-    href: getAlternateUrl(alternateLocale),
+    href: getCanonicalUrl(getLocalizedPath(alternateLocale, contentPath)),
     hreflang: resolveLocale(alternateLocale),
   })),
   {
-    href: getAlternateUrl(defaultLocale),
+    href: getCanonicalUrl(getLocalizedPath(defaultLocale, contentPath)),
     hreflang: "x-default",
   },
 ];
@@ -73,7 +72,7 @@ const article =
     <OgSeo
       title={title}
       description={description}
-      canonical={canonicalPath}
+      canonical={withTrailingSlash(pathname)}
       lang={locale}
       robots={seo?.robots}
       alternates={alternates}

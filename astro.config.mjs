@@ -30,13 +30,8 @@ export default defineConfig({
     }),
     astroOgSeo({
       siteName: "Erick Reis",
-      toolbar: { enabled: true },
       image: {
         stylesheet: "@web/styles/og-image.css",
-        outputDir: "_og",
-        width: 1200,
-        height: 630,
-        format: "png",
       },
     }),
   ],
