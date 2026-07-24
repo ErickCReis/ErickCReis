@@ -1,0 +1,48 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  locale: string;
+  type: "website" | "article";
+  publishedTime?: Date | string;
+}
+
+const { title, description, locale, type, publishedTime } = Astro.props;
+const cleanTitle = title.replace(/\s+\|\s+Erick Reis$/, "");
+const truncate = (value: string, maxLength: number) =>
+  value.length > maxLength
+    ? `${value.slice(0, maxLength - 1).trimEnd()}…`
+    : value;
+const formattedDate = publishedTime
+  ? new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(publishedTime))
+  : undefined;
+const titleMaxLength = type === "article" ? 108 : 88;
+const descriptionMaxLength = type === "article" ? 188 : 168;
+const isCompact = cleanTitle.length > 60 || (description?.length ?? 0) > 120;
+---
+
+<div class:list={["og-card", { "og-card--compact": isCompact }]}>
+  <div class="og-card__signal">ERICKR.DEV</div>
+  <div class="og-card__panel">
+    <h1 class="og-card__title">{truncate(cleanTitle, titleMaxLength)}</h1>
+    {
+      description && (
+        <p class="og-card__description">
+          {truncate(description, descriptionMaxLength)}
+        </p>
+      )
+    }
+  </div>
+  <div class="og-card__footer">
+    <div class="og-card__chips">
+      {formattedDate && <span class="og-card__chip">{formattedDate}</span>}
+      <span class="og-card__chip">{locale}</span>
+    </div>
+    <span class="og-card__brand">Erick Reis</span>
+  </div>
+</div>
