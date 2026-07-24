@@ -7,7 +7,7 @@ tags: [telemetry]
 
 import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
 
-The [custom i18n runtime](/content/a-small-custom-i18n-runtime-for-astro) was small tooling built around the way this site is authored. The last integration in this series starts from another local detail: the JSONL session files written by the coding agents I use.
+The [custom i18n runtime](/blog/a-small-custom-i18n-runtime-for-astro) was small tooling built around the way this site is authored. The last integration in this series starts from another local detail: the JSONL session files written by the coding agents I use.
 
 Those files already contain token-usage events. The portfolio already has a pipeline for dated history and live panels. The interesting work was not drawing another chart; it was turning provider-specific local records into one small, safe input for that pipeline.
 
@@ -111,7 +111,7 @@ This stat does not need SQLite's query model. The complete persisted unit is a s
 
 The stat module reads the file at startup and checks it every 30 seconds. Even when the modification time is unchanged, it rebuilds derived state when necessary so the current date window and freshness flag can move with time.
 
-For each of the last 30 date keys, it sums sources by provider, sorts provider IDs, and creates an index-aligned `byProvider` array. It then derives today's total and the 30-day total. Reusing the [shared stats pipeline](/content/the-stats-pipeline) only requires the token module, its history projection and tuple transport, a Solid store, and stream dispatch.
+For each of the last 30 date keys, it sums sources by provider, sorts provider IDs, and creates an index-aligned `byProvider` array. It then derives today's total and the 30-day total. Reusing the [shared stats pipeline](/blog/the-stats-pipeline) only requires the token module, its history projection and tuple transport, a Solid store, and stream dispatch.
 
 The panel maps each day to a stacked bar. Known providers receive stable colors and labels; unknown provider IDs still get fallback colors. The trigger shows today's compact total, the body shows exact today and 30-day totals, and the footer shows the newest `generatedAt` time across the sources.
 

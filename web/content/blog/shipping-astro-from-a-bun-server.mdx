@@ -7,9 +7,9 @@ tags: [astro, self-hosting]
 
 import { DistRouteLab } from "@web/content/labs/dist-route-lab";
 
-The public site has one front door, but two very different kinds of work happen behind it. The [stats pipeline](/content/the-stats-pipeline) ends at live Elysia routes; every article, stylesheet, font, image, and script is already finished before the server starts.
+The public site has one front door, but two very different kinds of work happen behind it. The [stats pipeline](/blog/the-stats-pipeline) ends at live Elysia routes; every article, stylesheet, font, image, and script is already finished before the server starts.
 
-I wanted that single entry point without turning Astro into a server-rendered application. The [first post in this series](/content/rewriting-my-portfolio-for-self-hosting) showed the outer deployment shape—an Astro build, a compiled Bun server, and a small runtime image—but intentionally skipped how those pieces meet.
+I wanted that single entry point without turning Astro into a server-rendered application. The [first post in this series](/blog/rewriting-my-portfolio-for-self-hosting) showed the outer deployment shape—an Astro build, a compiled Bun server, and a small runtime image—but intentionally skipped how those pieces meet.
 
 The seam is a route table generated during the build. Astro remains a static-site generator; Elysia learns which files it produced and later serves those exact files beside the live endpoints.
 
@@ -53,12 +53,12 @@ My first version embedded asset contents in the server. The current version embe
 
 An ordinary asset keeps its path. HTML files also receive the clean aliases people expect from a static site:
 
-| Generated file       | Registered routes                              |
-| -------------------- | ---------------------------------------------- |
-| `index.html`         | `/index.html`, `/`                             |
-| `content/index.html` | `/content/index.html`, `/content`, `/content/` |
-| `about.html`         | `/about.html`, `/about`                        |
-| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                          |
+| Generated file       | Registered routes                     |
+| -------------------- | ------------------------------------- |
+| `index.html`         | `/index.html`, `/`                    |
+| `blog/index.html`    | `/blog/index.html`, `/blog`, `/blog/` |
+| `about.html`         | `/about.html`, `/about`               |
+| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                 |
 
 The macro import is evaluated by Bun while the server is bundled:
 

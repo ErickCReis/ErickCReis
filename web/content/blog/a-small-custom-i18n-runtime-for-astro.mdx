@@ -7,7 +7,7 @@ tags: [astro, architecture]
 
 import { TranslationCatalogLab } from "@web/content/labs/translation-catalog-lab";
 
-The [blog layer](/content/the-blog-layer-static-pages-live-view-counts) treats English and Brazilian Portuguese articles as separate MDX files. That is the right boundary for long-form writing: translation is editorial work, not a string lookup.
+The [blog layer](/blog/the-blog-layer-static-pages-live-view-counts) treats English and Brazilian Portuguese articles as separate MDX files. That is the right boundary for long-form writing: translation is editorial work, not a string lookup.
 
 The surrounding interface has a different problem. Labels such as “All posts,” “Battery,” and “Nothing playing” appear across Astro pages and hydrated Solid components. They need one small translation API, the same locale, and a path strategy that works during a static build and after JavaScript starts.
 
@@ -33,7 +33,7 @@ flowchart TB
 The default locale is `en-US`, and the source string is the default translation. An Astro page passes its build-time locale explicitly:
 
 ```astro
-<h1>{t(locale, "Content")}</h1>
+<h1>{t(locale, "Blog")}</h1>
 ```
 
 A client component can use the shorter form:
@@ -69,8 +69,8 @@ The default catalog maps each hash back to the English source. Every other local
 
 ```ts
 const translations = {
-  // Content
-  "1hnv6ua": "Conteúdo",
+  // Blog
+  "1jdup01": "Blog",
   // Nothing playing
   "0vgq4zc": "Nada tocando",
 } satisfies TranslationOverrides;

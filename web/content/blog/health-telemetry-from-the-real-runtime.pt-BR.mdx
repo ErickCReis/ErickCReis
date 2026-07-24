@@ -7,7 +7,7 @@ tags: [telemetry, self-hosting]
 
 import { RuntimeVantageLab } from "@web/content/labs/runtime-vantage-lab";
 
-O [post anterior](/pt-BR/content/shipping-astro-from-a-bun-server) colocou os arquivos do Astro e o servidor Bun dentro de um único container. Quando esse container se tornou a unidade de produção, uma pergunta simples deixou de ter uma resposta simples: quando o site exibe a “saúde do sistema”, qual sistema está descrevendo?
+O [post anterior](/pt-BR/blog/shipping-astro-from-a-bun-server) colocou os arquivos do Astro e o servidor Bun dentro de um único container. Quando esse container se tornou a unidade de produção, uma pergunta simples deixou de ter uma resposta simples: quando o site exibe a “saúde do sistema”, qual sistema está descrevendo?
 
 CPU pode significar o notebook inteiro, a capacidade permitida ao container ou o próprio processo do servidor. A memória informada por `node:os` pode descrever o host mesmo quando o processo está restrito por um cgroup. O notebook tem bateria, mas o container não consegue enxergá-la sem que esse detalhe do host seja exposto de propósito. O tempo de vida do processo não diz se o domínio público estava acessível.
 

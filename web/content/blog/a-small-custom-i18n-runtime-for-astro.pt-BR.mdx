@@ -7,7 +7,7 @@ tags: [astro, architecture]
 
 import { TranslationCatalogLab } from "@web/content/labs/translation-catalog-lab";
 
-A [camada do blog](/pt-BR/content/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos: tradução é um trabalho editorial, não uma consulta em um catálogo de strings.
+A [camada do blog](/pt-BR/blog/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos: tradução é um trabalho editorial, não uma consulta em um catálogo de strings.
 
 A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “Bateria” e “Nada tocando” aparecem em páginas do Astro e componentes hidratados do Solid. Eles precisam de uma pequena API de tradução, do mesmo idioma e de uma estratégia de caminhos que funcione durante o build estático e depois que o JavaScript inicia.
 
@@ -33,7 +33,7 @@ flowchart TB
 O idioma padrão é `en-US`, e a string de origem funciona como tradução padrão. Uma página do Astro passa explicitamente o idioma conhecido durante o build:
 
 ```astro
-<h1>{t(locale, "Content")}</h1>
+<h1>{t(locale, "Blog")}</h1>
 ```
 
 Um componente no cliente pode usar a forma mais curta:
@@ -69,8 +69,8 @@ O catálogo padrão liga cada hash de volta ao texto em inglês. Todos os outros
 
 ```ts
 const translations = {
-  // Content
-  "1hnv6ua": "Conteúdo",
+  // Blog
+  "1jdup01": "Blog",
   // Nothing playing
   "0vgq4zc": "Nada tocando",
 } satisfies TranslationOverrides;

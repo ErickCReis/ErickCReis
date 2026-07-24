@@ -25,10 +25,6 @@ const translations = {
   "0ye8ewg": "Conectado",
   // connected now
   "0imz3wo": "conectados agora",
-  // Content
-  "1hnv6ua": "Conteúdo",
-  // Content | Erick Reis
-  "10g91fz": "Conteúdo | Erick Reis",
   // Contributions
   "1nr0s8k": "Contribuições",
   // d ago
@@ -64,10 +60,6 @@ const translations = {
   "0vgq4zc": "Nada tocando",
   // Now Playing
   "16bpipx": "Tocando agora",
-  // Off
-  "03tlu3u": "Desligado",
-  // On
-  "0qvtz3k": "Ligado",
   // Open
   "0n6hn1l": "Abrir",
   // Open source issues and improvements across frontend, backend and tooling.
@@ -84,8 +76,6 @@ const translations = {
   "0u9yqe6": "Soltar",
   // Self-hosted file sharing and sync experiments.
   "19rik5b": "Experimentos de compartilhamento e sincronização self-hosted.",
-  // Stats
-  "04f26x8": "Stats",
   // System
   "13qbhrw": "Sistema",
   // Today
@@ -387,6 +377,10 @@ const translations = {
   "07wt22m": "Totais públicos; IDs das origens privados.",
   // Waiting for a visible tab.
   "15v0qy5": "Aguardando uma aba visível.",
+  // Blog
+  "1jdup01": "Blog",
+  // Blog | Erick Reis
+  "0uountu": "Blog | Erick Reis",
 } satisfies TranslationOverrides;
 
 export default translations;

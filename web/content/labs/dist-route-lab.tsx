@@ -16,7 +16,7 @@ function getCopy(locale: Locale) {
   };
 }
 
-const initialFiles = ["index.html", "content/index.html", "about.html", "_astro/app.A1B2.js"];
+const initialFiles = ["index.html", "blog/index.html", "about.html", "_astro/app.A1B2.js"];
 const conflictFile = "about/index.html";
 
 function routesFor(file: string) {
@@ -37,7 +37,7 @@ function routesFor(file: string) {
 export function DistRouteLab(props: DistRouteLabProps) {
   const text = createMemo(() => getCopy(resolveLocale(props.locale)));
   const [files, setFiles] = createSignal([...initialFiles]);
-  const [selectedRoute, setSelectedRoute] = createSignal("/content/");
+  const [selectedRoute, setSelectedRoute] = createSignal("/blog/");
 
   const manifest = createMemo(() => {
     const owners = new Map<string, string[]>();
@@ -52,7 +52,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
   const visibleRoutes = createMemo(() => {
     const preferred = [
       "/",
-      "/content/",
+      "/blog/",
       "/about",
       "/_astro/app.A1B2.js",
       "/notes",
@@ -83,7 +83,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
 
   function reset() {
     setFiles([...initialFiles]);
-    setSelectedRoute("/content/");
+    setSelectedRoute("/blog/");
   }
 
   return (

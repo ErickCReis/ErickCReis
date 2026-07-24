@@ -4,7 +4,7 @@ export function createPrefixedNanoId(prefix: string) {
   return `${prefix}_${nanoid()}`;
 }
 
-export function createContentId() {
+export function createBlogVisitorId() {
   return createPrefixedNanoId("ct");
 }
 

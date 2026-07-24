@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import cors from "@elysiajs/cors";
-import { contentRoutes } from "@server/content/routes";
+import { blogRoutes } from "@server/blog/routes";
 import { batteryAlertCron } from "@server/cron/battery-alert";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { internalRoutes } from "@server/internal/routes";
@@ -24,7 +24,7 @@ const app = new Elysia()
   )
   .use(statsRoutes)
   .use(presenceRoutes)
-  .use(contentRoutes)
+  .use(blogRoutes)
   .use(internalRoutes)
   .use(liveRoutes)
   .use(batteryAlertCron);

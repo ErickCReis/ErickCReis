@@ -1,5 +1,5 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
-import { formatViewCountLabel, registerPostView } from "@web/lib/content-views";
+import { formatViewCountLabel, registerPostView } from "@web/lib/blog-views";
 
 type PostViewCounterProps = {
   slug: string;

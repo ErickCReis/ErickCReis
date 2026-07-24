@@ -7,7 +7,7 @@ tags: [telemetry]
 
 import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
 
-O [runtime customizado de i18n](/pt-BR/content/a-small-custom-i18n-runtime-for-astro) foi uma pequena ferramenta construída em torno da forma como este site é escrito. A última integração da série começa em outro detalhe local: os arquivos de sessão JSONL gravados pelos agentes de programação que uso.
+O [runtime customizado de i18n](/pt-BR/blog/a-small-custom-i18n-runtime-for-astro) foi uma pequena ferramenta construída em torno da forma como este site é escrito. A última integração da série começa em outro detalhe local: os arquivos de sessão JSONL gravados pelos agentes de programação que uso.
 
 Esses arquivos já contêm eventos de uso de tokens. O portfólio já tem um pipeline para históricos datados e painéis dinâmicos. O trabalho interessante não era desenhar mais um gráfico; era transformar registros locais específicos de cada provedor em uma entrada pequena e segura para aquele pipeline.
 
@@ -111,7 +111,7 @@ Essa estatística não precisa do modelo de consultas do SQLite. A unidade persi
 
 O módulo de estatísticas lê o arquivo ao iniciar e o verifica a cada 30 segundos. Mesmo quando a data de modificação não muda, ele reconstrói o estado derivado quando necessário, permitindo que a janela da data atual e o indicador de atualização mudem com o tempo.
 
-Para cada uma das últimas 30 datas, ele soma as origens por provedor, ordena os IDs dos provedores e cria um vetor `byProvider` alinhado pelos índices. Depois, deriva o total de hoje e o total dos 30 dias. Reutilizar o [pipeline compartilhado de estatísticas](/pt-BR/content/the-stats-pipeline) exige apenas o módulo de tokens, sua projeção de histórico e o transporte por tuplas, um store do Solid e o encaminhamento dos eventos.
+Para cada uma das últimas 30 datas, ele soma as origens por provedor, ordena os IDs dos provedores e cria um vetor `byProvider` alinhado pelos índices. Depois, deriva o total de hoje e o total dos 30 dias. Reutilizar o [pipeline compartilhado de estatísticas](/pt-BR/blog/the-stats-pipeline) exige apenas o módulo de tokens, sua projeção de histórico e o transporte por tuplas, um store do Solid e o encaminhamento dos eventos.
 
 O painel transforma cada dia em uma barra empilhada. Provedores conhecidos recebem cores e rótulos estáveis; IDs desconhecidos ainda recebem cores alternativas. O gatilho mostra o total compacto de hoje, o conteúdo mostra os totais exatos de hoje e dos 30 dias, e o rodapé mostra o `generatedAt` mais recente entre as origens.
 

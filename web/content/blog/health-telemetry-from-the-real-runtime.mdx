@@ -7,7 +7,7 @@ tags: [telemetry, self-hosting]
 
 import { RuntimeVantageLab } from "@web/content/labs/runtime-vantage-lab";
 
-The [previous post](/content/shipping-astro-from-a-bun-server) put Astro's files and the Bun server inside one container. Once that container became the production unit, a simple question stopped having a simple answer: when the site displays “system health,” which system is it describing?
+The [previous post](/blog/shipping-astro-from-a-bun-server) put Astro's files and the Bun server inside one container. Once that container became the production unit, a simple question stopped having a simple answer: when the site displays “system health,” which system is it describing?
 
 CPU can mean the whole laptop, the container's allowance, or the server process itself. Memory reported by `node:os` may describe the host even when the process is constrained by a cgroup. The laptop has a battery, but the container cannot see it unless that host detail is deliberately exposed. Process uptime says nothing about whether the public domain was reachable.
 

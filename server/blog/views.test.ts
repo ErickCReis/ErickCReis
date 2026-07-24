@@ -3,9 +3,9 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtemp, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { BLOG_POST_VISITOR_ID_PATTERN } from "@shared/content/views";
-import { createBlogPostViewsStore } from "@server/content/views";
-import { createContentId } from "@server/lib/id";
+import { BLOG_POST_VISITOR_ID_PATTERN } from "@shared/blog/views";
+import { createBlogPostViewsStore } from "@server/blog/views";
+import { createBlogVisitorId } from "@server/lib/id";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe("createBlogPostViewsStore", () => {
   it("creates prefixed visitor ids", () => {
-    const visitorId = createContentId();
+    const visitorId = createBlogVisitorId();
 
     expect(visitorId.startsWith("ct_")).toBe(true);
     expect(BLOG_POST_VISITOR_ID_PATTERN.test(visitorId)).toBe(true);
@@ -38,31 +38,31 @@ describe("createBlogPostViewsStore", () => {
 
   it("increments the first visit from zero to one", () => {
     const store = createMemoryStore();
-    const visitorId = createContentId();
+    const visitorId = createBlogVisitorId();
 
-    const result = store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
+    const result = store.registerPostView({ slug: "example-post", visitorId, nowMs: 1_000 });
 
     expect(result).toEqual({
-      slug: "hello-world",
+      slug: "example-post",
       totalViews: 1,
       counted: true,
     });
-    expect(store.getPostViewCounts(["hello-world"])).toEqual({ "hello-world": 1 });
+    expect(store.getPostViewCounts(["example-post"])).toEqual({ "example-post": 1 });
   });
 
   it("does not increment for the same visitor within 24 hours", () => {
     const store = createMemoryStore();
-    const visitorId = createContentId();
+    const visitorId = createBlogVisitorId();
 
-    store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
+    store.registerPostView({ slug: "example-post", visitorId, nowMs: 1_000 });
     const result = store.registerPostView({
-      slug: "hello-world",
+      slug: "example-post",
       visitorId,
       nowMs: 1_000 + DAY_MS - 1,
     });
 
     expect(result).toEqual({
-      slug: "hello-world",
+      slug: "example-post",
       totalViews: 1,
       counted: false,
     });
@@ -70,17 +70,17 @@ describe("createBlogPostViewsStore", () => {
 
   it("increments again for the same visitor after 24 hours", () => {
     const store = createMemoryStore();
-    const visitorId = createContentId();
+    const visitorId = createBlogVisitorId();
 
-    store.registerPostView({ slug: "hello-world", visitorId, nowMs: 1_000 });
+    store.registerPostView({ slug: "example-post", visitorId, nowMs: 1_000 });
     const result = store.registerPostView({
-      slug: "hello-world",
+      slug: "example-post",
       visitorId,
       nowMs: 1_000 + DAY_MS + 1,
     });
 
     expect(result).toEqual({
-      slug: "hello-world",
+      slug: "example-post",
       totalViews: 2,
       counted: true,
     });
@@ -90,13 +90,13 @@ describe("createBlogPostViewsStore", () => {
     const store = createMemoryStore();
 
     store.registerPostView({
-      slug: "hello-world",
-      visitorId: createContentId(),
+      slug: "example-post",
+      visitorId: createBlogVisitorId(),
       nowMs: 1_000,
     });
     const result = store.registerPostView({
-      slug: "hello-world",
-      visitorId: createContentId(),
+      slug: "example-post",
+      visitorId: createBlogVisitorId(),
       nowMs: 2_000,
     });
 
@@ -107,14 +107,14 @@ describe("createBlogPostViewsStore", () => {
   it("prunes stale dedupe rows without losing totals", () => {
     const db = new Database(":memory:");
     const store = trackStore(createBlogPostViewsStore({ client: db }));
-    const visitorA = createContentId();
-    const visitorB = createContentId();
+    const visitorA = createBlogVisitorId();
+    const visitorB = createBlogVisitorId();
 
-    store.registerPostView({ slug: "hello-world", visitorId: visitorA, nowMs: 1_000 });
-    store.registerPostView({ slug: "hello-world", visitorId: visitorB, nowMs: 2_000 });
+    store.registerPostView({ slug: "example-post", visitorId: visitorA, nowMs: 1_000 });
+    store.registerPostView({ slug: "example-post", visitorId: visitorB, nowMs: 2_000 });
 
     const result = store.registerPostView({
-      slug: "hello-world",
+      slug: "example-post",
       visitorId: visitorA,
       nowMs: DAY_MS + 5_000,
     });
@@ -124,7 +124,7 @@ describe("createBlogPostViewsStore", () => {
       .get();
 
     expect(result).toEqual({
-      slug: "hello-world",
+      slug: "example-post",
       totalViews: 3,
       counted: true,
     });
@@ -134,10 +134,10 @@ describe("createBlogPostViewsStore", () => {
   it("returns zero for unknown slugs in batch reads", () => {
     const store = createMemoryStore();
 
-    const result = store.getPostViewCounts(["hello-world", "missing-post"]);
+    const result = store.getPostViewCounts(["example-post", "missing-post"]);
 
     expect(result).toEqual({
-      "hello-world": 0,
+      "example-post": 0,
       "missing-post": 0,
     });
   });
@@ -146,7 +146,7 @@ describe("createBlogPostViewsStore", () => {
     const store = createMemoryStore();
     const result = store.registerPostView({
       slug: "notes/frontend/state-machines",
-      visitorId: createContentId(),
+      visitorId: createBlogVisitorId(),
       nowMs: 1_000,
     });
 
@@ -157,24 +157,24 @@ describe("createBlogPostViewsStore", () => {
   it("accepts localized slugs", () => {
     const store = createMemoryStore();
     const result = store.registerPostView({
-      slug: "hello-world.pt-BR",
-      visitorId: createContentId(),
+      slug: "example-post.pt-BR",
+      visitorId: createBlogVisitorId(),
       nowMs: 1_000,
     });
 
-    expect(result.slug).toBe("hello-world.pt-BR");
+    expect(result.slug).toBe("example-post.pt-BR");
     expect(result.totalViews).toBe(1);
   });
 
   it("creates the sqlite database file and schema for file-backed stores", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "content-views-"));
+    const directory = await mkdtemp(join(tmpdir(), "blog-views-"));
     const filePath = join(directory, "server.sqlite");
     const store = trackStore(createBlogPostViewsStore({ filePath }));
 
-    const counts = store.getPostViewCounts(["hello-world"]);
+    const counts = store.getPostViewCounts(["example-post"]);
     const fileStats = await stat(filePath);
 
-    expect(counts).toEqual({ "hello-world": 0 });
+    expect(counts).toEqual({ "example-post": 0 });
     expect(fileStats.isFile()).toBe(true);
   });
 });

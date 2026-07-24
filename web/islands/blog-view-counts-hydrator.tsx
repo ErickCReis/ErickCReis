@@ -1,11 +1,11 @@
 import { onMount } from "solid-js";
-import { fetchPostViewCounts, formatViewCountLabel } from "@web/lib/content-views";
+import { fetchPostViewCounts, formatViewCountLabel } from "@web/lib/blog-views";
 
-type ContentViewCountsHydratorProps = {
+type BlogViewCountsHydratorProps = {
   slugs: string[];
 };
 
-export function ContentViewCountsHydrator(props: ContentViewCountsHydratorProps) {
+export function BlogViewCountsHydrator(props: BlogViewCountsHydratorProps) {
   onMount(() => {
     const placeholders = Array.from(
       document.querySelectorAll<HTMLSpanElement>("[data-post-view-count]"),

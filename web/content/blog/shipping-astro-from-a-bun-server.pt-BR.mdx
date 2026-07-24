@@ -7,9 +7,9 @@ tags: [astro, self-hosting]
 
 import { DistRouteLab } from "@web/content/labs/dist-route-lab";
 
-O site público tem uma única porta de entrada, mas dois tipos bem diferentes de trabalho acontecem atrás dela. O [pipeline de estatísticas](/pt-BR/content/the-stats-pipeline) termina em rotas dinâmicas do Elysia; cada artigo, folha de estilo, fonte, imagem e script já está pronto antes de o servidor iniciar.
+O site público tem uma única porta de entrada, mas dois tipos bem diferentes de trabalho acontecem atrás dela. O [pipeline de estatísticas](/pt-BR/blog/the-stats-pipeline) termina em rotas dinâmicas do Elysia; cada artigo, folha de estilo, fonte, imagem e script já está pronto antes de o servidor iniciar.
 
-Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicação renderizada no servidor. O [primeiro post desta série](/pt-BR/content/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy—um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime—mas deixou de propósito sem resposta como essas peças se encontram.
+Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicação renderizada no servidor. O [primeiro post desta série](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy—um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime—mas deixou de propósito sem resposta como essas peças se encontram.
 
 A ligação é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático; o Elysia descobre quais arquivos ele produziu e depois serve exatamente esses arquivos ao lado dos endpoints dinâmicos.
 
@@ -53,12 +53,12 @@ O arquivo [`server/dist-assets.macro.ts`](https://github.com/ErickCReis/ErickCRe
 
 Um asset comum mantém seu caminho. Arquivos HTML também recebem os aliases limpos esperados em um site estático:
 
-| Arquivo gerado       | Rotas registradas                              |
-| -------------------- | ---------------------------------------------- |
-| `index.html`         | `/index.html`, `/`                             |
-| `content/index.html` | `/content/index.html`, `/content`, `/content/` |
-| `about.html`         | `/about.html`, `/about`                        |
-| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                          |
+| Arquivo gerado       | Rotas registradas                     |
+| -------------------- | ------------------------------------- |
+| `index.html`         | `/index.html`, `/`                    |
+| `blog/index.html`    | `/blog/index.html`, `/blog`, `/blog/` |
+| `about.html`         | `/about.html`, `/about`               |
+| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                 |
 
 O import da macro é avaliado pelo Bun enquanto o servidor é empacotado:
 

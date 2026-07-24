@@ -7,7 +7,7 @@ tags: [astro, architecture]
 
 import { ViewCounterLab } from "@web/content/labs/view-counter-lab";
 
-The [runtime telemetry post](/content/health-telemetry-from-the-real-runtime) ended with several kinds of data moving through the live server. The article you are reading takes the opposite path: its title, description, tags, date, body, and route all existed before the server started.
+The [runtime telemetry post](/blog/health-telemetry-from-the-real-runtime) ended with several kinds of data moving through the live server. The article you are reading takes the opposite path: its title, description, tags, date, body, and route all existed before the server started.
 
 I wanted this blog to participate in the same live system without turning it into a dynamic publishing application. That led to a deliberately uneven split: Astro owns the complete article, while Elysia adds one narrow runtime value—how many deduplicated views each language version has received.
 
@@ -60,9 +60,9 @@ Scheduling therefore remains a static concern. There is no runtime draft query, 
 
 ## The dynamic requirement is one number
 
-The archive initially renders a placeholder beside each post. After the page loads, a client-only Solid component sends one batch `GET /content/views` request for the listed entries and replaces the placeholders with totals. Reading the archive does not register an article view.
+The archive initially renders a placeholder beside each post. After the page loads, a client-only Solid component sends one batch `GET /blog/views` request for the listed entries and replaces the placeholders with totals. Reading the archive does not register an article view.
 
-The article page uses a different island, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). When mounted, it sends `POST /content/views` for that article's view key and displays the returned total. If the document opened in a background tab, the island waits until the document becomes visible before sending. A browser preload should not look like a person reading a post.
+The article page uses a different island, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). When mounted, it sends `POST /blog/views` for that article's view key and displays the returned total. If the document opened in a background tab, the island waits until the document becomes visible before sending. A browser preload should not look like a person reading a post.
 
 ```mermaid center
 flowchart TB
@@ -80,7 +80,7 @@ If either request fails, the archive hides its count labels and the article remo
 
 The public English and Portuguese routes share a readable slug, but their source files have different names: `post.mdx` and `post.pt-BR.mdx`. [`web/lib/blog.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog.ts) removes the locale suffix to create the public route and keeps the full source name as the view key.
 
-As a result, `post` and `post.pt-BR` receive separate totals even though both language routes end in `/content/post`. The runtime API never needs to resolve a locale or inspect an MDX file; it receives the stable key the build selected.
+As a result, `post` and `post.pt-BR` receive separate totals even though both language routes end in `/blog/post`. The runtime API never needs to resolve a locale or inspect an MDX file; it receives the stable key the build selected.
 
 The shared request schema allows letters, numbers, and a limited set of separators, caps a key at 160 characters, and limits batch reads to 100 keys. That validates the shape and size of public input. It does not currently verify that a key belongs to the built content collection, so a direct client could create a total for an invented but well-formed key. The UI only asks for real entries, but a generated allow-list would be a reasonable hardening step.
 
@@ -95,7 +95,7 @@ Two SQLite tables serve different retention needs:
 | `blog_post_view_totals`   | Permanent aggregate count   | article view key              |
 | `blog_post_view_visitors` | Recent deduplication record | article view key + visitor ID |
 
-[`server/content/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/content/views.ts) handles a write in one immediate transaction. It opportunistically deletes visitor rows older than 24 hours, checks the current article-and-visitor pair, and returns the existing total when that pair is still inside the window. Otherwise it upserts the visitor timestamp and atomically inserts or increments the aggregate total.
+[`server/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/blog/views.ts) handles a write in one immediate transaction. It opportunistically deletes visitor rows older than 24 hours, checks the current article-and-visitor pair, and returns the existing total when that pair is still inside the window. Otherwise it upserts the visitor timestamp and atomically inserts or increments the aggregate total.
 
 ```mermaid center
 flowchart TB

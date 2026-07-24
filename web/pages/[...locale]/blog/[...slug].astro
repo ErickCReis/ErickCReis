@@ -43,7 +43,7 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
 });
 const { Content } = await render(post);
 const viewKey = getBlogViewKey(post);
-const contentPath = getLocalizedPath(locale, "content");
+const blogPath = getLocalizedPath(locale, "blog");
 ---
 
 <BaseLayout
@@ -63,13 +63,13 @@ const contentPath = getLocalizedPath(locale, "content");
       <header class="space-y-5">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <a
-            href={getLocalizedPath(locale, "content")}
+            href={getLocalizedPath(locale, "blog")}
             class="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 px-3 py-1 font-mono text-xxs tracking-wider uppercase transition-colors hover:border-foreground/50 hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" class="size-3.5 shrink-0" />
             <span>{t(locale, "All posts")}</span>
           </a>
-          <LocaleSwitcher locale={locale} path={`content/${slug}`} />
+          <LocaleSwitcher locale={locale} path={`blog/${slug}`} />
         </div>
 
         <section
@@ -96,7 +96,7 @@ const contentPath = getLocalizedPath(locale, "content");
           <div class="flex flex-wrap gap-2" aria-label={t(locale, "Tags")}>
             {post.data.tags.map((tag) => (
               <a
-                href={`${contentPath}?tag=${encodeURIComponent(tag)}`}
+                href={`${blogPath}?tag=${encodeURIComponent(tag)}`}
                 class="rounded-full border border-border/70 px-2.5 py-1 font-mono text-xxs text-primary transition-colors hover:border-primary/60 hover:text-foreground"
               >
                 #{tag}
@@ -120,7 +120,7 @@ const contentPath = getLocalizedPath(locale, "content");
           >
             {previousPost ? (
               <a
-                href={getLocalizedPath(locale, `content/${previousPost.slug}`)}
+                href={getLocalizedPath(locale, `blog/${previousPost.slug}`)}
                 rel="prev"
                 class="group flex min-h-28 flex-col gap-3 rounded-lg border border-border/70 p-4 transition-colors hover:border-primary/60"
               >
@@ -138,7 +138,7 @@ const contentPath = getLocalizedPath(locale, "content");
 
             {nextPost && (
               <a
-                href={getLocalizedPath(locale, `content/${nextPost.slug}`)}
+                href={getLocalizedPath(locale, `blog/${nextPost.slug}`)}
                 rel="next"
                 class="group flex min-h-28 flex-col items-end gap-3 rounded-lg border border-border/70 p-4 text-right transition-colors hover:border-primary/60"
               >

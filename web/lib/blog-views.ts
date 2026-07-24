@@ -11,7 +11,7 @@ export async function fetchPostViewCounts(slugs: string[]) {
     return {};
   }
 
-  const { data, error } = await apiClient.content.views.get({
+  const { data, error } = await apiClient.blog.views.get({
     query: { slugs: uniqueSlugs },
     fetch: { cache: "no-store" },
   });
@@ -23,7 +23,7 @@ export async function fetchPostViewCounts(slugs: string[]) {
 }
 
 export async function registerPostView(slug: string) {
-  const { data, error } = await apiClient.content.views.post(
+  const { data, error } = await apiClient.blog.views.post(
     { slug },
     {
       fetch: { cache: "no-store" },

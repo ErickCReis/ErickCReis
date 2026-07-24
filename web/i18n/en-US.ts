@@ -11,8 +11,6 @@ export const translations = {
   "13e5i5c": "commits today",
   "0ye8ewg": "Connected",
   "0imz3wo": "connected now",
-  "1hnv6ua": "Content",
-  "10g91fz": "Content | Erick Reis",
   "1nr0s8k": "Contributions",
   "074rpeu": "d ago",
   "1rciku5": "day",
@@ -30,8 +28,6 @@ export const translations = {
   "0a3w29t": "Notes on frontend engineering, systems work, and the decisions behind the build.",
   "0vgq4zc": "Nothing playing",
   "16bpipx": "Now Playing",
-  "03tlu3u": "Off",
-  "0qvtz3k": "On",
   "0n6hn1l": "Open",
   "1x8iqx0": "Open source issues and improvements across frontend, backend and tooling.",
   "08bmotu": "Peak",
@@ -40,7 +36,6 @@ export const translations = {
   "0mg65fi": "Recent",
   "0u9yqe6": "Release",
   "19rik5b": "Self-hosted file sharing and sync experiments.",
-  "04f26x8": "Stats",
   "13qbhrw": "System",
   "1sawk0u": "Today",
   "0owbv33": "Toggle path debug",
@@ -192,6 +187,8 @@ export const translations = {
   "0x222st": "Token stored. Total +1.",
   "07wt22m": "Totals public; source IDs private.",
   "15v0qy5": "Waiting for a visible tab.",
+  "1jdup01": "Blog",
+  "0uountu": "Blog | Erick Reis",
 } as const;
 
 export type TranslationHash = keyof typeof translations;

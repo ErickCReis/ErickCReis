@@ -7,7 +7,7 @@ tags: [astro, architecture]
 
 import { ViewCounterLab } from "@web/content/labs/view-counter-lab";
 
-O [post sobre a telemetria do runtime](/pt-BR/content/health-telemetry-from-the-real-runtime) terminou com vários tipos de dados atravessando o servidor dinâmico. O artigo que você está lendo segue o caminho oposto: título, descrição, tags, data, corpo e rota já existiam antes de o servidor iniciar.
+O [post sobre a telemetria do runtime](/pt-BR/blog/health-telemetry-from-the-real-runtime) terminou com vários tipos de dados atravessando o servidor dinâmico. O artigo que você está lendo segue o caminho oposto: título, descrição, tags, data, corpo e rota já existiam antes de o servidor iniciar.
 
 Eu queria que este blog participasse do mesmo sistema dinâmico sem se transformar em uma aplicação de publicação dinâmica. Isso levou a uma divisão intencionalmente desigual: o Astro cuida do artigo completo, enquanto o Elysia acrescenta um único valor de runtime — quantas visualizações deduplicadas cada versão de idioma recebeu.
 
@@ -60,9 +60,9 @@ O agendamento, portanto, continua sendo uma responsabilidade estática. Não há
 
 ## O requisito dinâmico é um número
 
-A listagem do blog renderiza inicialmente um placeholder ao lado de cada post. Depois que a página carrega, um componente do Solid executado apenas no cliente envia uma única requisição em lote para `GET /content/views` com as entradas listadas e substitui os placeholders pelos totais. Abrir a listagem não registra uma visualização de artigo.
+A listagem do blog renderiza inicialmente um placeholder ao lado de cada post. Depois que a página carrega, um componente do Solid executado apenas no cliente envia uma única requisição em lote para `GET /blog/views` com as entradas listadas e substitui os placeholders pelos totais. Abrir a listagem não registra uma visualização de artigo.
 
-A página do artigo usa outra ilha, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). Ao ser montada, ela envia `POST /content/views` com a chave daquele artigo e exibe o total retornado. Se o documento for aberto em uma aba em segundo plano, a ilha espera até que ele fique visível. O pré-carregamento do navegador não deve parecer uma pessoa lendo um post.
+A página do artigo usa outra ilha, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). Ao ser montada, ela envia `POST /blog/views` com a chave daquele artigo e exibe o total retornado. Se o documento for aberto em uma aba em segundo plano, a ilha espera até que ele fique visível. O pré-carregamento do navegador não deve parecer uma pessoa lendo um post.
 
 ```mermaid center
 flowchart TB
@@ -80,7 +80,7 @@ Se qualquer requisição falhar, a listagem esconde os rótulos de contagem, e o
 
 As rotas públicas em inglês e português compartilham um slug legível, mas seus arquivos de origem têm nomes diferentes: `post.mdx` e `post.pt-BR.mdx`. O arquivo [`web/lib/blog.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog.ts) remove o sufixo do idioma para criar a rota pública e mantém o nome completo do arquivo como chave de visualização.
 
-Assim, `post` e `post.pt-BR` recebem totais separados, mesmo que as duas rotas de idioma terminem em `/content/post`. A API de runtime nunca precisa resolver um idioma nem inspecionar um arquivo MDX; ela recebe a chave estável escolhida no build.
+Assim, `post` e `post.pt-BR` recebem totais separados, mesmo que as duas rotas de idioma terminem em `/blog/post`. A API de runtime nunca precisa resolver um idioma nem inspecionar um arquivo MDX; ela recebe a chave estável escolhida no build.
 
 O schema compartilhado das requisições permite letras, números e um conjunto limitado de separadores, restringe a chave a 160 caracteres e limita leituras em lote a 100 chaves. Isso valida o formato e o tamanho da entrada pública. Hoje, ele não verifica se uma chave pertence à coleção gerada, então um cliente direto poderia criar um total para uma chave inventada, mas bem formada. A interface pede apenas entradas reais, porém uma lista de permissões gerada seria uma melhoria razoável.
 
@@ -95,7 +95,7 @@ Duas tabelas do SQLite atendem a necessidades diferentes de retenção:
 | `blog_post_view_totals`   | Contagem agregada permanente       | chave do artigo                   |
 | `blog_post_view_visitors` | Registro recente para deduplicação | chave do artigo + ID do visitante |
 
-O arquivo [`server/content/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/content/views.ts) trata uma gravação dentro de uma única transação imediata. Ele remove de forma oportunista os registros de visitantes com mais de 24 horas, consulta o par atual de artigo e visitante e retorna o total existente quando o par ainda está dentro da janela. Caso contrário, atualiza o timestamp do visitante e insere ou incrementa atomicamente o total agregado.
+O arquivo [`server/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/blog/views.ts) trata uma gravação dentro de uma única transação imediata. Ele remove de forma oportunista os registros de visitantes com mais de 24 horas, consulta o par atual de artigo e visitante e retorna o total existente quando o par ainda está dentro da janela. Caso contrário, atualiza o timestamp do visitante e insere ou incrementa atomicamente o total agregado.
 
 ```mermaid center
 flowchart TB

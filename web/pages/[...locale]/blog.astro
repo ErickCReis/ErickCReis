@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-astro";
 import { fade } from "astro:transitions";
 import { t, locales, defaultLocale, resolveLocale } from "virtual:translate";
 import LocaleSwitcher from "@web/components/locale-switcher.astro";
-import { ContentViewCountsHydrator } from "@web/islands/content-view-counts-hydrator";
+import { BlogViewCountsHydrator } from "@web/islands/blog-view-counts-hydrator";
 import { getBlogEntries, getBlogViewKey } from "@web/lib/blog";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
@@ -36,18 +36,18 @@ const posts = getBlogEntries(await getCollection("blog"), locale, {
   .map(({ slug, entry }) => ({
     ...entry.data,
     viewKey: getBlogViewKey(entry),
-    href: getLocalizedPath(locale, `content/${slug}`),
+    href: getLocalizedPath(locale, `blog/${slug}`),
   }))
   .sort((a, b) => b.date.getTime() - a.date.getTime());
 
 const tags = [...new Set(posts.flatMap((post) => post.tags))].sort((a, b) =>
   a.localeCompare(b),
 );
-const contentPath = getLocalizedPath(locale, "content");
+const blogPath = getLocalizedPath(locale, "blog");
 ---
 
 <BaseLayout
-  title={t(locale, "Content | Erick Reis")}
+  title={t(locale, "Blog | Erick Reis")}
   description={t(
     locale,
     "Notes on frontend engineering, systems work, and the decisions behind the build.",
@@ -69,10 +69,10 @@ const contentPath = getLocalizedPath(locale, "content");
             <span>{t(locale, "Back")}</span>
           </a>
 
-          <LocaleSwitcher locale={locale} path="content" />
+          <LocaleSwitcher locale={locale} path="blog" />
         </div>
         <h1 class="font-serif text-4xl tracking-wide md:text-5xl">
-          {t(locale, "Content")}
+          {t(locale, "Blog")}
         </h1>
 
         {
@@ -83,7 +83,7 @@ const contentPath = getLocalizedPath(locale, "content");
               data-tag-filter
             >
               <a
-                href={contentPath}
+                href={blogPath}
                 data-tag-link=""
                 class="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 font-mono text-xxs text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/60 hover:text-foreground"
               >
@@ -91,7 +91,7 @@ const contentPath = getLocalizedPath(locale, "content");
               </a>
               {tags.map((tag) => (
                 <a
-                  href={`${contentPath}?tag=${encodeURIComponent(tag)}`}
+                  href={`${blogPath}?tag=${encodeURIComponent(tag)}`}
                   data-tag-link={tag}
                   class="rounded-full border border-border/70 bg-background/80 px-2.5 py-1 font-mono text-xxs text-muted-foreground backdrop-blur-sm transition-colors hover:border-primary/60 hover:text-foreground"
                 >
@@ -110,7 +110,7 @@ const contentPath = getLocalizedPath(locale, "content");
           </p>
         ) : (
           <>
-            <ContentViewCountsHydrator
+            <BlogViewCountsHydrator
               client:only="solid-js"
               slugs={posts.map((post) => post.viewKey)}
             />
