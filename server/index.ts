@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import cors from "@elysiajs/cors";
 import { blogRoutes } from "@server/blog/routes";
 import { batteryAlertCron } from "@server/cron/battery-alert";
+import { blogReportCron } from "@server/cron/blog-report";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { internalRoutes } from "@server/internal/routes";
 import { liveRoutes } from "@server/live/routes";
@@ -27,7 +28,8 @@ const app = new Elysia()
   .use(blogRoutes)
   .use(internalRoutes)
   .use(liveRoutes)
-  .use(batteryAlertCron);
+  .use(batteryAlertCron)
+  .use(blogReportCron);
 
 if (Bun.env.NODE_ENV === "production") {
   app.use(createDistAssetsSubrouter());

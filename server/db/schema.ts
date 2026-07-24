@@ -19,7 +19,35 @@ export const blogPostViewVisitors = sqliteTable(
   ],
 );
 
+export const blogPostDailyViews = sqliteTable(
+  "blog_post_daily_views",
+  {
+    date: text("date").notNull(),
+    slug: text("slug").notNull(),
+    views: integer("views").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.date, table.slug] }),
+    index("blog_post_daily_views_date_idx").on(table.date),
+  ],
+);
+
+export const blogPostWeeklyViews = sqliteTable(
+  "blog_post_weekly_views",
+  {
+    weekStart: text("week_start").notNull(),
+    slug: text("slug").notNull(),
+    views: integer("views").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.weekStart, table.slug] }),
+    index("blog_post_weekly_views_week_start_idx").on(table.weekStart),
+  ],
+);
+
 export const schema = {
+  blogPostDailyViews,
+  blogPostWeeklyViews,
   blogPostViewTotals,
   blogPostViewVisitors,
 };
