@@ -11,7 +11,7 @@ O [post anterior](/pt-BR/blog/shipping-astro-from-a-bun-server) colocou os arqui
 
 CPU pode significar o notebook inteiro, a capacidade permitida ao container ou o próprio processo do servidor. A memória informada por `node:os` pode descrever o host mesmo quando o processo está restrito por um cgroup. O notebook tem bateria, mas o container não consegue enxergá-la sem que esse detalhe do host seja exposto de propósito. O tempo de vida do processo não diz se o domínio público estava acessível.
 
-Quando coloquei essas leituras lado a lado pela primeira vez, a proximidade fez com que parecessem intercambiáveis. Não são. A telemetria deste site mantém separadas quatro lentes de observação — processo, cgroup, host e observador externo — em vez de fingir que uma única medida consegue descrever todo o deploy.
+Quando coloquei essas leituras lado a lado pela primeira vez, a proximidade fez com que parecessem intercambiáveis. A telemetria deste site mantém separadas quatro lentes de observação (processo, cgroup, host e observador externo), pois uma única medida não consegue descrever todo o deploy.
 
 ```mermaid center
 flowchart LR
@@ -31,7 +31,7 @@ O denominador também inclui o número de CPUs disponível para o deploy. No cgr
 const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 ```
 
-O resultado, portanto, não significa “qual é a carga de todos os processos do notebook?”. Ele representa a parcela da capacidade de CPU do deploy consumida por este processo, limitada entre zero e 100 por cento. Hoje, o Docker Compose limita o serviço a uma CPU, então o painel responde à pergunta operacionalmente útil: quanto da CPU atribuída a esta aplicação está sendo consumido pelo processo Bun?
+O resultado representa a parcela da capacidade de CPU do deploy consumida por este processo, limitada entre zero e 100 por cento. Hoje, o Docker Compose limita o serviço a uma CPU, então o painel mostra quanto da CPU atribuída a esta aplicação está sendo consumido pelo processo Bun.
 
 O número de CPUs calculado a partir do cgroup arredonda a cota para um inteiro e nunca fica abaixo de um. Isso é suficiente para o limite atual de uma CPU, mas seria um modelo aproximado para cotas fracionárias. A telemetria só é útil quando sua interpretação e suas limitações permanecem visíveis.
 
@@ -43,7 +43,7 @@ No cgroup v2, ele lê `memory.current` e `memory.max`; no v1, usa `memory.usage_
 
 Se os arquivos do cgroup não estiverem disponíveis ou não houver limite, o fallback é a memória do host informada por `node:os`. Caso contrário, o painel calcula os megabytes usados e o percentual a partir dos valores do cgroup. Com o limite atual de 1 GB no Compose, “memória usada” descreve a pressão sobre o orçamento do container, não sobre toda a RAM instalada no notebook.
 
-Esse número também não é o heap do Bun. `memory.current` contabiliza memória na fronteira do cgroup, o que pode incluir o processo, alocações nativas e cache do sistema de arquivos. É o sinal certo para “este container está se aproximando do orçamento imposto?”, não para diagnosticar qual alocação dentro do Bun o consumiu.
+`memory.current` mede mais do que o heap do Bun. Ele contabiliza memória na fronteira do cgroup, o que pode incluir o processo, alocações nativas e cache do sistema de arquivos. O valor mostra se o container está se aproximando do orçamento imposto; ele não permite diagnosticar qual alocação dentro do Bun o consumiu.
 
 Essa distinção importa antes de uma interrupção por falta de memória. Um host com RAM livre ainda pode encerrar um container que ultrapassa seu próprio limite.
 
@@ -62,7 +62,7 @@ environment:
 
 O arquivo [`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) encontra o primeiro diretório cujo nome começa com `BAT`, lê `capacity` e `status`, valida um percentual entre zero e 100 e normaliza o estado em quatro categorias: `charging`, `discharging`, `full` ou `unknown`. As leituras ficam em cache por 15 segundos mesmo que a estatística do sistema seja coletada com mais frequência; o estado da bateria não exige uma leitura do disco a cada 1,5 segundos.
 
-Se a montagem, a bateria ou os arquivos não existirem, o leitor retorna valores `null`, e o painel mostra `n/a`. A telemetria da bateria do host é uma capacidade opcional, não uma suposição que todo deploy precisa atender.
+Se a montagem, a bateria ou os arquivos não existirem, o leitor retorna valores `null`, e o painel mostra `n/a`. A telemetria da bateria do host é opcional e específica dos deploys que a expõem.
 
 Essa é uma exposição intencional e estreita pela fronteira do container. Montar todo o sistema de arquivos do host facilitaria a criação do painel, mas reduziria muito a confiabilidade da aplicação. Expor apenas o diretório de alimentação declara exatamente qual detalhe do host a aplicação tem permissão para observar.
 
@@ -84,7 +84,7 @@ Uso o laboratório abaixo como um depurador de fronteiras. Escolha uma lente, al
 
 <RuntimeVantageLab client:load locale="pt-BR" />
 
-O medidor não basta sozinho de propósito. Seu observador, denominador e ponto cego fazem parte do valor; sem esses rótulos, um percentual preciso ainda pode contar a história errada.
+O medidor precisa de contexto. Seu observador, denominador e ponto cego fazem parte do valor; sem esses rótulos, um percentual preciso ainda pode contar a história errada.
 
 ## De estatística visível a sinal acionável
 
@@ -92,8 +92,8 @@ O nível da bateria também alimenta uma pequena ação operacional. Uma tarefa 
 
 A tarefa registra se um alerta foi enviado e limpa esse estado quando o status da bateria muda. Assim, evita mandar o mesmo aviso a cada cinco segundos. Sem a chave da API do Resend ou o endereço de destino, a tarefa não faz nada; a telemetria continua funcionando sem a configuração do e-mail.
 
-O painel e o alerta respondem a perguntas diferentes. O painel ajuda um visitante — ou eu — a entender o deploy. O e-mail pede uma ação quando uma condição específica do host cruza um limite. Os dois reutilizam o mesmo leitor da bateria, mas não devem compartilhar a mesma política de entrega.
+O painel e o alerta respondem a perguntas diferentes. O painel ajuda os visitantes e também me ajuda a entender o deploy. O e-mail pede uma ação quando uma condição específica do host cruza um limite. Os dois reutilizam o mesmo leitor da bateria, mas não devem compartilhar a mesma política de entrega.
 
-Não existe um único “sistema real” por trás de uma aplicação em container. Este site mede o trabalho do processo em relação à capacidade do cgroup, escolhe observar um sinal do hardware do host e pergunta a um observador externo se o caminho público completo funciona. Mantenho essas perspectivas separadas porque a fronteira ao redor de um número é o que torna esse número honesto.
+Uma aplicação em container expõe vários sistemas que podem ser medidos. Este site mede o trabalho do processo em relação à capacidade do cgroup, escolhe observar um sinal do hardware do host e pergunta a um observador externo se o caminho público completo funciona. Manter essas perspectivas separadas impede que um número seja confundido com o estado de todo o deploy.
 
 O próximo post volta à saída estática do Astro e adiciona a ela uma pequena funcionalidade de runtime: contagens de visualizações para artigos MDX sem tornar o blog dinâmico.

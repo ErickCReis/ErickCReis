@@ -44,9 +44,9 @@ const blog = defineCollection({
 });
 ```
 
-Um artigo malformado falha no lugar certo: durante o build. A página de listagem pode ler o frontmatter tipado, ordenar os posts por data, derivar seus filtros de tags e gerar links sem consultar o servidor de produção. A rota de detalhes pede ao Astro que renderize a entrada MDX escolhida e coloca o componente resultante dentro do layout compartilhado e dos estilos tipográficos.
+Um artigo malformado falha durante o build, que é o lugar certo. A página de listagem pode ler o frontmatter tipado, ordenar os posts por data, derivar seus filtros de tags e gerar links sem consultar o servidor de produção. A rota de detalhes pede ao Astro que renderize a entrada MDX escolhida e coloca o componente resultante dentro do layout compartilhado e dos estilos tipográficos.
 
-O MDX é útil porque um artigo pode incluir os diagramas Mermaid gerados durante o build e usados ao longo desta série sem abandonar o Markdown como formato normal de escrita. Isso não transforma cada artigo em uma aplicação no cliente; o corpo gerado continua sendo HTML.
+O MDX é útil porque um artigo pode incluir os diagramas Mermaid gerados durante o build e usados ao longo desta série sem abandonar o Markdown como formato normal de escrita. Cada artigo ainda é gerado como HTML.
 
 ## A data também é uma fronteira de publicação
 
@@ -113,11 +113,11 @@ O laboratório abaixo torna essa transação visível. Simule duas leituras do n
 
 <ViewCounterLab client:load locale="pt-BR" />
 
-As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. Este é um pequeno contador, não uma ferramenta de análise anônima, e essa distinção faz parte da sua descrição de privacidade.
+As tabelas de visualizações não armazenam endereço IP, user agent, conta nem referer. Elas armazenam o mesmo ID opaco de visitante ao lado de cada artigo visto recentemente, o que permite correlacionar as visualizações durante a janela de deduplicação. Registros vencidos são removidos em uma gravação posterior, não por uma tarefa exclusiva de limpeza. A descrição de privacidade deve mencionar essa correlação temporária em vez de apresentar o contador como uma ferramenta de análise anônima.
 
 ## Estático primeiro, dinâmico na borda
 
-Tornar o blog inteiro renderizado pelo servidor não simplificaria nada disso. O conteúdo muda no deploy; apenas a contagem muda entre requisições. As coleções do Astro oferecem autoria, validação, variantes localizadas e rotas estáticas. Duas pequenas ilhas dão à listagem uma leitura em lote e ao artigo uma gravação intencional.
+O conteúdo muda no deploy; apenas a contagem muda entre requisições. As coleções do Astro oferecem autoria, validação, variantes localizadas e rotas estáticas. Duas pequenas ilhas dão à listagem uma leitura em lote e ao artigo uma gravação intencional.
 
 É a mesma fronteira à qual continuo voltando na página inicial: o documento existe sem estado no cliente, e o JavaScript entra onde um valor dinâmico acrescenta algo útil.
 

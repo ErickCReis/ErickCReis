@@ -44,9 +44,9 @@ const blog = defineCollection({
 });
 ```
 
-A malformed article fails where it should: during the build. The archive can read typed frontmatter, sort by date, derive its tag filters, and generate links without querying the production server. The detail route asks Astro to render the selected MDX entry and places the resulting component inside the shared layout and typography styles.
+A malformed article fails during the build, where it should. The archive can read typed frontmatter, sort by date, derive its tag filters, and generate links without querying the production server. The detail route asks Astro to render the selected MDX entry and places the resulting component inside the shared layout and typography styles.
 
-MDX is useful here because an article can include the build-time Mermaid diagrams used throughout this series without giving up Markdown as the normal authoring format. It does not turn each article into a client application; the generated body is still HTML.
+MDX is useful here because an article can include the build-time Mermaid diagrams used throughout this series without giving up Markdown as the normal authoring format. Each article still builds to HTML.
 
 ## A date is also a publication boundary
 
@@ -113,11 +113,11 @@ The lab below makes that transaction visible. Read as browser A twice: the first
 
 <ViewCounterLab client:load locale="en-US" />
 
-The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. This is a small counter, not anonymous analytics, and that distinction belongs in its privacy description.
+The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. Its privacy description should call out that short-term correlation instead of presenting the counter as anonymous analytics.
 
 ## Static first, dynamic at the edge
 
-Making the entire blog server-rendered would not simplify any of this. The content changes at deploy time; only the count changes between requests. Astro content collections give authoring, validation, localized variants, and static routes. Two small islands give the archive a batch read and the article an intentional write.
+The content changes at deploy time; only the count changes between requests. Astro content collections give authoring, validation, localized variants, and static routes. Two small islands give the archive a batch read and the article an intentional write.
 
 It is the same boundary I keep returning to on the homepage: the document exists without client state, and JavaScript enters where a live value adds something useful.
 

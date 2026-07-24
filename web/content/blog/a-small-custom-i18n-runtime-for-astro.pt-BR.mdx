@@ -7,11 +7,11 @@ tags: [astro, architecture]
 
 import { TranslationCatalogLab } from "@web/content/labs/translation-catalog-lab";
 
-A [camada do blog](/pt-BR/blog/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos: tradução é um trabalho editorial, não uma consulta em um catálogo de strings.
+A [camada do blog](/pt-BR/blog/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos, cuja tradução exige um trabalho editorial que vai além de uma consulta em um catálogo de strings.
 
 A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “Bateria” e “Nada tocando” aparecem em páginas do Astro e componentes hidratados do Solid. Eles precisam de uma pequena API de tradução, do mesmo idioma e de uma estratégia de caminhos que funcione durante o build estático e depois que o JavaScript inicia.
 
-Criei uma integração sob medida para esse requisito mais estreito. Ela não é um framework genérico de internacionalização. A integração coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e usa o texto em inglês sempre que uma tradução está ausente.
+Criei uma integração sob medida para esse requisito mais estreito. Ela coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e usa o texto em inglês sempre que uma tradução está ausente.
 
 ```mermaid center
 flowchart TB
@@ -50,7 +50,7 @@ Essa API deixa a restrição visível no ponto de uso. O código do Astro já sa
 
 O plugin do Vite dentro de [`plugins/translate-plugin.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/plugins/translate-plugin.ts) executa seu coletor durante os builds de produção. Ele inspeciona apenas os módulos que fazem referência a `virtual:translate` e usa o parser do Vite para percorrer suas árvores sintáticas ESTree.
 
-Primeiro, o coletor encontra o binding realmente importado. Ele aceita um import nomeado — mesmo que renomeado — e chamadas pelo namespace, como `translate.t(...)`. Depois, registra chamadas cujo valor de tradução pode ser resolvido estaticamente:
+Primeiro, o coletor encontra o binding realmente importado. Ele aceita um import nomeado, mesmo que renomeado, e chamadas pelo namespace, como `translate.t(...)`. Depois, registra chamadas cujo valor de tradução pode ser resolvido estaticamente:
 
 - strings literais;
 - template literals sem expressões;
@@ -116,7 +116,7 @@ O layout base completa o contrato das rotas. Ele define `<html lang>`, cria uma 
 
 ## Útil porque a fronteira é pequena
 
-Esse runtime não oferece mensagens ICU, negociação de idioma, regras gramaticais de plural, interpolação de rich text, serviços de tradução nem um fluxo de gerenciamento de conteúdo. O site ainda usa `Intl` diretamente para datas e números, e posts completos continuam em arquivos próprios.
+O escopo desse runtime exclui mensagens ICU, negociação de idioma, regras gramaticais de plural, interpolação de rich text, serviços de tradução e um fluxo de gerenciamento de conteúdo. O site ainda usa `Intl` diretamente para datas e números, e posts completos continuam em arquivos próprios.
 
 São essas ausências que mantêm a ferramenta sob medida compreensível. Para dois idiomas conhecidos e algumas dezenas de strings estáticas da interface, um hook do Astro, um plugin do Vite, dois catálogos gerados e um pequeno runtime resolvem o problema real. Um produto mais amplo cruzaria o ponto em que manter todas essas capacidades ausentes custa mais do que adotar um sistema de i18n estabelecido.
 

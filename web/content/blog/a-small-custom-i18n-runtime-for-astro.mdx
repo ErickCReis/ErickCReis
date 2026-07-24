@@ -7,11 +7,11 @@ tags: [astro, architecture]
 
 import { TranslationCatalogLab } from "@web/content/labs/translation-catalog-lab";
 
-The [blog layer](/blog/the-blog-layer-static-pages-live-view-counts) treats English and Brazilian Portuguese articles as separate MDX files. That is the right boundary for long-form writing: translation is editorial work, not a string lookup.
+The [blog layer](/blog/the-blog-layer-static-pages-live-view-counts) treats English and Brazilian Portuguese articles as separate MDX files. That is the right boundary for long-form writing, where translation requires editorial work beyond a string lookup.
 
 The surrounding interface has a different problem. Labels such as “All posts,” “Battery,” and “Nothing playing” appear across Astro pages and hydrated Solid components. They need one small translation API, the same locale, and a path strategy that works during a static build and after JavaScript starts.
 
-I built a custom integration for that narrower requirement. It is not a general internationalization framework. It collects static source strings, generates hash-keyed TypeScript catalogs, exposes a virtual module, and falls back to the English source whenever a translation is absent.
+I built a custom integration for that narrower requirement. It collects static source strings, generates hash-keyed TypeScript catalogs, exposes a virtual module, and falls back to the English source whenever a translation is absent.
 
 ```mermaid center
 flowchart TB
@@ -50,7 +50,7 @@ This API makes the constraint visible at the call site. Astro code already knows
 
 The Vite plugin inside [`plugins/translate-plugin.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/plugins/translate-plugin.ts) runs its collector during production builds. It only inspects modules that reference `virtual:translate`, then uses Vite's parser to walk their ESTree syntax trees.
 
-The collector first finds the actual imported binding. It supports a named import—even when renamed—and namespace calls such as `translate.t(...)`. It then records calls whose translation value can be resolved statically:
+The collector first finds the actual imported binding. It supports a named import (even when renamed) and namespace calls such as `translate.t(...)`. It then records calls whose translation value can be resolved statically:
 
 - string literals;
 - template literals with no expressions;
@@ -116,7 +116,7 @@ The base layout completes the route contract. It sets `<html lang>`, creates a c
 
 ## Useful because the boundary is small
 
-This runtime does not provide ICU messages, locale negotiation, grammatical plural rules, rich-text interpolation, translation services, or a content-management workflow. The site still uses `Intl` directly for dates and numbers, and whole blog posts still have dedicated files.
+The runtime's scope excludes ICU messages, locale negotiation, grammatical plural rules, rich-text interpolation, translation services, and a content-management workflow. The site still uses `Intl` directly for dates and numbers, and whole blog posts still have dedicated files.
 
 Those omissions are why the custom tool remains understandable. For two known locales and a few dozen static UI strings, an Astro hook, a Vite plugin, two generated catalogs, and a small runtime solve the actual problem. A broader product would cross the point where maintaining those missing capabilities costs more than adopting an established i18n system.
 

@@ -11,7 +11,7 @@ Os [painéis do Spotify e do GitHub](/pt-BR/blog/personal-telemetry-from-spotify
 
 Esse é o trabalho do pipeline de estatísticas.
 
-A parte difícil não era encontrar mais um timer. Era deixar cada fonte manter o próprio relógio e, ao mesmo tempo, dar ao navegador um único lugar para carregar o estado inicial, escutar e decodificar. Eu queria que os painéis parecessem coordenados sem fazer seus coletores fingirem que trabalham no mesmo ritmo.
+A parte difícil era deixar cada fonte manter o próprio relógio e, ao mesmo tempo, dar ao navegador um único lugar para carregar o estado inicial, escutar e decodificar. Eu queria que os painéis parecessem coordenados sem fazer seus coletores fingirem que trabalham no mesmo ritmo.
 
 A página inicial combina hoje recursos do sistema, uptime externo, presença de visitantes, reprodução do Spotify, contribuições do GitHub e uso de tokens por agentes. Algumas fontes mudam a cada poucos segundos; outras, a cada 30 minutos ou apenas quando outro processo as sincroniza. A interface precisa de um gráfico inicial para cada uma delas e de novas amostras depois que começa a rodar, sem seis implementações de rede independentes.
 
@@ -46,7 +46,7 @@ type StatModule<T> = {
 
 As outras três operações expõem um retrato do estado de cada módulo. `getLatest` fornece o valor atual completo. `getHistory` fornece as amostras recentes disponíveis para um novo navegador. `getVersion` é um marcador de mudança sempre crescente; a rota do fluxo pode perguntar se algo mudou sem comparar objetos grandes nem entender os timestamps de cada fonte.
 
-De propósito, isso não é um framework genérico de eventos. Cada módulo continua responsável pelo próprio estado, pelo limite de retenção, pelas escolhas de persistência e pelos erros específicos da sua fonte. A interface define apenas o necessário para a camada de entrega.
+Cada módulo continua responsável pelo próprio estado, pelo limite de retenção, pelas escolhas de persistência e pelos erros específicos da sua fonte. A interface define apenas o necessário para a camada de entrega.
 
 A aplicação inicia os módulos uma única vez, depois que o Elysia começa a escutar. Eles continuam coletando mesmo quando ninguém está com a página inicial aberta. Assim, um novo visitante apenas lê o estado atual do servidor em vez de provocar seis requisições às fontes externas.
 
@@ -56,7 +56,7 @@ Um gráfico precisa de contexto recente, mas um evento ao vivo precisa do estado
 
 O arquivo [`server/stats/history.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) projeta registros históricos menores de forma intencional. O histórico do sistema mantém timestamp, uso de CPU e uso de memória; o retrato mais recente também inclui totais de memória, número de CPUs e estado da bateria. O histórico do Spotify guarda o necessário para encontrar a faixa anterior, enquanto o retrato mais recente também leva o álbum, o link, o progresso e a duração.
 
-`GET /stats/history` retorna os dois formatos para todos os módulos e usa `Cache-Control: no-store`. A resposta é um retrato inicial do estado do processo, não um arquivo estático cuja atualização possa ser delegada a um cache intermediário.
+`GET /stats/history` retorna os dois formatos para todos os módulos e usa `Cache-Control: no-store`. A resposta carrega o estado inicial do processo, então um cache intermediário não pode decidir quando atualizá-la.
 
 No navegador, a camada interativa inicia essa requisição e a assinatura do fluxo ao mesmo tempo. Quando o histórico chega, cada store combina os pontos pelos timestamps, ordena o resultado e mantém a janela configurada. Eventos recebidos no mesmo período usam o mesmo store em vez de criar uma segunda árvore de estado.
 
@@ -98,7 +98,7 @@ Evento "ws" no transporte: [timestamp, connectedUsers, maxConcurrentUsers, conne
 
 O histórico pode ser ainda menor: `[timestamp, connectedUsers]`. No nível externo, `system`, `server`, `websocket`, `spotify`, `github` e `tokenUsage` se tornam `sy`, `sr`, `ws`, `sp`, `gh` e `tu`.
 
-Essa é uma troca, não uma compressão gratuita. Uma tupla não descreve a si mesma, e qualquer alteração na ordem dos campos exige que os dois lados mudem juntos. O arquivo [`shared/stats/transport.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/transport.ts) e os arquivos `*.transport.ts` específicos de cada fonte tornam esse acoplamento explícito: cada tipo de transporte tem um serializador e um desserializador ao lado. O restante da aplicação continua trabalhando com objetos nomeados.
+O payload menor abre mão da autodescrição. Qualquer alteração na ordem dos campos de uma tupla exige que os dois lados mudem juntos. O arquivo [`shared/stats/transport.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/transport.ts) e os arquivos `*.transport.ts` específicos de cada fonte tornam esse acoplamento explícito: cada tipo de transporte tem um serializador e um desserializador ao lado. O restante da aplicação continua trabalhando com objetos nomeados.
 
 Eu não começaria com serialização por tuplas em uma API mantida por clientes independentes. Aqui, um único repositório gera os dois lados, o fluxo é repetitivo e a fronteira é pequena o bastante para ser inspecionada. Essas restrições tornam o compromisso razoável.
 
@@ -110,4 +110,4 @@ Um store conhece apenas duas operações: combinar o histórico inicial e adicio
 
 Adicionar uma estatística não é automático. Ainda são necessários um módulo de origem, tipos de domínio e transporte, o registro nas rotas, uma projeção do histórico, um store no cliente, o encaminhamento do fluxo e um painel. Essa repetição é visível, mas também pode ser auditada. Cada nova fonte atravessa as mesmas fronteiras explícitas em vez de desaparecer por trás de um framework com mais flexibilidade do que o site precisa.
 
-O pipeline permite que cada fonte mantenha o próprio relógio enquanto a página enxerga uma única camada dinâmica e coerente. O próximo post vai para a camada abaixo das rotas de API e explica como o mesmo processo Bun também serve a saída estática do Astro como o site em produção.
+O próximo post vai para a camada abaixo das rotas de API e explica como o mesmo processo Bun também serve a saída estática do Astro como o site em produção.

@@ -9,7 +9,7 @@ import { DeploymentShapeLab } from "@web/content/labs/deployment-shape-lab";
 
 At some point this portfolio stopped being just a static page. I kept adding telemetry, API routes, cursor presence, background polling, local data, and internal jobs. It was still a small project, but “static-site deployment” was no longer an honest description of it.
 
-This rewrite was not about escaping Cloudflare or saving money. I wanted the deployment to have a physical answer: one machine. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
+I rewrote it because I wanted the deployment to have a physical answer: one machine. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
 
 ## Why self-host this
 
@@ -26,7 +26,7 @@ The rewrite changed the default boundary:
 | Several provider-specific runtime pieces | One Docker image and one data directory                 |
 | Platform deployment configuration        | A container deployed by [Dokploy](https://dokploy.com/) |
 
-I still like Cloudflare, and it remains part of this setup. DNS and connectivity stay at the edge; the compute and persistent data moved to the laptop. Self-hosting here is a change in where the application runs, not a claim that every external service disappeared.
+I still like Cloudflare, and it remains part of this setup. DNS and connectivity stay at the edge; the compute and persistent data moved to the laptop. Here, self-hosting describes where the application runs while external services continue to handle other parts.
 
 ## The runtime and deployment paths
 
@@ -54,7 +54,7 @@ flowchart TB
   Image --> Container["Running container"]
 ```
 
-I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and keeps the deployment workflow easy to inspect. The useful simplification is not that the infrastructure has only one piece. It is that the application has fewer runtime boundaries: one deploy target, one container, and one server process.
+I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and keeps the deployment workflow easy to inspect. The infrastructure still has several pieces, but the application has fewer runtime boundaries: one deploy target, one container, and one server process.
 
 Those paths meet at the running container, but they carry different things. Trace a request in the model below, then deploy another revision. The container changes; the mounted `/app/data` directory does not.
 
@@ -100,14 +100,14 @@ Putting the process in a container is the easy part. Deciding what must survive 
 
 The application uses `DATA_DIR=/app/data` for SQLite and local files, and Docker Compose mounts `./data` from the host into that directory. The container can be replaced without replacing its state. Compose also gives the process a restart policy and explicit CPU and memory limits.
 
-An explicit data directory is not a backup, though. It makes the state easy to locate and snapshot, but an automated off-machine copy is still part of the work. The laptop also makes power, storage, and network failures my responsibility instead of the provider's.
+An explicit data directory makes the state easy to locate and snapshot. I still need an automated off-machine copy. The laptop also makes power, storage, and network failures my responsibility instead of the provider's.
 
-## What became simpler—and what did not
+## Operational tradeoffs
 
 Files can be files again. Static assets and runtime routes come from the same server. Internal jobs do not need their own platform story before they exist. I can start a feature with a directory and a process instead of first deciding which managed product owns it.
 
 The real-time layer is the part I trust the least. Durable Objects gave WebSocket state a natural home; on one server, connection lifecycle, cleanup, monitoring, and recovery are mine to handle. The current version works, but it still needs a better abstraction for tracking connections and seeing what the live layer is doing.
 
-Self-hosting made this application simpler to deploy, not simpler to operate. The shape is smaller, not magically safer. I traded managed runtime boundaries for responsibilities I can see: one process, one data directory, one backup problem, and one real-time layer I still need to harden.
+Self-hosting made this application simpler to deploy and gave me more operational responsibility. The smaller shape is easier to see; its safety is still my responsibility. I traded managed runtime boundaries for one process, one data directory, one backup problem, and one real-time layer I still need to harden.
 
 The next posts will go deeper into those smaller pieces: cursor presence, telemetry, static asset routing, content tracking, localization, and token usage sync.

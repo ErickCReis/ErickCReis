@@ -49,11 +49,11 @@ flowchart TB
 
 ## Por que esta ilha usa client:only
 
-A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) do Astro não renderiza o HTML do componente durante o build e deixa essa renderização para o navegador. Como não existe uma marcação do componente renderizada no servidor para ser retomada, trata-se de uma renderização no cliente, não da hidratação daquele componente. A diretiva não é apenas uma forma curta de dizer “torne isto interativo”, nem representa automaticamente uma otimização de desempenho.
+A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) do Astro pula a renderização do HTML do componente durante o build e deixa essa tarefa para o navegador. Sem uma marcação renderizada no servidor para retomar, o navegador faz uma renderização no cliente. A diretiva define onde a renderização acontece e não traz um ganho automático de desempenho.
 
 Para esta camada, deixar de renderizar o componente durante o build é a escolha correta. Ele depende de informações do navegador, como as dimensões da janela e a posição do ponteiro. Os dados de telemetria e dos cursores também não têm valor durante o build. Um painel de estatísticas gerado nesse momento já chegaria desatualizado ao navegador.
 
-Mais importante: o estado vazio é válido. Enquanto a ilha não inicia, não há painéis de telemetria flutuando pela tela nem cursores remotos. O título, os links dos projetos, a navegação e os metadados não precisam de um estado de carregamento porque nunca estiveram dentro da ilha.
+O estado vazio é válido. Enquanto a ilha não inicia, não há painéis de telemetria flutuando pela tela nem cursores remotos. O título, os links dos projetos, a navegação e os metadados não precisam de um estado de carregamento porque nunca estiveram dentro da ilha.
 
 Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Esse modo de falha faz parte do design.
 
@@ -89,15 +89,15 @@ export function HomeLiveOverlay() {
 
 Um [sinal reativo do Solid](https://docs.solidjs.com/concepts/signals) é suficiente para conectá-las. Manter as duas camadas dentro da mesma ilha faz com que essa relação continue local. Separá-las em ilhas independentes exigiria outro mecanismo de comunicação para um estado que já pertence à mesma camada visual.
 
-Esta é uma unidade útil para uma ilha neste projeto: não uma ilha por componente, nem uma única árvore de componentes para a página inteira, mas uma fronteira em torno dos comportamentos que precisam reagir em conjunto.
+Neste projeto, uma ilha útil traça uma fronteira em torno dos comportamentos que precisam reagir em conjunto. A quantidade de componentes e a árvore completa da página não definem essa fronteira.
 
-## Estático não significa ausência de JavaScript
+## O JavaScript também existe fora do Solid
 
-A fronteira não é “o Astro não tem JavaScript e o Solid tem todo ele”. O layout base ainda usa o roteador no cliente do Astro, e pequenos comportamentos da página podem continuar em scripts comuns. A diferença está na responsabilidade de cada parte.
+O layout base ainda usa o roteador no cliente do Astro, e pequenos comportamentos da página podem continuar em scripts comuns. A fronteira descreve a responsabilidade de cada parte; o JavaScript pode existir dos dois lados.
 
 O Astro cuida do documento e do conteúdo que precisa existir antes que o estado do navegador esteja disponível. O Solid cuida da árvore de componentes cujo resultado muda conforme sinais, fluxos de dados, posições do ponteiro e conexões são atualizados.
 
-Essa escolha ainda tem um custo. `client:only` carrega a camada interativa imediatamente, e os painéis de telemetria concentram mais código executado no cliente do que o restante da página inicial. Aceito esse custo porque essa camada é a principal superfície dinâmica da página inicial. Se ela crescer muito além desse papel, o próximo passo será dividir ou adiar partes da camada interativa, não mover o conteúdo do portfólio para dentro dela.
+Essa escolha ainda tem um custo. `client:only` carrega a camada interativa imediatamente, e os painéis de telemetria concentram mais código executado no cliente do que o restante da página inicial. Aceito esse custo porque essa camada é a principal superfície dinâmica da página inicial. Se ela crescer muito além desse papel, o próximo passo será dividir ou adiar partes da camada interativa enquanto o conteúdo do portfólio permanece no Astro.
 
 ## A próxima fronteira
 

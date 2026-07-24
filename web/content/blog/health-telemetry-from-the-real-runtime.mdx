@@ -11,7 +11,7 @@ The [previous post](/blog/shipping-astro-from-a-bun-server) put Astro's files an
 
 CPU can mean the whole laptop, the container's allowance, or the server process itself. Memory reported by `node:os` may describe the host even when the process is constrained by a cgroup. The laptop has a battery, but the container cannot see it unless that host detail is deliberately exposed. Process uptime says nothing about whether the public domain was reachable.
 
-When I first put these readings beside one another, their proximity made them look interchangeable. They are not. The telemetry on this site keeps four observer lenses—process, cgroup, host, and outside—separate instead of pretending one measurement can describe the whole deployment.
+When I first put these readings beside one another, their proximity made them look interchangeable. The telemetry on this site keeps four observer lenses (process, cgroup, host, and outside) separate because one measurement cannot describe the whole deployment.
 
 ```mermaid center
 flowchart LR
@@ -31,7 +31,7 @@ The denominator also includes the CPU count available to the deployment. On cgro
 const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 ```
 
-The result is therefore not “how busy is every process on the laptop?” It is the share of the deployment's CPU capacity used by this process, clamped between zero and 100 percent. Docker Compose currently limits the service to one CPU, so the panel answers the operationally useful question: how much of the CPU assigned to this application is its Bun process consuming?
+The result is the share of the deployment's CPU capacity used by this process, clamped between zero and 100 percent. Docker Compose currently limits the service to one CPU, so the panel shows how much of the CPU assigned to this application its Bun process is consuming.
 
 The calculated cgroup CPU count rounds the quota to a whole number and never goes below one. That is sufficient for the current one-CPU limit, but it would be a coarse model for fractional CPU quotas. Telemetry is only useful when its interpretation and limitations remain visible.
 
@@ -43,7 +43,7 @@ For cgroup v2 it reads `memory.current` and `memory.max`; for v1 it uses `memory
 
 If the cgroup files are unavailable or unlimited, the fallback is host memory from `node:os`. Otherwise, the panel calculates used megabytes and percentage against the cgroup values. With the current Compose limit of 1 GB, “memory used” describes pressure against the container's budget rather than against all RAM installed in the laptop.
 
-That number is not the Bun heap either. `memory.current` accounts memory to the cgroup boundary, which can include the process, native allocations, and filesystem cache. It is the right signal for “is this container approaching its enforced budget?”, not for diagnosing which allocation inside Bun consumed it.
+`memory.current` measures more than the Bun heap. It accounts memory to the cgroup boundary, which can include the process, native allocations, and filesystem cache. The value shows whether the container is approaching its enforced budget; it cannot diagnose which allocation inside Bun consumed it.
 
 That distinction matters before an out-of-memory kill. A host with free RAM can still terminate a container that crosses its own limit.
 
@@ -62,7 +62,7 @@ environment:
 
 [`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) finds the first directory beginning with `BAT`, reads `capacity` and `status`, validates a percentage between zero and 100, and normalizes the status to charging, discharging, full, or unknown. Reads are cached for 15 seconds even though the system stat samples faster; battery state does not need a disk read every 1.5 seconds.
 
-If the mount, battery, or files do not exist, the reader returns `null` values and the panel displays `n/a`. Host battery telemetry is an optional capability, not an assumption every deployment must satisfy.
+If the mount, battery, or files do not exist, the reader returns `null` values and the panel displays `n/a`. Host battery telemetry is optional and specific to deployments that expose it.
 
 This is a deliberate, narrow leak through the container boundary. Mounting the whole host filesystem would make a dashboard easier to build and much harder to trust. Exposing only the power-supply directory says exactly which host detail the application is allowed to observe.
 
@@ -84,7 +84,7 @@ I use the lab below as a boundary debugger. Choose a lens, change only the signa
 
 <RuntimeVantageLab client:load locale="en-US" />
 
-The gauge is deliberately not enough on its own. Its observer, denominator, and blind spot are part of the value; without those labels, a precise percentage can still tell the wrong story.
+The gauge needs context. Its observer, denominator, and blind spot are part of the value; without those labels, a precise percentage can still tell the wrong story.
 
 ## From a visible stat to an actionable signal
 
@@ -92,8 +92,8 @@ Battery level also powers a small operational action. An [`@elysiajs/cron`](http
 
 The task records whether an alert was sent and resets that state when the battery status changes. It therefore avoids sending the same warning every five seconds. If the Resend API key or destination address is absent, the task is a no-op; telemetry continues without email configuration.
 
-The panel and alert answer different questions. The panel helps a visitor—or me—understand the deployment. The email asks for action when a host-specific condition crosses a threshold. They reuse the same battery reader, but they should not share the same delivery policy.
+The panel and alert answer different questions. The panel helps a visitor, or me, understand the deployment. The email asks for action when a host-specific condition crosses a threshold. They reuse the same battery reader, but they should not share the same delivery policy.
 
-There is no single “real system” behind a containerized application. This site measures process work against its cgroup allowance, opts into one host hardware signal, and asks an external observer whether the full public route works. I keep those perspectives separate because the boundary around a number is what makes that number honest.
+A containerized application exposes several systems to measure. This site measures process work against its cgroup allowance, opts into one host hardware signal, and asks an external observer whether the full public route works. Keeping those perspectives separate prevents one number from being mistaken for the state of the whole deployment.
 
 The next post returns to the static Astro output and adds one narrow runtime feature of its own: view counts for MDX articles without making the blog dynamic.

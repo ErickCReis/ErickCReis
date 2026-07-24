@@ -37,7 +37,7 @@ const cursorPayloadSchema = v.object({
 
 The Valibot schema is both a runtime validator and the source of the TypeScript type used by the client. Coordinates are relative to the document, not the viewport. That detail matters when one visitor scrolls: the marker should stay attached to a position on the page instead of sliding with the browser window.
 
-I resisted adding join, leave, or room messages. This site has one public cursor surface, and a position update is all it needs. The smaller protocol also makes its limit explicit: this is transient presence, not a collaboration system.
+I resisted adding join, leave, or room messages. This site has one public cursor surface, and a position update is all it needs. The smaller protocol also makes its limit explicit. Its scope stops at transient presence.
 
 ## Identity belongs to the connection
 
@@ -54,7 +54,7 @@ message(ws, payload) {
 }
 ```
 
-That check is not a complete security model—positions and colors are still untrusted public input—but it preserves the one property this feature relies on: one connection cannot publish as another connection's cursor.
+Positions and colors are still untrusted public input, so that check is not a complete security model. It does preserve the one property this feature relies on: one connection cannot publish as another connection's cursor.
 
 Elysia validates the message body with the same shared schema before the handler runs. [Eden Treaty](https://elysiajs.com/eden/overview.html) then carries the server route type into [`web/lib/api.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/api.ts), so opening the socket does not require a second handwritten client protocol.
 
@@ -66,7 +66,7 @@ Mouse coordinates already follow the document in this primitive. Touch coordinat
 
 Publishing every pointer event would create work the interface cannot display. [`@solid-primitives/scheduled`](https://primitives.solidjs.community/package/scheduled/) throttles sends to one update every 50 milliseconds. The local marker is updated through the same path, while remote markers use a short CSS transition to smooth the gaps between network updates.
 
-This is a visual sampling decision, not guaranteed delivery. If the socket is not open, the current update is dropped. A newer pointer position will replace it soon enough.
+The hook samples motion for the display and makes no delivery guarantee. If the socket is not open, the current update is dropped. A newer pointer position will replace it soon enough.
 
 The workbench below compresses the whole path into one surface. Move the blue local cursor, then change the scroll offset without moving it: its viewport position stays fixed while its document `y` and the violet marker on the remote document change. Close the socket or make the IDs differ, move again, and the sample stops at that gate. “Skip 7 s” demonstrates the separate stale-presence cleanup rule.
 
@@ -97,6 +97,6 @@ The local cursor is intentionally dimmer and moves without interpolation; remote
 
 There are obvious limits. All connections live in one server process. There is no cross-instance broadcast, durable membership, history, or server-side stale-presence registry. A restart clears everything—which, for cursor positions, is the correct persistence policy.
 
-The feature works because I do not ask it to be more than it is. A server-owned identity, a validated position message, a throttled sender, a reconnecting socket, and expiring client state are enough to make the otherwise static page feel occupied.
+Those small pieces make the otherwise static page feel occupied without turning cursor positions into durable data.
 
 The next post will reuse that preference for small pieces with slower-moving data: Spotify playback and GitHub contributions collected by the server and presented as personal telemetry.

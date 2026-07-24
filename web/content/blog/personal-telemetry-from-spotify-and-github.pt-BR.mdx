@@ -25,7 +25,7 @@ flowchart TB
   Stream --> Panels["Painéis"]
 ```
 
-Projetei cada adaptador respondendo às mesmas três perguntas: com que rapidez esse valor pode se tornar enganoso, o que pode atravessar a fronteira do navegador e o que deve acontecer quando a fonte diz “agora não”? As respostas — e não o tamanho visual do painel — definem a política.
+Projetei cada adaptador respondendo às mesmas três perguntas: com que rapidez esse valor pode se tornar enganoso, o que pode atravessar a fronteira do navegador e o que deve acontecer quando a fonte diz “agora não”? Essas respostas definem a política de cada painel.
 
 ## O Spotify é um retrato em movimento
 
@@ -48,13 +48,13 @@ type SpotifyNowPlaying = {
 };
 ```
 
-O [schema compartilhado](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/spotify.ts) também funciona como uma fronteira de privacidade. O navegador recebe os metadados da faixa e um link público do Spotify, não o refresh token, as credenciais da API, a resposta bruta, informações sobre o dispositivo ou controles de reprodução.
+O [schema compartilhado](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/spotify.ts) também funciona como uma fronteira de privacidade. O navegador recebe os metadados da faixa e um link público do Spotify. O refresh token, as credenciais da API, a resposta bruta, as informações sobre o dispositivo e os controles de reprodução ficam no servidor.
 
 Uma resposta HTTP `204` indica que não há reprodução atual, e itens que não são faixas se transformam no mesmo retrato vazio e seguro. A ausência de configuração é representada explicitamente por `isConfigured: false`; o restante do pipeline não precisa lidar com uma exceção só porque um deploy não tem credenciais do Spotify.
 
 O intervalo de polling acompanha a utilidade dos dados. Enquanto uma faixa está tocando, o servidor consulta a API a cada 2,5 segundos para que a barra de progresso e as trocas de música continuem convincentes. Quando a reprodução está parada, ele espera 15 segundos. Uma resposta `429` respeita o header `Retry-After` do Spotify, com um intervalo padrão de 30 segundos quando o header não pode ser interpretado. Se um access token for recusado, o cache é limpo para que o próximo ciclo possa renová-lo.
 
-Os 84 retratos mais recentes vivem apenas na memória do processo. Eles permitem que o painel encontre a faixa anterior, mas não formam um histórico duradouro de reprodução. Reiniciar o servidor os apaga, e essa é uma distinção útil: o site exibe o contexto da reprodução sem criar mais um registro permanente sobre ela.
+Os 84 retratos mais recentes vivem apenas na memória do processo. Eles permitem que o painel encontre a faixa anterior e desaparecem quando o servidor reinicia. O site exibe o contexto da reprodução sem criar mais um registro permanente sobre ela.
 
 ## O GitHub é uma janela derivada
 
@@ -77,7 +77,7 @@ A implementação e a interface compacta chamam esses valores de commits, mas a 
 
 O módulo consulta a API a cada 30 minutos. Depois de uma requisição bem-sucedida, ele grava o retrato normalizado em `github-cache.json`, dentro do diretório de dados da aplicação. Durante a inicialização, um cache válido e mais novo do que o intervalo de polling pode preencher o painel imediatamente, e a próxima consulta é adiada até o momento em que aquele retrato expiraria.
 
-Esse cache não é um segundo banco de analytics. Ele contém os mesmos valores agregados enviados ao navegador e existe para evitar um painel vazio e uma chamada redundante à API depois que o processo reinicia. O Valibot valida o arquivo antes do uso, portanto um cache antigo ou malformado resulta em uma nova consulta em vez de entrar silenciosamente no fluxo de estatísticas.
+O cache contém os mesmos valores agregados enviados ao navegador. Ele evita um painel vazio e uma chamada redundante à API depois que o processo reinicia. O Valibot valida o arquivo antes do uso, portanto um cache antigo ou malformado resulta em uma nova consulta em vez de entrar silenciosamente no fluxo de estatísticas.
 
 Os limites da API do GitHub têm seu próprio relógio. Ao receber uma resposta de limite excedido, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
 
@@ -91,6 +91,6 @@ No fim, os dois módulos expõem as mesmas quatro operações: iniciar a coleta,
 
 O painel do Spotify deriva uma barra de progresso da faixa atual e mostra a faixa anterior mantida em memória quando ela existe. O painel do GitHub transforma os arrays dos últimos 30 dias em barras e coloca os totais do mês e do ano no rodapé. Nenhum dos componentes renova credenciais, interpreta headers de limite, lê um arquivo de cache ou sabe com que frequência sua fonte deve ser consultada.
 
-Essa separação é a parte importante de usar APIs pessoais como dados do produto. O adaptador da fonte cuida da autenticação, do tempo, da normalização, da retenção e do comportamento diante de falhas. Um contrato compartilhado transporta somente o necessário para a superfície do produto. A interface renderiza um estado em vez de reencenar a API externa.
+Cada adaptador cuida da autenticação, do tempo, da normalização, da retenção e do comportamento diante de falhas. Um contrato compartilhado transporta somente o necessário para a superfície do produto. A interface renderiza um estado em vez de reencenar a API externa.
 
 Spotify e GitHub são dois exemplos, mas a página inicial tem vários módulos atualizados em frequências diferentes. O próximo post acompanhará o caminho comum por baixo deles: histórico inicial, tuplas compactas de transporte, um fluxo SSE do Elysia e os stores do Solid que mantêm cada painel pequeno.

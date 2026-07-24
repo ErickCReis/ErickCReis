@@ -49,11 +49,11 @@ flowchart TB
 
 ## Why this island is client-only
 
-Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive skips rendering the component into HTML during the build and renders it in the browser instead. Because there is no server-rendered component markup to resume, this is a client render rather than hydration of that component. The directive is not just a shorter spelling for “make this interactive,” and it is not automatically a performance optimization.
+Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive skips rendering the component into HTML during the build and renders it in the browser instead. With no server-rendered component markup to resume, the browser performs a client render. The directive defines where rendering happens and carries no automatic performance benefit.
 
 For this overlay, skipping the build-time render is the correct tradeoff. The component depends on browser state such as the viewport size and pointer position. Its telemetry and cursor data also have no useful build-time value. A stat panel generated during the build would be stale before the page reached the browser.
 
-More importantly, the empty state is valid. Until the island starts, there are simply no floating telemetry panels or remote cursors. The heading, project links, navigation, and metadata do not need a loading placeholder because they were never inside the island.
+The empty state is valid. Until the island starts, there are no floating telemetry panels or remote cursors. The heading, project links, navigation, and metadata do not need a loading placeholder because they were never inside the island.
 
 If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. That failure mode is part of the design.
 
@@ -89,15 +89,15 @@ export function HomeLiveOverlay() {
 
 A [Solid signal](https://docs.solidjs.com/concepts/signals) is enough to connect them. Keeping both surfaces inside the same island makes that relationship local. Splitting them into independent islands would require another communication mechanism for state that already belongs to the same visual layer.
 
-This is the useful unit for an island in this project: not one island per component and not one framework tree for the entire page, but one boundary around behavior that needs to react together.
+In this project, a useful island draws one boundary around behavior that needs to react together. Component count and the page's full framework tree do not define that boundary.
 
-## Static does not mean no JavaScript
+## JavaScript still exists outside Solid
 
-The boundary is not “Astro has no JavaScript and Solid has all of it.” The base layout still uses Astro's client router, and small page behaviors can remain ordinary scripts. The distinction is about ownership.
+The base layout still uses Astro's client router, and small page behaviors can remain ordinary scripts. The boundary describes ownership; JavaScript can exist on both sides.
 
 Astro owns the document and the content that should exist before browser state is available. Solid owns the component tree whose output changes as signals, streams, pointer positions, and connections change.
 
-There is still a cost to that choice. `client:only` loads the live overlay immediately, and the telemetry panels contain more client code than the rest of the homepage. I am accepting that cost because the overlay is the homepage's main live surface. If it grows far beyond that role, the next step is to split or delay parts of the live layer—not to move the portfolio content into it.
+There is still a cost to that choice. `client:only` loads the live overlay immediately, and the telemetry panels contain more client code than the rest of the homepage. I am accepting that cost because the overlay is the homepage's main live surface. If it grows far beyond that role, the next step is to split or delay parts of the live layer while the portfolio content stays in Astro.
 
 ## The next boundary
 

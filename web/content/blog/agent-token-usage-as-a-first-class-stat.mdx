@@ -9,7 +9,7 @@ import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
 
 The [custom i18n runtime](/blog/a-small-custom-i18n-runtime-for-astro) was small tooling built around the way this site is authored. The last integration in this series starts from another local detail: the JSONL session files written by the coding agents I use.
 
-Those files already contain token-usage events. The portfolio already has a pipeline for dated history and live panels. The interesting work was not drawing another chart; it was turning provider-specific local records into one small, safe input for that pipeline.
+Those files already contain token-usage events. The portfolio already has a pipeline for dated history and live panels. The work was turning provider-specific local records into one small, safe input for that pipeline.
 
 The result supports Codex, Pi, and Claude sessions. A Bun script reads their files on the machine where they exist, aggregates counts by day, and sends normalized payloads to a protected internal endpoint. The server merges sources into a rolling 30-day stat and exposes only daily provider totals to the public telemetry stream.
 
@@ -64,7 +64,7 @@ Malformed JSON lines, irrelevant event types, invalid timestamps, and absent ses
 
 ## Dates and sources make reruns stable
 
-Every accepted delta is assigned to a date using its event timestamp and `TOKEN_USAGE_TIMEZONE`, which defaults to `America/Sao_Paulo`. The script keeps the configured window—30 days by default—and sorts its daily payload before sending.
+Every accepted delta is assigned to a date using its event timestamp and `TOKEN_USAGE_TIMEZONE`, which defaults to `America/Sao_Paulo`. The script keeps the configured window (30 days by default) and sorts its daily payload before sending.
 
 The normalized contract in [`shared/stats/token-usage.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/token-usage.ts) is independent of the JSONL shapes:
 
@@ -87,7 +87,7 @@ type TokenUsageSyncPayload = {
 
 `providerId` describes the adapter and chart segment. `sourceId` distinguishes copies of that provider on different machines. The server treats the pair as a replaceable snapshot: syncing `codex-workstation` again replaces that source's previous 30-day window instead of adding the same sessions twice. Different sources are summed when they contribute to the same provider and date.
 
-That compound identity—not the token count—is the merge instruction. Repeating the same pair replaces one window; a previously unseen pair creates another window that contributes to the aggregate. Scheduler reruns can therefore be safe without collapsing activity from separate machines.
+That compound identity is the merge instruction. Repeating the same pair replaces one window; a previously unseen pair creates another window that contributes to the aggregate. Scheduler reruns can therefore be safe without collapsing activity from separate machines.
 
 The defaults prefix a machine fingerprint with the provider. On Linux the script uses the stable label `vps-prod`; on other systems it normalizes the hostname. Multiple Linux machines therefore need explicit source-ID overrides or they would replace one another. Stable merging depends on stable IDs also being unique.
 
@@ -135,10 +135,4 @@ Freshness is also calculated from the newest source in the aggregate. One provid
 
 Finally, token counts are not a productivity score. Providers and models tokenize text differently, report cache activity differently, and may include different categories in their totals. Adding their counts is useful as a rough activity footprint for my own dashboard. It is not a fair comparison of agent quality, completed work, API cost, or energy use.
 
-That caveat is part of making token usage a first-class stat: a first-class metric has a source, a normalization rule, a freshness policy, a privacy boundary, and an honest explanation of what it cannot measure.
-
-## The shape behind the series
-
-This integration closes the same loop as the rest of the portfolio. Keep private, provider-specific parsing close to the source. Send a small validated contract across the network. Let the server own persistence and aggregation. Reuse one transport and reactive store pattern for the visible surface.
-
-Across cursor presence, external APIs, runtime health, static content, localization, and token sync, the recurring architecture is not a particular framework. It is a preference for explicit boundaries: static when possible, live where it adds meaning, and small integrations that remain inspectable when they are composed.
+That caveat is part of making token usage a first-class stat. A first-class metric has a source, a normalization rule, a freshness policy, a privacy boundary, and an honest explanation of what it cannot measure.

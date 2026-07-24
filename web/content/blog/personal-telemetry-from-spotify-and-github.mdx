@@ -25,7 +25,7 @@ flowchart TB
   Stream --> Panels["Panels"]
 ```
 
-I designed each adapter by answering the same three questions: how quickly can this value become misleading, what may cross the browser boundary, and what should happen when the source says “not now”? The answers—not the visual size of the panel—set its policy.
+I designed each adapter by answering the same three questions: how quickly can this value become misleading, what may cross the browser boundary, and what should happen when the source says “not now”? Those answers define each panel's policy.
 
 ## Spotify is a changing snapshot
 
@@ -48,13 +48,13 @@ type SpotifyNowPlaying = {
 };
 ```
 
-The [shared schema](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/spotify.ts) is also a privacy boundary. The browser receives track metadata and a public Spotify link, not the refresh token, API credentials, raw response, device information, or playback controls.
+The [shared schema](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/spotify.ts) is also a privacy boundary. The browser receives track metadata and a public Spotify link. Refresh tokens, API credentials, raw responses, device information, and playback controls stay on the server.
 
 An HTTP `204` means there is no current playback, and non-track items become the same safe empty snapshot. Missing configuration is represented explicitly with `isConfigured: false`; the rest of the pipeline does not need an exception just because a deployment has no Spotify credentials.
 
 The polling interval follows the usefulness of the data. While a track is playing, the server checks every 2.5 seconds so the progress bar and track changes remain believable. When playback is idle, it waits 15 seconds. A `429` response honors Spotify's `Retry-After` header, falling back to 30 seconds if the header cannot be parsed. A rejected access token clears the cache so the next cycle can refresh it.
 
-The latest 84 snapshots live only in process memory. They let the panel find a previous track, but they are not a durable listening history. Restarting the server clears them, and that is a useful distinction: the site displays playback context without building another permanent record of it.
+The latest 84 snapshots live only in process memory. They let the panel find a previous track and disappear when the server restarts. The site displays playback context without building another permanent record of it.
 
 ## GitHub is a derived window
 
@@ -77,7 +77,7 @@ The implementation and compact UI call these values commits, but the upstream so
 
 The module polls every 30 minutes. After a successful request, it writes the normalized snapshot to `github-cache.json` inside the application's data directory. On startup, a valid cache younger than the polling interval can populate the panel immediately, and the next request is delayed until that snapshot would have expired.
 
-This cache is not a second analytics database. It contains the same aggregate values sent to the browser and exists to avoid an empty panel and a redundant API call after a process restart. Valibot validates it before use, so an old or malformed file degrades to a fresh request instead of quietly entering the stat stream.
+The cache contains the same aggregate values sent to the browser. It avoids an empty panel and a redundant API call after a process restart. Valibot validates it before use, so an old or malformed file degrades to a fresh request instead of quietly entering the stat stream.
 
 GitHub rate limits have their own clock. On a rate-limited response, the module reads `X-RateLimit-Reset` and schedules the next attempt after the reset time, with a 15-minute fallback. Other failures produce an empty configured snapshot and use the same slower retry interval. That policy currently favors an honest empty state over leaving an old value on screen indefinitely.
 
@@ -91,6 +91,6 @@ Both modules eventually expose the same four operations: start collecting, retur
 
 The Spotify panel derives a running progress bar from the latest track and shows the previous in-memory track when available. The GitHub panel turns the 30-day arrays into bars and puts the month and year totals in its footer. Neither component refreshes credentials, interprets rate-limit headers, reads a cache file, or knows how often its source should be polled.
 
-That separation is the important part of using personal APIs as product data. The source adapter owns authentication, timing, normalization, retention, and failure behavior. A shared contract carries only what the product surface needs. The UI renders a state rather than reenacting the external API.
+Each source adapter owns authentication, timing, normalization, retention, and failure behavior. A shared contract carries only what the product surface needs. The UI renders a state rather than reenacting the external API.
 
 Spotify and GitHub are two examples, but the homepage has several modules updating at several rates. The next post will follow the common path beneath them: initial history, compact transport tuples, an Elysia SSE stream, and the Solid stores that keep each panel small.

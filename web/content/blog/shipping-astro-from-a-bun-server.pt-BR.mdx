@@ -9,7 +9,7 @@ import { DistRouteLab } from "@web/content/labs/dist-route-lab";
 
 O site público tem uma única porta de entrada, mas dois tipos bem diferentes de trabalho acontecem atrás dela. O [pipeline de estatísticas](/pt-BR/blog/the-stats-pipeline) termina em rotas dinâmicas do Elysia; cada artigo, folha de estilo, fonte, imagem e script já está pronto antes de o servidor iniciar.
 
-Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicação renderizada no servidor. O [primeiro post desta série](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy—um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime—mas deixou de propósito sem resposta como essas peças se encontram.
+Eu queria esse único ponto de entrada sem transformar o Astro em uma aplicação renderizada no servidor. O [primeiro post desta série](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting) mostrou o formato externo do deploy (um build do Astro, um servidor compilado pelo Bun e uma pequena imagem de runtime), mas deixou de propósito sem resposta como essas peças se encontram.
 
 A ligação é uma tabela de rotas gerada durante o build. O Astro continua sendo um gerador de site estático; o Elysia descobre quais arquivos ele produziu e depois serve exatamente esses arquivos ao lado dos endpoints dinâmicos.
 
@@ -38,7 +38,7 @@ Os dois comandos em `package.json` estão ligados por um motivo:
 
 O Astro precisa terminar primeiro e gravar `dist`. Só então o Bun pode compilar [`server/index.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/index.ts), pois o build do servidor inspeciona esse diretório para descobrir as rotas estáticas.
 
-Eu mantenho dois produtos de build, em vez de um único artefato fingindo conter tudo:
+Eu mantenho dois produtos de build separados:
 
 - `dist`, com os arquivos produzidos pelo Astro;
 - `myserver`, um executável nativo com a aplicação Elysia e os metadados das rotas geradas.
@@ -76,7 +76,7 @@ A macro se recusa a compilar quando `dist` é obrigatório, mas não existe. O e
 
 Gerar aliases cria uma possível colisão. `about.html` e `about/index.html`, por exemplo, tentariam registrar `/about`. Não quero que a ordem de percurso do sistema de arquivos decida qual página vence.
 
-O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem do percurso torna o diagnóstico estável, mas o importante é a interrupção: trato uma rota estática ambígua como um problema de build, não como uma política para resolver em produção.
+O gerador coloca os candidatos em um mapa e lança um erro assim que uma rota já existe, incluindo as duas entradas de arquivo na mensagem. A ordem do percurso torna o diagnóstico estável. Uma rota estática ambígua interrompe o build antes que a produção precise de uma política para resolvê-la.
 
 Essa verificação cobre colisões entre os arquivos gerados pelo Astro. As rotas de API continuam como rotas explícitas do Elysia em `server/index.ts`, registradas antes do subroteador estático exclusivo de produção. Manter o registro das rotas estáticas em um subroteador deixa essa fronteira visível.
 
@@ -108,7 +108,7 @@ O laboratório abaixo comprime a macro e o handler de runtime em uma única vis�
 
 <DistRouteLab client:load locale="pt-BR" />
 
-Essa falha é o resultado útil. O estado inválido nunca se transforma em uma regra que a produção precisa resolver.
+Essa falha impede que o estado inválido se transforme em uma regra que a produção precisa resolver.
 
 ## O container preserva a estrutura do build
 
@@ -128,7 +128,7 @@ O desenvolvimento tem de propósito outro formato. O servidor de desenvolvimento
 
 ## Saída estática por trás de um servidor dinâmico
 
-Essa configuração não usa SSR do Astro, e o Elysia não renderiza as páginas. Uma requisição para um artigo lê o HTML já produzido pelo Astro. Uma requisição para `/stats/stream`, `/live` ou um contador de conteúdo chega a código executado em runtime dentro do mesmo processo.
+O Astro continua gerando as páginas com antecedência; o Elysia não as renderiza. Uma requisição para um artigo lê o HTML já produzido pelo Astro. Uma requisição para `/stats/stream`, `/live` ou um contador de conteúdo chega a código executado em runtime dentro do mesmo processo.
 
 Essa distinção mantém a restrição original: estático quando possível, dinâmico apenas quando o comportamento exige. O deploy tem um único servidor público, mas as responsabilidades de geração das páginas e de atendimento das requisições continuam separadas.
 
