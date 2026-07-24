@@ -35,7 +35,7 @@ export function SourcePolicyLab(props: SourcePolicyLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-xl"
+      class="not-typeset mx-auto my-10 max-w-xl"
       aria-label={text().label}
       data-concept-lab="source-policy"
     >

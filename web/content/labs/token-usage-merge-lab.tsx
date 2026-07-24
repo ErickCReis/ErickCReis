@@ -67,7 +67,7 @@ export function TokenUsageMergeLab(props: TokenUsageMergeLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-xl"
+      class="not-typeset mx-auto my-10 max-w-xl"
       aria-label={text().label}
       data-concept-lab="token-usage-source-merge"
     >

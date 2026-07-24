@@ -92,7 +92,7 @@ export function ViewCounterLab(props: ViewCounterLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-xl py-3"
+      class="not-typeset mx-auto my-10 max-w-xl py-3"
       aria-label={text().label}
       data-concept-lab="view-counter-transaction"
     >

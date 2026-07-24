@@ -88,7 +88,7 @@ export function DistRouteLab(props: DistRouteLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-2xl py-3"
+      class="not-typeset mx-auto my-10 max-w-2xl py-3"
       aria-label={text().label}
       data-concept-lab="dist-route-table"
     >

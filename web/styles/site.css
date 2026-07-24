@@ -1,5 +1,14 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+@import "./typeset.css";
+
+.typeset-blog {
+  --typeset-font-body: var(--font-sans);
+  --typeset-font-heading: var(--font-sans);
+  --typeset-font-mono: var(--font-mono);
+  --typeset-size: 16px;
+  --typeset-leading: 1.75;
+  --typeset-flow: 1.25em;
+}
 
 @theme {
   --font-sans: var(--font-family-sans), ui-sans-serif, system-ui, sans-serif;
@@ -97,7 +106,7 @@
   padding: 0;
 }
 
-.prose .mermaid-diagram svg {
+.typeset .mermaid-diagram svg {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -106,18 +115,18 @@
   margin: 0;
 }
 
-.prose .mermaid-diagram text,
-.prose .mermaid-diagram .label {
+.typeset .mermaid-diagram text,
+.typeset .mermaid-diagram .label {
   font-family: var(--font-family-mono) !important;
   font-size: 16px !important;
 }
 
-.prose .mermaid-diagram .node rect {
+.typeset .mermaid-diagram .node rect {
   rx: 9px !important;
   ry: 9px !important;
 }
 
-.prose .mermaid-diagram--center svg {
+.typeset .mermaid-diagram--center svg {
   margin-right: auto;
   margin-left: auto;
 }

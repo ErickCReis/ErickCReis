@@ -141,7 +141,7 @@ export function StatsPipelineLab(props: StatsPipelineLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-2xl font-mono"
+      class="not-typeset mx-auto my-10 max-w-2xl font-mono"
       aria-label={text().label}
       data-concept-lab="stats-pipeline"
     >

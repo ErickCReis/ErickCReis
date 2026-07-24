@@ -128,7 +128,7 @@ export function CursorProtocolLab(props: CursorProtocolLabProps) {
 
   return (
     <section
-      class="not-prose my-8 mx-auto max-w-2xl"
+      class="not-typeset my-8 mx-auto max-w-2xl"
       aria-label={text().label}
       data-concept-lab="cursor-protocol"
     >

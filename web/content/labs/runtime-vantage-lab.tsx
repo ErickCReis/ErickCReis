@@ -63,7 +63,7 @@ export function RuntimeVantageLab(props: RuntimeVantageLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-10 max-w-2xl rounded-[1.75rem] bg-slate-950 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.35)] sm:p-6"
+      class="not-typeset mx-auto my-10 max-w-2xl rounded-[1.75rem] bg-slate-950 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.35)] sm:p-6"
       aria-label={text().label}
       data-concept-lab="runtime-vantage"
     >

@@ -52,7 +52,7 @@ export function IslandBoundaryLab(props: IslandBoundaryLabProps) {
 
   return (
     <section
-      class="not-prose my-10 mx-auto max-w-xl overflow-x-clip py-2"
+      class="not-typeset my-10 mx-auto max-w-xl overflow-x-clip py-2"
       aria-label={text().label}
       data-concept-lab="island-boundary"
     >

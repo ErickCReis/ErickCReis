@@ -79,7 +79,7 @@ export function TranslationCatalogLab(props: TranslationCatalogLabProps) {
 
   return (
     <section
-      class="not-prose mx-auto my-8 max-w-xl"
+      class="not-typeset mx-auto my-8 max-w-xl"
       aria-label={text().label}
       data-concept-lab="translation-catalog-loop"
     >
