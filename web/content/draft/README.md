@@ -28,6 +28,7 @@ alter an already deployed build; a new deployment is required.
 8. [The Blog Layer](./08-blog-layer.md)
 9. [A Small Custom i18n Runtime For Astro](./09-custom-i18n-runtime.md)
 10. [Agent Token Usage As A First-Class Stat](./10-agent-token-usage.md)
+11. [Email Templates Without A Template Framework](../blog/email-templates-without-a-template-framework.mdx)
 
 ## Series Angle
 
