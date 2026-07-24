@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 60227d2df7f46d3c014c38dd7191325ecccae834..136df33fc1cfc86546c1e04252ca1dd04e2b62c6 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -106,7 +106,7 @@ async function generateBuildImages(dir, config, logger) {
+ 			});
+ 		}
+ 	}
+-	await inBatches(jobs, 2, async (job) => {
++	await inBatches(jobs, 1, async (job) => {
+ 		try {
+ 			await writeOgImage(job.html, job.pathname, {
+ 				...config,

@@ -27,10 +27,7 @@ const isCompact = cleanTitle.length > 60 || (description?.length ?? 0) > 120;
 ---
 
 <div class:list={["og-card", { "og-card--compact": isCompact }]}>
-  <div class="og-card__signal">
-    ERICKR.DEV
-    <span>{type === "article" ? "Article signal" : "Build-time Open Graph"}</span>
-  </div>
+  <div class="og-card__signal">ERICKR.DEV</div>
   <div class="og-card__panel">
     <h1 class="og-card__title">{truncate(cleanTitle, titleMaxLength)}</h1>
     {
@@ -45,7 +42,6 @@ const isCompact = cleanTitle.length > 60 || (description?.length ?? 0) > 120;
     <div class="og-card__chips">
       {formattedDate && <span class="og-card__chip">{formattedDate}</span>}
       <span class="og-card__chip">{locale}</span>
-      <span class="og-card__chip">{type}</span>
     </div>
     <span class="og-card__brand">Erick Reis</span>
   </div>
