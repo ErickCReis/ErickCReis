@@ -381,6 +381,15 @@ const translations = {
   "1jdup01": "Blog",
   // Blog | Erick Reis
   "0uountu": "Blog | Erick Reis",
+  // Anonymous real-time presence counts for browser applications.
+  "1acoq6v": "Contadores anônimos de presença em tempo real para aplicações web.",
+  // Library / Astro
+  "1j3jgou": "Biblioteca / Astro",
+  // Product / Realtime
+  "1vnqb4e": "Produto / Tempo real",
+  // SEO metadata, build-time Open Graph images, and an Astro dev-toolbar inspector.
+  "0hpm52y":
+    "Metadados de SEO, imagens Open Graph geradas no build e um inspetor da barra de desenvolvimento do Astro.",
 } satisfies TranslationOverrides;
 
 export default translations;

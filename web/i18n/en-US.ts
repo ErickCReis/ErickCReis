@@ -189,6 +189,10 @@ export const translations = {
   "15v0qy5": "Waiting for a visible tab.",
   "1jdup01": "Blog",
   "0uountu": "Blog | Erick Reis",
+  "1acoq6v": "Anonymous real-time presence counts for browser applications.",
+  "1j3jgou": "Library / Astro",
+  "1vnqb4e": "Product / Realtime",
+  "0hpm52y": "SEO metadata, build-time Open Graph images, and an Astro dev-toolbar inspector.",
 } as const;
 
 export type TranslationHash = keyof typeof translations;
