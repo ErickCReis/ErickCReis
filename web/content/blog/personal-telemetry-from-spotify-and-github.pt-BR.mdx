@@ -1,37 +1,82 @@
 ---
-title: "Telemetria pessoal do Spotify e do GitHub"
-description: Por que dois pequenos painéis dinâmicos precisam de políticas diferentes de polling, cache, privacidade e falhas, mesmo com o mesmo contrato de interface.
+title: "Construindo adaptadores de origem para telemetria dinâmica"
+description: Como respostas das APIs do Spotify e do GitHub viram retratos tipados e limitados, com relógios específicos, fronteiras de privacidade e tratamento de limites.
 date: "2026-07-25"
-tags: [telemetry]
+tags: [telemetry, architecture]
 ---
 
 import { SourcePolicyLab } from "@web/content/labs/source-policy-lab";
 
-A [funcionalidade de presença de cursores](/pt-BR/blog/realtime-cursor-presence-with-tiny-pieces) movimenta dados temporários entre navegadores. As duas próximas superfícies dinâmicas seguem na direção oposta: trazem contexto externo para dentro do portfólio.
+Um painel de telemetria dinâmica não deve ser um cliente de API escondido dentro de um componente de interface. Ele deve ser um pequeno adaptador de origem, com políticas explícitas de atualidade, normalização, retenção e falhas.
 
-Um portfólio pode virar um arquivo sem querer: cada cartão aponta para trás. Eu queria que o meu mantivesse um pequeno pulso. Um painel mostra o que estou ouvindo no [Spotify](https://developer.spotify.com/documentation/web-api); outro resume minha atividade recente com dados da [API GraphQL do GitHub](https://docs.github.com/pt/graphql). Juntos, eles permitem que a página inicial diga algo sobre o presente em vez de apenas listar trabalhos do passado.
-
-Os painéis aparecem lado a lado como peças de telemetria, mas suas fontes se comportam de formas diferentes. A reprodução muda em segundos e pode nem existir. Os dados de contribuições mudam devagar e continuam úteis depois de uma reinicialização. Tratar os dois apenas como “consultar uma API de tempos em tempos” esconderia as decisões de produto que os mantêm atuais, honestos e pequenos.
+Spotify e GitHub são exemplos contrastantes. A reprodução do Spotify pode se tornar enganosa em poucos segundos e pode nem existir. Os dados de contribuições do GitHub mudam devagar, podem ser derivados de uma resposta maior e valem um cache entre reinicializações do processo. Ainda assim, as duas fontes precisam chegar à mesma camada de estatísticas do navegador.
 
 ```mermaid center
 flowchart TB
-  SpotifyAPI["Spotify"] --> Spotify["Reprodução"]
-  GitHubAPI["GitHub"] --> GitHub["Contribuições"]
-  SpotifyAPI ~~~ GitHubAPI
-  Spotify ~~~ GitHub
-  Spotify --> Contract["Stats"]
-  GitHub --> Contract
-  Contract --> Stream["Telemetria"]
-  Stream --> Panels["Painéis"]
+  SpotifyAPI["API do Spotify"] --> SpotifyAdapter["Adaptador do Spotify"]
+  GitHubAPI["API GraphQL do GitHub"] --> GitHubAdapter["Adaptador do GitHub"]
+  SpotifyAdapter --> Schemas["Schemas compartilhados"]
+  GitHubAdapter --> Schemas
+  Schemas --> Modules["Módulos de estatísticas"]
+  Modules --> Stream["Fluxo SSE"]
+  Stream --> Panels["Painéis Solid"]
 ```
 
-Projetei cada adaptador respondendo às mesmas três perguntas: com que rapidez esse valor pode se tornar enganoso, o que pode atravessar a fronteira do navegador e o que deve acontecer quando a fonte diz “agora não”? Essas respostas definem a política de cada painel.
+O adaptador é responsável pelo sistema externo. O painel é responsável pela apresentação. Separar essas responsabilidades mantém a camada dinâmica previsível mesmo quando o provedor está indisponível.
 
-## O Spotify é um retrato em movimento
+## Comece pelo contrato de saída
 
-O servidor não pode usar o refresh token duradouro do Spotify diretamente como token da API. Primeiro, o arquivo [`server/stats/spotify.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/spotify.ts) troca esse token, junto com as credenciais do cliente, por um access token de curta duração. Esse token permanece em memória até um minuto antes do vencimento informado, deixando uma margem para a próxima requisição.
+A interface comum dos módulos é deliberadamente pequena:
 
-Com o access token, o módulo consulta o endpoint de reprodução atual e reduz a resposta aos campos necessários para o painel:
+```ts
+export type StatModule<T> = {
+  start: (...args: any[]) => void;
+  getLatest: () => T;
+  getHistory: () => T[];
+  getVersion: () => number;
+};
+```
+
+Cada módulo tem uma tarefa: publicar retratos quando sua fonte mudar. `getLatest` alimenta o estado atual, `getHistory` fornece a visão inicial e `getVersion` permite que a rota SSE detecte mudanças sem enviar o mesmo valor repetidamente.
+
+A interface genérica não torna os dados intercambiáveis. Cada fonte tem seu próprio schema em [`shared/stats`](https://github.com/ErickCReis/ErickCReis/tree/main/shared/stats). O Valibot valida os dados persistidos do GitHub antes do uso, enquanto os tipos compartilhados mantêm o código do servidor, a serialização do transporte e os stores do Solid alinhados.
+
+O retrato público também é uma fronteira de segurança. Ele deve conter exatamente o que o painel precisa—não credenciais do provedor, respostas brutas, metadados do dispositivo ou capacidades de controle.
+
+## Dê a cada fonte o seu próprio relógio
+
+Polling é uma decisão de produto tanto quanto uma decisão de rede:
+
+| Fonte | Atualidade útil | Política local | Persistência |
+| --- | --- | --- | --- |
+| Spotify | Poucos segundos durante a reprodução | 2,5 s ativo, 15 s parado | Apenas histórico em memória |
+| GitHub | Vários minutos | 30 min após sucesso | Retrato validado em disco |
+
+Um timer compartilhado de cinco minutos seria inadequado para as duas fontes. Ele deixaria o Spotify desatualizado e consultaria o GitHub com mais frequência do que a interface precisa.
+
+## Adaptador 1: reduza o Spotify a um retrato seguro
+
+A integração com o Spotify tem duas etapas de autenticação. O refresh token fica nas variáveis de ambiente do servidor. [`server/stats/spotify.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/spotify.ts) troca esse token por um access token de curta duração e o mantém em memória até um minuto antes do vencimento informado:
+
+```ts
+if (tokenCache && tokenCache.expiresAt > Date.now() + TOKEN_EXPIRY_SAFETY_MARGIN_MS) {
+  return tokenCache.accessToken;
+}
+
+const response = await fetch(SPOTIFY_TOKEN_ENDPOINT, {
+  method: "POST",
+  headers: {
+    authorization: createBasicAuthHeader(clientId, clientSecret),
+    "content-type": "application/x-www-form-urlencoded",
+  },
+  body: new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  }),
+});
+```
+
+O navegador nunca recebe o refresh token ou o client secret. Depois da autenticação, o adaptador transforma a resposta do provedor nos campos que o painel pode renderizar:
 
 ```ts
 type SpotifyNowPlaying = {
@@ -48,49 +93,88 @@ type SpotifyNowPlaying = {
 };
 ```
 
-O [schema compartilhado](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/spotify.ts) também funciona como uma fronteira de privacidade. O navegador recebe os metadados da faixa e um link público do Spotify. O refresh token, as credenciais da API, a resposta bruta, as informações sobre o dispositivo e os controles de reprodução ficam no servidor.
+Essa normalização trata três casos diferentes de “vazio” sem obrigar a interface a conhecer o formato da resposta do Spotify:
 
-Uma resposta HTTP `204` indica que não há reprodução atual, e itens que não são faixas se transformam no mesmo retrato vazio e seguro. A ausência de configuração é representada explicitamente por `isConfigured: false`; o restante do pipeline não precisa lidar com uma exceção só porque um deploy não tem credenciais do Spotify.
+- HTTP `204` significa que não há reprodução atual.
+- Um item que não é uma faixa vira o mesmo retrato vazio.
+- A falta de credenciais produz `isConfigured: false` em vez de uma exceção no fluxo de estatísticas.
 
-O intervalo de polling acompanha a utilidade dos dados. Enquanto uma faixa está tocando, o servidor consulta a API a cada 2,5 segundos para que a barra de progresso e as trocas de música continuem convincentes. Quando a reprodução está parada, ele espera 15 segundos. Uma resposta `429` respeita o header `Retry-After` do Spotify, com um intervalo padrão de 30 segundos quando o header não pode ser interpretado. Se um access token for recusado, o cache é limpo para que o próximo ciclo possa renová-lo.
+O intervalo de polling acompanha o retrato atual em vez de permanecer fixo:
 
-Os 84 retratos mais recentes vivem apenas na memória do processo. Eles permitem que o painel encontre a faixa anterior e desaparecem quando o servidor reinicia. O site exibe o contexto da reprodução sem criar mais um registro permanente sobre ela.
-
-## O GitHub é uma janela derivada
-
-O painel do GitHub tem um formato quase oposto. Ele não precisa de uma requisição a cada poucos segundos, e uma única resposta contém informação suficiente para derivar vários valores da interface.
-
-O [módulo de estatísticas do GitHub](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/github.ts) envia uma consulta GraphQL para o calendário de contribuições da conta desde o início do ano. Depois, transforma as semanas retornadas em datas e calcula localmente a contagem de hoje, do mês atual e do ano, a última data com atividade e uma série de barras dos últimos 30 dias.
-
-```mermaid center
-flowchart TB
-  Query["Uma consulta desde o início do ano"] --> Days["Contribuições agrupadas por data"]
-  Days --> Today["Hoje"]
-  Days --> Month["Este mês"]
-  Days --> Year["Este ano"]
-  Days --> Window["Últimos 30 dias"]
-  Days --> Last["Última data ativa"]
-  Today ~~~ Month ~~~ Year ~~~ Window ~~~ Last
+```ts
+function getPollIntervalMs(isPlaying: boolean) {
+  return isPlaying ? 2_500 : 15_000;
+}
 ```
 
-A implementação e a interface compacta chamam esses valores de commits, mas a fonte é o calendário de contribuições do GitHub. Esse calendário é a métrica que o produto expõe; ele não deve ser interpretado como um `git log` local nem como uma auditoria de todos os commits.
+Quando o Spotify responde com `429`, o adaptador lê `Retry-After` e usa 30 segundos como fallback. Se o access token for rejeitado, o cache em memória é invalidado para que a próxima tentativa possa renová-lo. Outras falhas de requisição publicam um retrato configurado vazio e continuam no intervalo mais lento.
 
-O módulo consulta a API a cada 30 minutos. Depois de uma requisição bem-sucedida, ele grava o retrato normalizado em `github-cache.json`, dentro do diretório de dados da aplicação. Durante a inicialização, um cache válido e mais novo do que o intervalo de polling pode preencher o painel imediatamente, e a próxima consulta é adiada até o momento em que aquele retrato expiraria.
+O histórico da reprodução é deliberadamente efêmero. O módulo mantém no máximo 84 retratos na memória do processo, o suficiente para o painel mostrar uma faixa anterior sem transformar a atividade de escuta em um registro durável. Uma reinicialização limpa esse histórico por decisão de projeto.
 
-O cache contém os mesmos valores agregados enviados ao navegador. Ele evita um painel vazio e uma chamada redundante à API depois que o processo reinicia. O Valibot valida o arquivo antes do uso, portanto um cache antigo ou malformado resulta em uma nova consulta em vez de entrar silenciosamente no fluxo de estatísticas.
+## Adaptador 2: derive as métricas do GitHub uma vez
 
-Os limites da API do GitHub têm seu próprio relógio. Ao receber uma resposta de limite excedido, o módulo lê `X-RateLimit-Reset` e agenda a nova tentativa para depois desse horário, usando 15 minutos como padrão. Outras falhas produzem um retrato vazio, mas configurado, e usam o mesmo intervalo mais longo. A política atual prefere um estado vazio e honesto a manter um valor antigo na tela por tempo indeterminado.
+A integração com o GitHub usa a estratégia oposta. [`server/stats/github.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/github.ts) solicita o calendário de contribuições desde o início do ano com uma consulta GraphQL e deriva localmente todos os valores do painel:
 
-Experimente deixar o Spotify parado ou limitado e depois arraste o cache do GitHub além da fronteira de validade de 30 minutos. Os controles mudam as condições das fontes; a faixa inferior é o contrato estável que os dois adaptadores continuam produzindo.
+```mermaid center
+flowchart LR
+  Query["Calendário desde o início do ano"] --> Days["Dias de contribuição"]
+  Days --> Today["Hoje"]
+  Days --> Month["Mês atual"]
+  Days --> Year["Ano atual"]
+  Days --> Window["Últimos 30 dias"]
+  Days --> Last["Última data ativa"]
+```
+
+A derivação usa strings de data ISO como chaves. Isso fornece um formato estável para comparar os limites do ano e do mês, enquanto a série de 30 dias é criada a partir da janela de datas local para que dias sem contribuições apareçam como zero.
+
+O retrato resultante contém apenas agregados prontos para a interface:
+
+```ts
+type GitHubCommitStats = {
+  isConfigured: boolean;
+  username: string;
+  lastCommitDate: string | null;
+  commitsToday: number;
+  commitsLast30Days: number[];
+  commitsLast30DayLabels: string[];
+  commitsThisMonth: number;
+  commitsThisYear: number;
+  fetchedAt: number;
+};
+```
+
+O nome “commits” no painel é um atalho para o calendário de contribuições do GitHub. Ele não é um `git log` local e não deve ser apresentado como uma auditoria de todos os commits.
+
+## Armazene apenas o estado normalizado
+
+Os dados do GitHub são lentos o suficiente para sobreviver a uma reinicialização. Depois de uma consulta bem-sucedida, o adaptador grava o retrato normalizado em `github-cache.json`, no diretório de dados da aplicação. Durante a inicialização, ele:
+
+1. Verifica se o arquivo existe.
+2. Faz o parse com o schema compartilhado do Valibot.
+3. Usa o arquivo somente enquanto ele tiver menos de 30 minutos.
+4. Agenda a próxima requisição para o fim da janela de validade restante.
+
+Armazenar o objeto normalizado evita persistir uma resposta do provedor que o restante da aplicação precisaria interpretar novamente. A validação faz com que um schema antigo ou um arquivo malformado vire um cache miss, em vez de entrar silenciosamente no fluxo.
+
+A política de erro distingue “tentar mais tarde” de “mostrar um novo estado”. Uma resposta limitada lê `X-RateLimit-Reset` e preserva o último retrato válido até aquele horário, usando 15 minutos como fallback. Outras falhas publicam um retrato configurado vazio e repetem a tentativa no intervalo mais longo. Assim, o painel não apresenta um valor antigo como se fosse atual, mas um limite temporário também não apaga sem necessidade um dado válido conhecido.
 
 <SourcePolicyLab client:load locale="pt-BR" />
 
-## Um formato de painel, duas políticas de origem
+## Mantenha o painel alheio ao provedor
 
-No fim, os dois módulos expõem as mesmas quatro operações: iniciar a coleta, retornar o retrato mais recente, retornar o histórico recente e informar uma versão que muda quando chegam novos dados. Por isso, seus [painéis do Solid](https://github.com/ErickCReis/ErickCReis/tree/main/web/stats) podem se concentrar na apresentação.
+Os painéis do Solid consomem os retratos normalizados através do transporte de estatísticas. Eles não renovam credenciais, interpretam `Retry-After`, leem arquivos de cache nem sabem com que frequência um provedor deve ser consultado.
 
-O painel do Spotify deriva uma barra de progresso da faixa atual e mostra a faixa anterior mantida em memória quando ela existe. O painel do GitHub transforma os arrays dos últimos 30 dias em barras e coloca os totais do mês e do ano no rodapé. Nenhum dos componentes renova credenciais, interpreta headers de limite, lê um arquivo de cache ou sabe com que frequência sua fonte deve ser consultada.
+Isso deixa as decisões específicas de cada fonte em um único lugar:
 
-Cada adaptador cuida da autenticação, do tempo, da normalização, da retenção e do comportamento diante de falhas. Um contrato compartilhado transporta somente o necessário para a superfície do produto. A interface renderiza um estado em vez de reencenar a API externa.
+| Preocupação | Adaptador do Spotify | Adaptador do GitHub |
+| --- | --- | --- |
+| Autenticação | Refresh token trocado em memória | Token do servidor na requisição GraphQL |
+| Normalização | Faixa atual ou estado vazio explícito | Dias de contribuição em métricas agregadas |
+| Atualidade | Polling ativo/parado adaptativo | Polling fixo de 30 minutos |
+| Limite | `Retry-After` | `X-RateLimit-Reset` |
+| Retenção | 84 retratos em memória | 84 retratos em memória e um retrato fresco em disco |
+| Payload do navegador | Metadados da faixa e URL pública | Valores agregados de contribuição |
 
-Spotify e GitHub são dois exemplos, mas a página inicial tem vários módulos atualizados em frequências diferentes. O próximo post acompanhará o caminho comum por baixo deles: histórico inicial, tuplas compactas de transporte, um fluxo SSE do Elysia e os stores do Solid que mantêm cada painel pequeno.
+O resultado é um contrato de interface sobre dois sistemas externos muito diferentes. A abstração útil não é “toda fonte faz polling do mesmo jeito”; é “toda fonte publica um retrato tipado, limitado e pronto para exibição”.
+
+Essa fronteira mantém simples o restante da camada dinâmica: o endpoint de histórico pode carregar os dois módulos, a rota SSE pode emitir apenas versões alteradas e os painéis podem renderizar estado sem reencenar uma API externa.
