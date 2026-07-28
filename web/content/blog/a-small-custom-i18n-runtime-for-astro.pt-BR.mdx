@@ -1,73 +1,132 @@
 ---
-title: "Um pequeno runtime de i18n feito sob medida para o Astro"
-description: Como a coleta de strings estáticas, catálogos tipados gerados, um módulo virtual do Vite e rotas localizadas sustentam um pequeno site bilíngue.
+title: "Compilando um catálogo de i18n tipado para Astro"
+description: Como uma integração do Astro extrai chamadas estáticas de tradução, gera catálogos tipados e resolve idiomas na renderização estática e em ilhas Solid hidratadas.
 date: "2026-08-29"
-tags: [astro, architecture]
+tags: [astro, vite, i18n, typescript]
 ---
 
-import { TranslationCatalogLab } from "@web/content/labs/translation-catalog-lab";
+Uma aplicação Astro que renderiza HTML estático e ilhas hidratadas tem dois contextos de tradução distintos. Durante o build, cada rota já possui um idioma explícito. No navegador, uma ilha precisa recuperar esse idioma do documento renderizado. Os dois contextos precisam do mesmo catálogo e das mesmas regras de fallback, mas apenas strings identificáveis estaticamente podem ser incluídas nesse catálogo.
 
-A [camada do blog](/pt-BR/blog/the-blog-layer-static-pages-live-view-counts) trata os artigos em inglês e português brasileiro como arquivos MDX separados. Essa é a fronteira certa para textos longos, cuja tradução exige um trabalho editorial que vai além de uma consulta em um catálogo de strings.
-
-A interface ao redor tem outro problema. Rótulos como “Todos os posts”, “Bateria” e “Nada tocando” aparecem em páginas do Astro e componentes hidratados do Solid. Eles precisam de uma pequena API de tradução, do mesmo idioma e de uma estratégia de caminhos que funcione durante o build estático e depois que o JavaScript inicia.
-
-Criei uma integração sob medida para esse requisito mais estreito. Ela coleta strings de origem estáticas, gera catálogos TypeScript indexados por hashes, expõe um módulo virtual e usa o texto em inglês sempre que uma tradução está ausente.
+Uma integração do Astro coleta chamadas estáticas de `t()`, gera catálogos TypeScript indexados por hashes do texto em inglês e os expõe por um módulo virtual. Posts completos continuam em arquivos MDX separados por idioma; o catálogo cobre textos de interface, como rótulos, estados vazios e títulos de painéis.
 
 ```mermaid center
-flowchart TB
-  Source["Chamadas de t() no código"] --> Parse["Transform ESTree do Vite"]
-  Parse --> Collect["Strings de origem ordenadas"]
-  Collect --> Hash["Chaves em hash"]
-  Hash --> Default["Catálogo en-US"]
-  Hash --> Locale["Overrides pt-BR"]
-  Default ~~~ Locale
-  Default --> Virtual["virtual:translate"]
-  Locale --> Virtual
-  Virtual --> Astro["Renderização estática do Astro"]
-  Virtual --> Solid["Ilhas hidratadas do Solid"]
-  Astro ~~~ Solid
+flowchart LR
+  Source["Chamadas t() estáticas"] --> AST["Análise ESTree"]
+  AST --> Collector["Strings deduplicadas"]
+  Catalogs["Catálogos de idioma gerados"] --> Virtual["virtual:translate"]
+  Virtual --> SSR["Renderização estática do Astro"]
+  Virtual --> Client["Ilha Solid hidratada"]
+  Collector --> Done["astro:build:done"]
+  Done --> Next["Catálogos para o próximo build"]
 ```
 
-## A API de autoria começa em inglês
+O build consome os catálogos existentes e os regenera depois da renderização. Uma tradução recém-descoberta chega à saída no build seguinte.
 
-O idioma padrão é `en-US`, e a string de origem funciona como tradução padrão. Uma página do Astro passa explicitamente o idioma conhecido durante o build:
+## O contrato público
+
+A integração é registrada com um conjunto fechado de idiomas e um idioma padrão:
+
+```ts
+astroTranslate({
+  locales: ["en-US", "pt-BR"],
+  defaultLocale: "en-US",
+})
+```
+
+Durante `astro:config:done`, ela injeta uma declaração para `virtual:translate`. O array configurado se torna uma união de strings literais, e `t` expõe duas formas de chamada:
+
+```ts
+declare module "virtual:translate" {
+  export type Locale = "en-US" | "pt-BR";
+  export const locales: readonly Locale[];
+  export const defaultLocale: "en-US";
+  export function resolveLocale(value?: string | null): Locale;
+  export function getPathLocale(pathname?: string | null): Locale;
+  export function getLocale(): Locale;
+  export function t(value: string): string;
+  export function t(locale: Locale, value: string): string;
+}
+```
+
+As rotas Astro usam o overload explícito porque `getStaticPaths()` já atribui um idioma a cada página gerada:
 
 ```astro
+const { locale } = Astro.props;
+
 <h1>{t(locale, "Blog")}</h1>
 ```
 
-Um componente no cliente pode usar a forma mais curta:
+Componentes controlados pelo navegador podem usar `t("Nothing playing")`; nesse caso, o runtime lê o idioma do documento. Componentes que recebem um idioma tipado podem continuar usando `t(locale, value)` nos dois lados da hidratação.
 
-```tsx
-<PanelHeader title={t("Now Playing")} />
-```
+## A análise em tempo de compilação apenas coleta chamadas
 
-As duas funções vêm de `virtual:translate`, junto com `locales`, `defaultLocale`, `resolveLocale`, `getPathLocale` e `getLocale`. A integração injeta uma declaração para esse módulo virtual, incluindo um tipo união `Locale` derivado da lista de idiomas configurada e overloads para as duas formas de `t()`.
+O plugin do Vite usa o hook `transform` como uma etapa de análise. Ele faz o parse dos módulos relevantes, registra as strings de origem e retorna `null`; portanto, a chamada original de `t()` permanece no programa emitido. A tradução em si é uma consulta por hash executada em runtime.
 
-Essa API deixa a restrição visível no ponto de uso. O código do Astro já sabe qual caminho estático está gerando, portanto passa o idioma. O código no navegador pode ler o idioma do documento renderizado. Não existe um “idioma da requisição atual” global ao processo que possa vazar de uma página estática para outra.
-
-## Coletando chamadas sem procurar texto bruto
-
-O plugin do Vite dentro de [`plugins/translate-plugin.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/plugins/translate-plugin.ts) executa seu coletor durante os builds de produção. Ele inspeciona apenas os módulos que fazem referência a `virtual:translate` e usa o parser do Vite para percorrer suas árvores sintáticas ESTree.
-
-Primeiro, o coletor encontra o binding realmente importado. Ele aceita um import nomeado, mesmo que renomeado, e chamadas pelo namespace, como `translate.t(...)`. Depois, registra chamadas cujo valor de tradução pode ser resolvido estaticamente:
-
-- strings literais;
-- template literals sem expressões;
-- concatenações formadas apenas por strings estáticas;
-- essas expressões dentro de parênteses.
-
-Em `t(value)`, ele lê o primeiro argumento. Em `t(locale, value)`, lê o segundo. Uma expressão dinâmica é ignorada em vez de ser adivinhada.
-
-Usar a árvore sintática evita tratar comentários, outras funções chamadas `t` ou texto dentro de strings não relacionadas como traduções. A desvantagem também é direta: valores montados a partir de dados de runtime não conseguem criar entradas no catálogo. Valores dinâmicos devem ficar fora da consulta, ou as partes estáticas ao redor deles precisam de chamadas separadas.
-
-## Catálogos gerados formam um ciclo de autoria
-
-No fim de um build, a integração ordena as strings coletadas e calcula o hash de cada uma com uma pequena função de 32 bits no estilo FNV. O resultado em base 36 se torna uma chave de catálogo com sete caracteres.
-
-O catálogo padrão liga cada hash de volta ao texto em inglês. Todos os outros idiomas recebem o mesmo conjunto de chaves, preservam os valores existentes, removem chaves que não são mais usadas e acrescentam `null` para strings novas. Comentários acima dos overrides mantêm a origem legível:
+A coleta roda apenas em builds de produção e somente quando o código-fonte do módulo contém `virtual:translate`. Primeiro, o analisador descobre o binding local importado exatamente desse módulo. Ele aceita imports diretos, imports diretos renomeados e imports por namespace:
 
 ```ts
+import { t } from "virtual:translate";
+import { t as translate } from "virtual:translate";
+import * as i18n from "virtual:translate";
+```
+
+O percurso da ESTree aceita estas formas estáticas equivalentes:
+
+```ts
+t("Nothing playing");
+translate(locale, `Nothing playing`);
+i18n.t("Nothing " + "playing");
+```
+
+`resolveStaticString()` avalia recursivamente strings literais, template literals sem expressões, expressões entre parênteses e operações `+` cujos dois operandos também são estáticos. Na API com overload, a seleção do argumento é posicional:
+
+```ts
+function resolveCallTranslationValue(node: ESTree.CallExpression): string | null {
+  const argumentIndex = node.arguments.length >= 2 ? 1 : 0;
+  const argument = node.arguments[argumentIndex];
+  return argument && argument.type !== "SpreadElement"
+    ? resolveStaticString(argument)
+    : null;
+}
+```
+
+Uma chamada como `t(statusLabel)` é intencionalmente invisível para o gerador. A análise da AST evita falsos positivos em comentários, funções não relacionadas chamadas `t` e strings arbitrárias, mas não consegue inferir valores de runtime. Ela também não reporta erros ao encontrar uma chave dinâmica; a chamada usa o texto de origem como fallback durante a execução.
+
+## Identidade, formato e tipagem do catálogo
+
+Cada string coletada passa por uma função compacta de 32 bits no estilo FNV-1a:
+
+```ts
+export function hashTranslationKey(value: string): string {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(36).padStart(7, "0");
+}
+```
+
+O catálogo padrão relaciona cada hash ao texto em inglês e define o espaço de chaves:
+
+```ts
+export const translations = {
+  "1jdup01": "Blog",
+  "0vgq4zc": "Nothing playing",
+} as const;
+
+export type TranslationHash = keyof typeof translations;
+export type TranslationOverrides =
+  Partial<Record<TranslationHash, string | null>>;
+```
+
+O módulo em português é gerado com validação contra esse tipo:
+
+```ts
+import type { TranslationOverrides } from "./en-US";
+
 const translations = {
   // Blog
   "1jdup01": "Blog",
@@ -76,48 +135,127 @@ const translations = {
 } satisfies TranslationOverrides;
 ```
 
-O arquivo [`web/i18n/en-US.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/en-US.ts) também gera a união `TranslationHash` e um tipo para os overrides. O arquivo [`web/i18n/pt-BR.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/pt-BR.ts) usa `satisfies` com esse tipo, impedindo que o catálogo acrescente uma chave desconhecida ou um valor que não seja string. O override continua parcial porque uma tradução ausente é válida durante o ciclo de autoria.
+`Partial` permite um idioma incompleto, `null` marca uma entrada sem tradução e `satisfies` rejeita hashes desconhecidos. Durante o carregamento, `normalizeLocaleCatalog()` descarta formatos e valores inválidos.
 
-Esse ciclo exige duas passagens de build para uma string inédita: um build a descobre e grava o placeholder `null`; depois que a tradução é preenchida, o build seguinte a inclui na saída renderizada e no bundle do cliente. O código e os catálogos gerados são versionados juntos.
+O texto de origem também é a identidade da mensagem. Alterar capitalização ou pontuação cria outro hash, remove a entrada antiga na geração seguinte e insere um novo override com `null`. Isso obriga textos alterados a passar novamente pela tradução, mas também torna as chaves opacas e produz mais mudanças no catálogo do que IDs semânticos estáveis produziriam.
 
-Essa escolha faz do texto em inglês tanto o fallback quanto a identidade da entrada. Até uma mudança de pontuação produz outro hash: no build seguinte, o gerador remove a chave que deixou de ser usada e cria uma nova entrada com `null`. Prefiro essa pequena interrupção a carregar silenciosamente uma tradução antiga para um texto cujo sentido pode ter mudado.
+## A geração dos catálogos é um protocolo de dois builds
 
-A bancada abaixo torna o ciclo concreto. Um literal e uma concatenação estática convergem na mesma chave, enquanto uma variável de runtime nunca entra no catálogo. Rode um build, edite o override gerado, rode o próximo e troque o idioma da prévia para ver o fallback em inglês dar lugar ao valor em português incluído no bundle.
+O coletor é limpo em `astro:build:start`. Conforme o Vite transforma os módulos, os valores encontrados entram em um `Set` compartilhado; `collector.values()` os ordena antes da serialização. Em `astro:build:done`, o gerador:
 
-<TranslationCatalogLab client:load locale="pt-BR" />
+- mantém os valores ainda referenciados no catálogo padrão existente;
+- adiciona novas strings de origem em inglês;
+- remove hashes que não aparecem mais no código;
+- preserva overrides existentes para hashes mantidos;
+- insere `null` em hashes ainda sem tradução;
+- reescreve `web/i18n/en-US.ts` e `web/i18n/pt-BR.ts`.
 
-O hash mantém curtas as chaves geradas dos catálogos, mas abre mão da legibilidade de uma chave textual e hoje não tem uma verificação de colisões. Duas strings de origem diferentes que produzissem o mesmo hash de 32 bits compartilhariam silenciosamente uma entrada. O catálogo é pequeno o bastante para tornar isso improvável, mas “improvável” não é validação. Se a superfície de tradução crescer, o gerador deve falhar quando um hash apontar para duas origens.
+O módulo virtual foi carregado antes, no mesmo build, antes da reescrita desses arquivos. Por isso, adicionar uma string segue esta sequência:
 
-## Um módulo virtual, dois contextos de execução
-
-Quando o Vite resolve `virtual:translate`, o plugin carrega os arquivos de idioma gerados e produz um pequeno módulo ao redor de [`plugins/translate-runtime.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/plugins/translate-runtime.ts).
-
-Durante a renderização estática no lado do servidor do Astro, esse módulo contém os catálogos de build. `t(locale, value)` normaliza o idioma explícito, calcula o hash da string de origem e busca o override correspondente. O idioma padrão e as entradas ausentes ou com `null` retornam o texto original.
-
-O navegador recebe catálogos contendo apenas traduções completas. Ele não precisa dos placeholders `null` nem da estrutura usada apenas no build. `t(value)` descobre o idioma a partir de `<html lang>`, com o primeiro segmento da URL como fallback, e faz a mesma consulta pelo hash. O layout base do Astro já escreve o idioma normalizado no documento, portanto as ilhas hidratadas herdam o idioma escolhido durante a geração da página.
-
-```mermaid center
-flowchart TB
-  AstroPath["Caminho estático + prop de idioma"] --> BuildT["t(locale, origem)"]
-  BuildT --> HTML["HTML traduzido + atributo lang"]
-  HTML --> BrowserLocale["document.documentElement.lang"]
-  BrowserLocale --> ClientT["t(origem) no Solid"]
+```text
+build N     descobre texto → renderiza com fallback → grava override null
+edição      substitui null pela string traduzida
+build N + 1 carrega o override completo → renderiza e empacota a tradução
 ```
 
-Essa divisão impede que uma suposição exclusiva do navegador entre no build e evita que toda ilha receba props de idioma apenas para traduzir os próprios rótulos.
+O modo de desenvolvimento não coleta nem regenera catálogos porque o transform verifica `config.command === "build"`. Uma nova chamada de `t()` pode parecer correta em desenvolvimento por causa do fallback em inglês, mesmo sem ter um override gerado.
 
-## Os caminhos localizados fazem parte do mesmo contrato
+## O módulo virtual separa os payloads de servidor e navegador
 
-A integração é configurada em [`astro.config.mjs`](https://github.com/ErickCReis/ErickCReis/blob/main/astro.config.mjs) com `en-US` e `pt-BR`, usando o inglês como padrão. As funções de caminhos estáticos do Astro mapeiam o idioma padrão para a ausência de prefixo e o português para `/pt-BR`.
+O Vite resolve `virtual:translate` para o ID interno `\0virtual:translate` e `virtual:translate/runtime` para o arquivo físico do runtime. O hook `load` importa os módulos de idioma gerados e emite código equivalente a:
 
-[`getLocalizedPath`](https://github.com/ErickCReis/ErickCReis/blob/main/web/i18n/index.ts) aplica essa regra aos links. O seletor de idiomas preserva o caminho do conteúdo enquanto troca o prefixo. A busca de posts estende a lógica ao preferir `slug.pt-BR.mdx` em um caminho em português e retornar ao arquivo padrão quando o artigo localizado não existe.
+```ts
+import { createTranslateRuntime } from "virtual:translate/runtime";
 
-O layout base completa o contrato das rotas. Ele define `<html lang>`, cria uma URL canônica, adiciona alternates com `hreflang` e um link `x-default` e converte os códigos de idioma para o formato com sublinhado usado pelos metadados Open Graph. A localização, portanto, é mais do que trocar um rótulo: roteamento, seleção de conteúdo, estado no cliente e metadados de descoberta concordam sobre o mesmo idioma configurado.
+export const {
+  locales,
+  defaultLocale,
+  resolveLocale,
+  getPathLocale,
+  getLocale,
+  t,
+} = createTranslateRuntime({
+  locales: ["en-US", "pt-BR"],
+  defaultLocale: "en-US",
+  buildCatalogs,
+  clientCatalogs,
+});
+```
 
-## Útil porque a fronteira é pequena
+Os valores substituídos nos dois últimos campos dependem do sinalizador SSR do Vite:
 
-O escopo desse runtime exclui mensagens ICU, negociação de idioma, regras gramaticais de plural, interpolação de rich text, serviços de tradução e um fluxo de gerenciamento de conteúdo. O site ainda usa `Intl` diretamente para datas e números, e posts completos continuam em arquivos próprios.
+- módulos de servidor e de renderização estática recebem `buildCatalogs`, inclusive valores `null`;
+- módulos de navegador recebem um `buildCatalogs` vazio e `clientCatalogs` apenas com traduções completas.
 
-São essas ausências que mantêm a ferramenta sob medida compreensível. Para dois idiomas conhecidos e algumas dezenas de strings estáticas da interface, um hook do Astro, um plugin do Vite, dois catálogos gerados e um pequeno runtime resolvem o problema real. Um produto mais amplo cruzaria o ponto em que manter todas essas capacidades ausentes custa mais do que adotar um sistema de i18n estabelecido.
+Todos os catálogos do cliente configurados são incluídos, e não apenas o idioma da página atual. Isso é simples para dois catálogos pequenos, mas o custo do bundle cresce com `idiomas × strings traduzidas`. Imports dinâmicos por idioma seriam uma estratégia melhor para uma superfície de tradução maior.
 
-O post final acrescenta mais uma fonte de dados pessoais ao pipeline compartilhado de telemetria: uso normalizado de tokens a partir de sessões locais de agentes, sincronizado sem enviar o conteúdo das sessões.
+## Consulta em runtime e comportamento de fallback
+
+O runtime mantém a resolução no servidor e no navegador na mesma função com overload:
+
+```ts
+function t(localeOrValue: string, maybeValue?: string): string {
+  if (typeof maybeValue === "string") {
+    return typeof window === "undefined"
+      ? translateForBuild(localeOrValue, maybeValue)
+      : translateForBrowser(localeOrValue, maybeValue);
+  }
+
+  return typeof window === "undefined"
+    ? localeOrValue
+    : translateForBrowser(getLocale(), localeOrValue);
+}
+```
+
+A forma com um argumento retorna deliberadamente o texto de origem sem alterações quando `window` não existe. Código Astro estático precisa passar o idioma explicitamente. A forma com dois argumentos normaliza o idioma recebido, retorna a origem imediatamente para `en-US` e, nos demais casos, consulta `catalog[hashTranslationKey(value)] ?? value`. Entradas ausentes e entradas com `null` possuem, portanto, o mesmo fallback visível.
+
+No navegador, `getLocale()` usa:
+
+```ts
+resolveLocale(
+  document.documentElement.lang || getPathLocale(window.location.pathname),
+);
+```
+
+`<html lang>` é o contrato principal de hidratação. O primeiro segmento da URL só é consultado quando `lang` está vazio; um `lang` inválido, mas não vazio, é normalizado diretamente para o idioma padrão. O layout base do Astro chama `resolveLocale(lang)` antes de escrever o atributo, portanto as páginas geradas por esse layout fornecem um valor válido.
+
+Nas fronteiras de hidratação, componentes com `client:load` passam `locale` e usam `t(locale, value)` nos dois lados. Componentes exclusivos do navegador podem usar `t(value)` depois de ler `<html lang>`. Uma ilha renderizada no servidor que use o overload de um argumento emitiria inglês no SSR e poderia trocar de idioma durante a hidratação.
+
+## O idioma da rota e o idioma da tradução precisam concordar
+
+As rotas catch-all geram `/` para `en-US` e `/pt-BR` para português:
+
+```ts
+params: {
+  locale: locale === defaultLocale ? undefined : locale,
+}
+```
+
+`getLocalizedPath()` aplica a mesma regra aos links:
+
+```ts
+if (normalizedLocale === defaultLocale) {
+  return normalizedPath ? `/${normalizedPath}` : "/";
+}
+
+return normalizedPath
+  ? `/${normalizedLocale}/${normalizedPath}`
+  : `/${normalizedLocale}`;
+```
+
+O layout base normaliza o idioma da rota em `<html lang>`, URLs canônicas, alternativas `hreflang` e metadados de idioma do Open Graph. A seleção do blog, de forma independente, prefere `slug.pt-BR.mdx` e usa `slug.mdx` como fallback. O fallback do catálogo e o fallback do artigo são, portanto, mecanismos separados: o primeiro opera por string da interface; o segundo seleciona uma entrada de conteúdo inteira.
+
+## Modos de falha e trade-offs
+
+Os principais modos de falha são:
+
+- argumentos dinâmicos de tradução são ignorados sem diagnóstico;
+- falhas no parser emitem um aviso e deixam o build continuar;
+- uma string nova exige o ciclo de geração pós-build, edição e rebuild;
+- o modo de desenvolvimento nunca atualiza os catálogos gerados;
+- alterar o texto de origem invalida a identidade da tradução;
+- o hash de 32 bits não verifica colisões, então duas origens poderiam compartilhar silenciosamente uma entrada;
+- todo consumidor no navegador recebe o catálogo completo de todos os idiomas;
+- o runtime não oferece interpolação, regras de pluralização nem mensagens em rich text.
+
+Um catálogo maior exigiria detecção de colisões, diagnósticos para chamadas dinâmicas, catálogos separados por idioma e um comando explícito de geração. IDs estáveis e um sistema com suporte a ICU fazem mais sentido a partir desse ponto.

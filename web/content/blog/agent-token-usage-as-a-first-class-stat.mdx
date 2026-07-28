@@ -1,138 +1,225 @@
 ---
-title: "Agent token usage as a first-class stat"
-description: How a local multi-provider parser sends normalized daily counts into the same telemetry path as system, Spotify, GitHub, and uptime data.
+title: "Normalizing agent token usage into a versioned telemetry stat"
+description: A technical design for parsing heterogeneous Codex, Pi, and Claude records, replacing source windows idempotently, and transporting a rolling aggregate.
 date: "2026-09-05"
 tags: [telemetry]
 ---
 
-import { TokenUsageMergeLab } from "@web/content/labs/token-usage-merge-lab";
+Token usage arrives in incompatible record shapes. Codex emits cumulative and per-turn values, Pi attaches usage to assistant messages, and Claude splits input into uncached, cache-read, and cache-creation fields. Those records also live in private JSONL session files that should never become server inputs directly.
 
-The [custom i18n runtime](/blog/a-small-custom-i18n-runtime-for-astro) was small tooling built around the way this site is authored. The last integration in this series starts from another local detail: the JSONL session files written by the coding agents I use.
-
-Those files already contain token-usage events. The portfolio already has a pipeline for dated history and live panels. The work was turning provider-specific local records into one small, safe input for that pipeline.
-
-The result supports Codex, Pi, and Claude sessions. A Bun script reads their files on the machine where they exist, aggregates counts by day, and sends normalized payloads to a protected internal endpoint. The server merges sources into a rolling 30-day stat and exposes only daily provider totals to the public telemetry stream.
+Provider adapters turn local records into event deltas. A collector groups them by calendar day, the server stores one replaceable window per source, and the browser receives a rolling 30-day projection.
 
 ```mermaid center
-flowchart TB
-  Codex["Codex JSONL"] --> Local["Local sync script"]
-  Pi["Pi JSONL"] --> Local
-  Claude["Claude JSONL"] --> Local
-  Codex ~~~ Pi ~~~ Claude
-  Local -->|"normalized counts + Bearer token"| Endpoint["Internal Elysia endpoint"]
-  Endpoint --> File["token-usage.json"]
-  File --> Module["Token usage stat module"]
-  Module --> SSE["Shared stats SSE"]
-  SSE --> Panel["Solid stacked chart"]
+flowchart LR
+  Logs["Codex / Pi / Claude JSONL"] --> Adapters["Provider adapters"]
+  Adapters --> Daily["Daily normalized payload"]
+  Daily -->|"POST + Bearer token"| Store["version: 2 source store"]
+  Store --> Snapshot["30-day public snapshot"]
+  Snapshot --> Transport["history response + SSE"]
+  Transport --> Panel["Solid store and stacked chart"]
 ```
 
-## Parse where the private data already lives
+## Normalize events before aggregating time
 
-The production server should not mount my agent directories or understand every session format. [`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) runs separately, with local filesystem access and an explicit destination URL.
+[`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) owns filesystem access and provider-specific parsing. It scans `~/.codex/sessions`, `~/.pi/agent/sessions`, and `~/.claude/projects` by default; environment variables can override homes, session directories, provider selection, source IDs, window length, and timezone.
 
-By default it looks in the usual provider homes:
-
-- `~/.codex/sessions` for Codex;
-- `~/.pi/agent/sessions` for Pi;
-- `~/.claude/projects` for Claude.
-
-Environment variables can replace each home, sessions directory, and source ID. A provider list can limit a run, and a dry-run mode prints the payload without sending it. The normal `bun run tokens:sync` command can therefore be invoked manually or by a scheduler without changing the web server lifecycle.
-
-The privacy boundary is the aggregation step. The script reads session records locally, but the payload contains only a provider ID, source ID, generation time, and daily input, cached-input, output, reasoning, and total counts. It does not upload prompts, responses, tool calls, file paths, model names, session IDs, or message IDs.
-
-The source ID can reveal a machine label if it is derived from a non-Linux hostname, and the resulting per-provider activity is intentionally published by the stats API. “No session content” is a narrow claim, not a claim that the telemetry reveals nothing.
-
-## Each provider needs its own accounting adapter
-
-JSONL is only a container format. The records inside it do not agree on where usage lives or whether a number is a per-message value or a cumulative total.
-
-The Codex adapter selects `event_msg` records with a `token_count` payload. When an event has cumulative `total_token_usage`, the parser subtracts the previous cumulative value to obtain the new delta. Some records expose only `last_token_usage`; a fingerprint prevents the same adjacent value from being counted again.
-
-Pi records usage on assistant messages. The adapter reads each assistant message's usage object directly and accepts the common snake-case and camel-case field variants handled by the normalizer.
-
-Claude also records assistant-message usage, but its input accounting separates uncached input, cache reads, and cache creation. The adapter adds all three to an inclusive input total, tracks cache reads as cached input, and adds output for the overall count. Resumed Claude sessions can repeat the same assistant response in more than one file, so the parser deduplicates records by the API message ID before aggregation.
-
-```mermaid center
-flowchart TB
-  Record["Provider record"] --> Codex["Codex · cumulative → delta"]
-  Record --> Pi["Pi · assistant-message usage"]
-  Record --> Claude["Claude · cache + dedupe"]
-  Codex ~~~ Pi ~~~ Claude
-```
-
-Malformed JSON lines, irrelevant event types, invalid timestamps, and absent session directories are skipped instead of aborting the whole scan. That makes the collector tolerant of mixed log contents, but it also means a provider format change can look like a quiet drop to zero. Provider parsers need fixtures and monitoring as those upstream formats evolve.
-
-## Dates and sources make reruns stable
-
-Every accepted delta is assigned to a date using its event timestamp and `TOKEN_USAGE_TIMEZONE`, which defaults to `America/Sao_Paulo`. The script keeps the configured window (30 days by default) and sorts its daily payload before sending.
-
-The normalized contract in [`shared/stats/token-usage.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/token-usage.ts) is independent of the JSONL shapes:
+All adapters produce the same internal delta:
 
 ```ts
-type TokenUsageSyncPayload = {
-  sourceId: string;
-  providerId: string;
-  generatedAt: number;
-  daily: Array<{
-    date: string;
-    inputTokens: number;
-    cachedInputTokens: number;
-    outputTokens: number;
-    reasoningOutputTokens: number;
-    totalTokens: number;
-  }>;
-  totals?: { totalTokens: number } | null;
+type TokenUsageDelta = {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningOutputTokens: number;
+  totalTokens: number;
 };
 ```
 
-`providerId` describes the adapter and chart segment. `sourceId` distinguishes copies of that provider on different machines. The server treats the pair as a replaceable snapshot: syncing `codex-workstation` again replaces that source's previous 30-day window instead of adding the same sessions twice. Different sources are summed when they contribute to the same provider and date.
+The general normalizer accepts common snake-case and camel-case field names. Missing or non-finite values become zero. If a record does not provide a positive total, the collector uses `input + output`; cached input is clamped so that it cannot exceed normalized input:
 
-That compound identity is the merge instruction. Repeating the same pair replaces one window; a previously unseen pair creates another window that contributes to the aggregate. Scheduler reruns can therefore be safe without collapsing activity from separate machines.
+```ts
+function toDelta(raw: RawUsage): TokenUsageDelta {
+  const totalTokens =
+    raw.total_tokens > 0 ? raw.total_tokens : raw.input_tokens + raw.output_tokens;
+  const cachedInputTokens = Math.min(raw.cached_input_tokens, raw.input_tokens);
 
-The defaults prefix a machine fingerprint with the provider. On Linux the script uses the stable label `vps-prod`; on other systems it normalizes the hostname. Multiple Linux machines therefore need explicit source-ID overrides or they would replace one another. Stable merging depends on stable IDs also being unique.
-
-Choose a provider/source key, adjust its token total, and sync it. An existing key replaces its previous window; a new source adds another window to the public aggregate.
-
-<TokenUsageMergeLab client:load locale="en-US" />
-
-Stale windows still contribute to the total in this model. What the newest source can hide is their stale status, not their token count.
-
-## A protected write into a local file
-
-The script validates its own payload with Valibot, then sends it to `POST /internal/token-usage/sync` with a Bearer token. [`server/internal/routes.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/internal/routes.ts) returns `503` when sync is not configured, `401` for a missing or incorrect token, and `400` for a payload that fails the same shared schema.
-
-Authentication protects the ability to write telemetry; it is not a user login system. The token belongs in the environment on both sides and the endpoint is called over HTTPS in production.
-
-Accepted payloads are persisted in `token-usage.json` under the application's data directory. [`server/stats/token-usage.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/token-usage.ts) serializes in-process writes through a promise queue, refreshes the latest file before each update, writes a uniquely named temporary file, and renames it over the target. A failed write removes its temporary file rather than leaving a partially written store as the current state.
-
-This stat does not need SQLite's query model. The complete persisted unit is a small, versioned list of source windows, and each sync replaces one member of that list. A validated JSON file plus atomic rename matches that shape.
-
-## From source windows to a public snapshot
-
-The stat module reads the file at startup and checks it every 30 seconds. Even when the modification time is unchanged, it rebuilds derived state when necessary so the current date window and freshness flag can move with time.
-
-For each of the last 30 date keys, it sums sources by provider, sorts provider IDs, and creates an index-aligned `byProvider` array. It then derives today's total and the 30-day total. Reusing the [shared stats pipeline](/blog/the-stats-pipeline) only requires the token module, its history projection and tuple transport, a Solid store, and stream dispatch.
-
-The panel maps each day to a stacked bar. Known providers receive stable colors and labels; unknown provider IDs still get fallback colors. The trigger shows today's compact total, the body shows exact today and 30-day totals, and the footer shows the newest `generatedAt` time across the sources.
-
-```mermaid center
-flowchart TB
-  Sources["Provider + source windows"] --> Merge["Sum by date and provider"]
-  Merge --> Providers["Sorted provider list"]
-  Merge --> Daily["30 daily totals + aligned segments"]
-  Providers ~~~ Daily
-  Providers --> Bars["Stacked bar chart"]
-  Daily --> Bars
+  return {
+    inputTokens: raw.input_tokens,
+    cachedInputTokens,
+    outputTokens: raw.output_tokens,
+    reasoningOutputTokens: raw.reasoning_output_tokens,
+    totalTokens,
+  };
+}
 ```
 
-Only totals by provider and day enter the public snapshot. The server retains the detailed normalized token categories in its local file, but the browser does not need them for this chart.
+That gives the local collector two invariants:
 
-## Freshness and comparability are limits, not footnotes
+- every emitted field is finite and non-negative;
+- `cachedInputTokens <= inputTokens`.
 
-The module marks a snapshot stale when its newest `generatedAt` is older than the configured threshold, three hours by default. That boolean travels through the transport and history store. The current panel does not yet render a distinct stale warning; it only shows the update time. Carrying freshness in the contract is useful, but the visible product should still make stale data unmistakable.
+It deliberately does **not** assert that `totalTokens` equals the sum of all visible categories. A provider-supplied total wins, and reasoning or cache fields may be subsets rather than additive dimensions.
 
-Freshness is also calculated from the newest source in the aggregate. One provider syncing successfully can keep the whole snapshot fresh while another provider has stopped. Per-source generation times and stale states would be a better model if the panel needs to diagnose individual collectors.
+## Provider adapters encode different accounting models
 
-Finally, token counts are not a productivity score. Providers and models tokenize text differently, report cache activity differently, and may include different categories in their totals. Adding their counts is useful as a rough activity footprint for my own dashboard. It is not a fair comparison of agent quality, completed work, API cost, or energy use.
+For Codex, the adapter reads `event_msg` records with a `token_count` payload. `total_token_usage` is cumulative within a session, so each field becomes `Math.max(current - previous, 0)`. If only `last_token_usage` exists, the adapter treats it as a per-turn sample and suppresses an immediately repeated fingerprint. It does not deduplicate repeated records elsewhere in the file.
 
-That caveat is part of making token usage a first-class stat. A first-class metric has a source, a normalization rule, a freshness policy, a privacy boundary, and an honest explanation of what it cannot measure.
+Pi records are simpler: only `message` entries whose message role is `assistant` are accepted, and each message's usage is treated as an independent sample.
+
+Claude also emits assistant-message usage, but `input_tokens` excludes prompt-cache activity. The adapter defines inclusive input as:
+
+```ts
+const inputTokens =
+  uncachedInput + cacheReadInput + cacheCreationInput;
+const totalTokens = inputTokens + outputTokens;
+```
+
+`cachedInputTokens` contains cache reads only; cache creation contributes to inclusive input but has no separate public field. Resumed Claude sessions can repeat an API response across files, so one collector run keeps a `Set` of message IDs and counts each known ID once. Records without an ID cannot receive that protection.
+
+Malformed JSON, unrelated event types, invalid timestamps, and missing session directories are skipped. This keeps one damaged line from aborting a scan, but it creates a critical operational behavior: a missing directory or an incompatible upstream format can produce a valid empty payload. Because source sync is replacement-based, successfully sending that payload clears the server's previous active window for that source.
+
+## Calendar aggregation is timezone-sensitive
+
+Accepted deltas are assigned to dates with `Intl.DateTimeFormat("sv-SE", ...)`, producing sortable `YYYY-MM-DD` keys in `TOKEN_USAGE_TIMEZONE` (`America/Sao_Paulo` by default). Only keys inside the configured window are retained:
+
+```ts
+const dateKey = formatter.format(new Date(timestamp));
+if (dateKey < since || dateKey > until) return;
+
+const day = dailyUsage.get(dateKey) ?? createEmptyDay();
+addDeltaToDay(day, delta);
+dailyUsage.set(dateKey, day);
+```
+
+Daily aggregation is component-wise addition. The outgoing array is sorted by date, making payloads deterministic apart from `generatedAt`.
+
+There is one boundary condition to understand: the collector computes `since` and `until` with the host's local calendar, while event keys use `TOKEN_USAGE_TIMEZONE`. Deployments whose host timezone differs from the configured aggregation timezone can disagree around midnight. A stricter implementation would derive both the range and event keys from the same calendar abstraction.
+
+## The sync payload is a replaceable source snapshot
+
+The shared Valibot schema in [`shared/stats/token-usage.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/token-usage.ts) defines the write boundary:
+
+```ts
+const tokenUsageSyncPayloadSchema = v.object({
+  sourceId: v.pipe(v.string(), v.minLength(1)),
+  providerId: v.pipe(v.string(), v.minLength(1)),
+  generatedAt: nonNegativeNumber,
+  daily: v.array(tokenUsageDatedDaySchema),
+  totals: v.optional(v.nullable(v.object({ totalTokens: nonNegativeNumber }))),
+});
+```
+
+The collector validates this payload before sending it. `POST /internal/token-usage/sync` checks the Bearer token, validates the same schema, and returns `503`, `401`, or `400` for missing configuration, failed authentication, or invalid input respectively.
+
+The merge identity is the ordered pair:
+
+```txt
+(providerId, sourceId)
+```
+
+On every accepted sync, the server removes the existing member with that pair and inserts the new window. This makes scheduler retries idempotent at source-window granularity. A second machine must use a different `sourceId`, or its snapshot will overwrite the first machine's snapshot. The Linux default fingerprint is the fixed label `vps-prod`, so explicit source IDs are required when multiple Linux machines report the same provider.
+
+The schema guarantees shapes, date syntax, and non-negative numbers. It does not enforce equations such as `cachedInputTokens <= inputTokens`; another authorized producer could violate the collector's assumptions.
+
+## Persistence is a versioned file with process-local serialization
+
+The server stores the complete normalized input in `token-usage.json` under `DATA_DIR`. Its persisted shape is deliberately small:
+
+```ts
+const persistedStoreSchema = v.object({
+  version: v.literal(2),
+  sources: v.array(persistedSourceSchema),
+});
+```
+
+Before writing, the module reloads the current file, removes dates outside the active 30-day window, and collapses duplicate dates within a source using last-entry-wins semantics. It then replaces the matching source and sorts sources by provider and source ID.
+
+Writes pass through an in-process promise queue. Each update is written to a uniquely named temporary file and renamed over the destination:
+
+```ts
+writeQueue = writeQueue.catch(() => {}).then(async () => {
+  await refreshFromDisk(true);
+  // replace (providerId, sourceId), then serialize
+  await Bun.write(tempPath, serialized);
+  await rename(tempPath, filePath);
+});
+```
+
+The rename prevents partial reads, and the queue serializes writes inside one process. Two processes sharing the file could still race. Invalid persisted data is logged and ignored; only version `2` is accepted.
+
+## The public projection has index-aligned provider vectors
+
+The public snapshot does not expose source IDs or detailed token categories. For each of the 30 active dates, the server sums `totalTokens` first across sources and then by provider. Provider IDs are sorted once, and each day uses the same positional order:
+
+```ts
+const providers = getProviderIds(store); // sorted
+const byProvider = providers.map(
+  (providerId) => entry.byProvider.get(providerId) ?? 0,
+);
+
+return {
+  date: entry.date,
+  totalTokens: byProvider.reduce((sum, value) => sum + value, 0),
+  byProvider,
+};
+```
+
+The invariant is:
+
+```txt
+daily[d].byProvider[i] belongs to providers[i]
+daily[d].totalTokens = sum(daily[d].byProvider)
+```
+
+Zero-filled days are included, so a non-empty snapshot has exactly 30 calendar points. `todayTokens` is the last point and `totalTokens30d` is the sum of all points.
+
+The transport in [`shared/stats/token-usage.transport.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/token-usage.transport.ts) compresses the snapshot into a positional tuple:
+
+```ts
+type TokenUsageSnapshotTuple = [
+  timestamp,
+  generatedAt,
+  isStale,
+  todayTokens,
+  totalTokens30d,
+  providers,
+  Array<[date, totalTokens, byProvider]>,
+];
+```
+
+That reduces repeated property names in history and SSE payloads, but tuple order becomes a protocol. Adding or reordering a field requires coordinated serializers and deserializers; the browser deserializer does not independently validate the tuple.
+
+## Polling and versions suppress redundant SSE events
+
+The token module checks the file every 30 seconds. An unchanged modification time avoids reparsing the file, but the server still rebuilds derived state so midnight window shifts and stale-state transitions can occur without a write.
+
+`areSnapshotsEqual` compares all public semantic fields except the observation `timestamp`. Only a changed snapshot calls `markDirty`, appends a history sample, and increments the module version. The shared SSE loop polls module versions every 500 ms and emits token usage only after its version advances.
+
+The browser first loads `/stats/history`, then receives `tu` stream events. Its Solid store merges history points by `timestamp`, sorts them, and keeps the latest 30 state changes. That history is not the chart's 30 daily buckets: the panel renders `latest.daily`, while store history tracks successive server snapshots.
+
+The panel assumes the provider-vector invariant to build stacked segments. Known providers have fixed colors; unknown IDs receive deterministic fallback colors by index. It shows today's total, the 30-day total, and the newest generation time.
+
+## Error and freshness semantics define what the metric means
+
+Freshness is calculated from the newest `generatedAt` across all sources and defaults to stale after 180 minutes. The reduction starts at `null` so an empty store remains distinguishable from a timestamp:
+
+```ts
+const generatedAt = store.sources.reduce<number | null>(
+  (latest, source) =>
+    latest == null || source.generatedAt > latest ? source.generatedAt : latest,
+  null,
+);
+const isStale =
+  generatedAt === null || Date.now() - generatedAt > staleAfterMs;
+```
+
+This is aggregate freshness. One healthy source can keep the snapshot fresh while another source has stopped reporting. The `isStale` value reaches the client, but the current panel only renders the generation time, not a distinct warning. Per-source health would require preserving source freshness in a private diagnostic projection or exposing a carefully designed public summary.
+
+Other limits are intrinsic to the metric:
+
+- tokenizers differ across providers and models;
+- cache creation and cache reads have provider-specific meanings;
+- cumulative-counter resets can lose information even when negative deltas are clamped;
+- deduplication is only as strong as the identifiers present in the logs;
+- zero can mean no usage, no files, malformed records, or a provider format change;
+- token totals do not measure completed work, quality, latency, cost, or energy.

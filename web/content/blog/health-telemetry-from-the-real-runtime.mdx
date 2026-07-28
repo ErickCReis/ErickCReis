@@ -1,57 +1,94 @@
 ---
-title: "Health telemetry from the real runtime"
-description: How process CPU, cgroup memory, host battery files, and an external uptime monitor describe different parts of one deployment.
+title: "Designing runtime telemetry across system boundaries"
+description: A technical analysis of process CPU, cgroup memory, host battery, external uptime, presence sampling, bounded history, and the SSE transport that connects them to the UI.
 date: "2026-08-15"
-tags: [telemetry, self-hosting]
+tags: [telemetry, observability, self-hosting]
 ---
 
-import { RuntimeVantageLab } from "@web/content/labs/runtime-vantage-lab";
-
-The [previous post](/blog/shipping-astro-from-a-bun-server) put Astro's files and the Bun server inside one container. Once that container became the production unit, a simple question stopped having a simple answer: when the site displays “system health,” which system is it describing?
-
-CPU can mean the whole laptop, the container's allowance, or the server process itself. Memory reported by `node:os` may describe the host even when the process is constrained by a cgroup. The laptop has a battery, but the container cannot see it unless that host detail is deliberately exposed. Process uptime says nothing about whether the public domain was reachable.
-
-When I first put these readings beside one another, their proximity made them look interchangeable. The telemetry on this site keeps four observer lenses (process, cgroup, host, and outside) separate because one measurement cannot describe the whole deployment.
+A runtime metric is incomplete until it identifies where it was observed and what its denominator means. In this deployment, the Bun process runs inside a container on a laptop and is reached through a public network path. Those layers produce measurements with different scopes:
 
 ```mermaid center
 flowchart LR
-  Process["Bun<br/>CPU"] --> Panels["Health panels"]
-  Cgroup["Cgroup<br/>CPU + memory"] --> Panels
-  Host["Laptop<br/>battery"] --> Panels
-  Outside["UptimeRobot<br/>availability"] --> Panels
+  Process["Bun process<br/>CPU time"] --> Stats["Stat modules"]
+  Cgroup["Container cgroup<br/>memory budget"] --> Stats
+  Host["Mounted host sysfs<br/>battery"] --> Stats
+  Outside["UptimeRobot<br/>public reachability"] --> Stats
+  Presence["Browser tabs<br/>HTTP heartbeats"] --> Stats
+  Stats --> Bootstrap["GET /stats/history"]
+  Stats --> Stream["GET /stats/stream · SSE"]
+  Bootstrap --> Stores["Bounded Solid stores"]
+  Stream --> Stores
+  Stores --> Panels["System, uptime, and presence panels"]
 ```
 
-## CPU is relative to the process allowance
+## One module contract, different sampling policies
 
-[`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) samples every 1.5 seconds. For CPU, it starts with `process.cpuUsage()`, which reports the user and system CPU time consumed by the Bun process. It compares those cumulative values with the previous sample and divides the work by elapsed wall time.
-
-The denominator also includes the CPU count available to the deployment. On cgroup v2, the module reads `cpu.max` and divides quota by period. It supports the equivalent cgroup v1 files and falls back to `os.cpus().length` when no finite quota is available.
+The runtime collectors implement the same deliberately small interface:
 
 ```ts
-const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
+export type StatModule<T> = {
+  start: (...args: any[]) => void;
+  getLatest: () => T;
+  getHistory: () => T[];
+  getVersion: () => number;
+};
 ```
 
-The result is the share of the deployment's CPU capacity used by this process, clamped between zero and 100 percent. Docker Compose currently limits the service to one CPU, so the panel shows how much of the CPU assigned to this application its Bun process is consuming.
+Each module owns its clock and retention policy. System samples arrive every 1.5 seconds, presence every 5 seconds, and external uptime every 5 minutes. The shared interface standardizes delivery while the source defines what each value means.
 
-The calculated cgroup CPU count rounds the quota to a whole number and never goes below one. That is sufficient for the current one-CPU limit, but it would be a coarse model for fractional CPU quotas. Telemetry is only useful when its interpretation and limitations remain visible.
+## Process CPU normalized by an inferred cgroup allowance
 
-## Memory should respect the cgroup
+[`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) measures CPU with `process.cpuUsage()`. That API returns cumulative user and system CPU time for the Bun process in microseconds. The collector takes a delta and divides it by monotonic wall-clock time from `Bun.nanoseconds()`:
 
-Calling `os.totalmem()` inside a container can expose the host's total memory rather than the amount the service may use. The module checks the container boundary first.
+```ts
+const usedMicroseconds =
+  currentCpuUsage.user -
+  previousCpuUsage.user +
+  (currentCpuUsage.system - previousCpuUsage.system);
 
-For cgroup v2 it reads `memory.current` and `memory.max`; for v1 it uses `memory.usage_in_bytes` and `memory.limit_in_bytes`. A v2 limit of `max` means unlimited. Cgroup v1 can represent the same idea with a very large number, so the module rejects a reported limit larger than twice the host memory.
+const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
+return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
+```
 
-If the cgroup files are unavailable or unlimited, the fallback is host memory from `node:os`. Otherwise, the panel calculates used megabytes and percentage against the cgroup values. With the current Compose limit of 1 GB, “memory used” describes pressure against the container's budget rather than against all RAM installed in the laptop.
+The numerator is process work, not total cgroup CPU usage and not host CPU usage. A second process in the same container would not appear in this value.
 
-`memory.current` measures more than the Bun heap. It accounts memory to the cgroup boundary, which can include the process, native allocations, and filesystem cache. The value shows whether the container is approaching its enforced budget; it cannot diagnose which allocation inside Bun consumed it.
+`CPU_COUNT` is resolved once when the module loads. For cgroup v2, the code reads `cpu.max`; for v1 it reads `cpu.cfs_quota_us` and `cpu.cfs_period_us`. A finite quota is converted to a CPU count with:
 
-That distinction matters before an out-of-memory kill. A host with free RAM can still terminate a container that crosses its own limit.
+```ts
+Math.max(1, Math.round(Number(quota) / Number(period)));
+```
 
-## The battery is an intentional host leak
+Without a finite cgroup quota, the fallback is `os.cpus().length`. The current Compose deployment sets `cpus: "1"`, so 100% means the Bun process consumed approximately one assigned CPU during the sample interval.
 
-The application runs on a laptop, so power state is unusually relevant. Linux exposes it through `/sys/class/power_supply`, but that path belongs to the host.
+Fractional quotas are rounded to an integer, the result is clamped to 100%, and the allowance is read only when the module loads. The module keeps 84 samples, about 126 seconds of history, and loses them on restart.
 
-The [Compose configuration](https://github.com/ErickCReis/ErickCReis/blob/main/docker-compose.yml) mounts only that directory into the container, read-only, at `/host-sys/class/power_supply`. `BATTERY_SUPPLY_ROOT` tells the application to look there:
+## Cgroup memory is a budget metric, not a heap metric
+
+Memory uses a different observer boundary. The collector reads `memory.current` and `memory.max` on cgroup v2, with equivalent v1 files as fallbacks. It uses the cgroup boundary only when both current usage and a finite limit are available:
+
+```ts
+if (input.cgroupUsedBytes !== null && input.cgroupTotalBytes !== null) {
+  return {
+    usedBytes: input.cgroupUsedBytes,
+    totalBytes: input.cgroupTotalBytes,
+  };
+}
+
+return {
+  usedBytes: input.hostUsedBytes,
+  totalBytes: input.hostTotalBytes,
+};
+```
+
+This avoids dividing container usage by host capacity. If either cgroup value is unavailable, both numerator and denominator fall back to `os.totalmem() - os.freemem()` and `os.totalmem()`.
+
+For cgroup v2, `memory.max === "max"` means no finite limit. Cgroup v1 represents an unlimited boundary with a very large number, so the collector accepts a v1 limit only when it is below twice host memory. In the Compose deployment, `memory: 1G` gives the panel a container-sized denominator.
+
+`memory.current` is not `process.memoryUsage().heapUsed`. It can include Bun's heap, native allocations, other processes in the cgroup, and accounted page cache. It answers “how close is this container to its enforced memory limit?”, not “which JavaScript allocation is growing?”. If the cgroup is unlimited, the host fallback changes the question again to host-wide memory pressure. The schema and panel do not currently expose which boundary was selected, so deployment knowledge is required to interpret the percentage correctly.
+
+## Host battery is an optional, cached capability
+
+The container cannot normally see laptop power state. Compose exposes only the required host subtree as a read-only mount:
 
 ```yaml
 volumes:
@@ -60,40 +97,74 @@ environment:
   BATTERY_SUPPLY_ROOT: /host-sys/class/power_supply
 ```
 
-[`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) finds the first directory beginning with `BAT`, reads `capacity` and `status`, validates a percentage between zero and 100, and normalizes the status to charging, discharging, full, or unknown. Reads are cached for 15 seconds even though the system stat samples faster; battery state does not need a disk read every 1.5 seconds.
+[`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) selects the first entry whose name starts with `BAT`, reads `capacity` and `status`, validates the percentage, and normalizes status to `charging`, `discharging`, `full`, or `unknown`.
 
-If the mount, battery, or files do not exist, the reader returns `null` values and the panel displays `n/a`. Host battery telemetry is optional and specific to deployments that expose it.
+The reader caches its result for 15 seconds:
 
-This is a deliberate, narrow leak through the container boundary. Mounting the whole host filesystem would make a dashboard easier to build and much harder to trust. Exposing only the power-supply directory says exactly which host detail the application is allowed to observe.
+```ts
+if (!forceRefresh && now - cachedBatteryAt < BATTERY_CACHE_MS) {
+  return cachedBatteryInfo;
+}
+```
 
-## Uptime needs a view from outside
+Consequently, the 1.5-second system sampler can emit repeated battery values without repeatedly reading sysfs. Missing mounts, absent batteries, unreadable files, and invalid capacity values become nullable fields; the panel renders a missing percentage as `n/a`.
 
-The original uptime value was close to a process timer. That can say how long the current process has been alive, but not whether DNS, the Cloudflare tunnel, the network, the container, and the HTTP server formed a working public path.
+The reader cannot distinguish every failure cause, and the first `BAT*` entry is insufficient for a host with several batteries. The five-second alert cron bypasses the cache with `forceRefresh: true`.
 
-[`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/server.ts) now polls [UptimeRobot](https://uptimerobot.com/) every five minutes. The request asks for 30 explicit UTC day ranges, a 30-day ratio, and recent up/down logs. The returned monitor becomes three pieces of product data:
+## External uptime is a 30-day aggregation
 
-- daily availability for the 30-day bar;
-- overall availability for that window;
-- the current reachable streak, calculated from the latest recovery log.
+Process lifetime is not public availability. [`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/server.ts) asks UptimeRobot to observe the route from outside the host. Its request contains 30 explicit UTC ranges, a 30-day ratio, and up to 50 recent transition logs.
 
-Days before the monitor was created remain `null` instead of becoming zero-percent outages. Between server snapshots, the Solid panel advances a successful streak locally once per second, so the visible timer moves without polling the external API every second.
+[`server/stats/uptime.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/uptime.ts) creates 29 complete UTC-day ranges plus a partial range from the start of today to `now`. It maps `custom_uptime_ranges` back to those dates. A day entirely before monitor creation is represented as `null`; a missing percentage for a day after creation currently becomes `0`.
 
-The request has a 15-second timeout and short retries after network failures, `429` responses, and server errors. If those attempts fail after the module has already fetched a valid monitor, it keeps the last successful snapshot and tries the polling cycle again after one minute. An outage in the monitoring API should not immediately rewrite the site's last known availability as zero.
+The overall value prefers UptimeRobot's `custom_uptime_ratio`. If that field is absent, the fallback is the unweighted arithmetic mean of non-null daily percentages:
 
-I use the lab below as a boundary debugger. Choose a lens, change only the signal available to it, and watch both the answer and its blind spot. In particular, leave the Bun process “up 7d” while taking the public route down: both statements can be true at the same time.
+```ts
+const availableDays = dailyUptime.filter((day) => day.uptimePercent !== null);
+const total = availableDays.reduce(
+  (sum, day) => sum + (day.uptimePercent ?? 0),
+  0,
+);
+return Number((total / availableDays.length).toFixed(2));
+```
 
-<RuntimeVantageLab client:load locale="en-US" />
+That fallback gives today's partial day the same weight as a complete day, so it is an approximation rather than a duration-weighted availability calculation.
 
-The gauge needs context. Its observer, denominator, and blind spot are part of the value; without those labels, a precise percentage can still tell the wrong story.
+The current reachable streak is also derived rather than directly supplied. If the monitor is not up, it is zero. Otherwise, the collector sorts the returned logs newest first and counts from the latest recovery event. If there are no logs, monitor creation time is the fallback. Because only 50 logs are requested, an unusually transition-heavy period can prevent the collector from finding an older recovery point.
 
-## From a visible stat to an actionable signal
+The browser does not wait five minutes to repaint the streak. `ServerPanel` adds elapsed client time to the snapshot once per second while `currentStreakSeconds > 0`. This is a display extrapolation: it assumes the route remains up until the next server snapshot says otherwise.
 
-Battery level also powers a small operational action. An [`@elysiajs/cron`](https://github.com/elysiajs/elysia-cron) task checks every five seconds with a forced fresh battery read. When the laptop is discharging below 50 percent, it sends an email through [Resend](https://resend.com/).
+## Retry and stale-data behavior are part of the metric
 
-The task records whether an alert was sent and resets that state when the battery status changes. It therefore avoids sending the same warning every five seconds. If the Resend API key or destination address is absent, the task is a no-op; telemetry continues without email configuration.
+Uptime requests have a 15-second timeout. Network errors, invalid JSON, HTTP `429`, and `5xx` responses are retryable; delays are one and two seconds, for at most three attempts. Permanent API failures are not retried inside that request cycle.
 
-The panel and alert answer different questions. The panel helps a visitor, or me, understand the deployment. The email asks for action when a host-specific condition crosses a threshold. They reuse the same battery reader, but they should not share the same delivery policy.
+After an error, the collector schedules its next cycle in one minute instead of five. Before the first success it publishes an empty snapshot; after a success it keeps the last valid snapshot and does not increment the version for a failed refresh.
 
-A containerized application exposes several systems to measure. This site measures process work against its cgroup allowance, opts into one host hardware signal, and asks an external observer whether the full public route works. Keeping those perspectives separate prevents one number from being mistaken for the state of the whole deployment.
+Keeping the last good value prevents a monitoring-provider failure from looking like a site outage. However, the data model has no `stale`, `configured`, or `fetchError` field. A visitor cannot distinguish missing credentials, startup failure, or a genuine zero value from the numeric fields alone. Once a successful snapshot becomes stale, its original timestamp is the only freshness signal, and the current panel does not display it.
 
-The next post returns to the static Astro output and adds one narrow runtime feature of its own: view counts for MDX articles without making the blog dynamic.
+## The “WebSocket” stat measures heartbeat presence
+
+The module and panel retain the name `websocket`, but the current presence mechanism is HTTP-based. An inline browser script assigns each tab an ID and sends `POST /presence/ping` every 15 seconds. `pagehide` attempts `POST /presence/leave`; both operations prefer `navigator.sendBeacon` and fall back to `fetch(..., { keepalive: true })`.
+
+The server stores `tabId -> lastSeenAt` in a `Map`. Entries older than 45 seconds are pruned:
+
+```ts
+const cutoff = now - VIEWER_STALE_AFTER_MS;
+for (const [tabId, lastSeenAt] of activeViewerTabs) {
+  if (lastSeenAt < cutoff) activeViewerTabs.delete(tabId);
+}
+```
+
+`connectedUsers` means recently active browser tabs, not authenticated people or open WebSocket connections. Multiple tabs from one person count multiple times. A tab can remain counted for up to roughly 45 seconds after an unreported departure.
+
+Presence changes update `latest` and `version` immediately. Independently, a five-second tick appends a sample to an 84-point history, giving the chart about seven minutes of in-memory data. The maximum observed concurrency and compact `{ ts, count }` history records are written to `presence-stats-v1.json` at most every 30 seconds. Corrupt persisted JSON is ignored, writes are not wrapped in local error handling, and active tab identities are intentionally never persisted.
+
+`connectionStartedAt` records when the presence collector started. The panel labels it “Connected”, although it measures server collector lifetime rather than a browser session.
+
+## Bootstrap once, then coalesce updates over SSE
+
+When `TelemetryBackdrop` mounts, it starts the history request and stream subscription concurrently. `GET /stats/history` returns projected histories plus full latest snapshots. Historical system points include only timestamp, CPU, and memory percentages; presence history includes only timestamp and connected count. Fields needed only for labels stay in `latest`.
+
+The wire format uses positional tuples and short event names such as `sy`, `sr`, and `ws`. The SSE route checks module versions every 500 milliseconds and sends only the latest snapshot. Several changes inside one scan can collapse into one event.
+
+After a disconnect, the client retries in one second. Each response starts with an empty `lastSeen` map, so initialized modules resend their current snapshots. Client stores keep 84 system and presence points and 10 uptime points. The tuple decoders do not run Valibot at the transport boundary, so server and browser must be deployed together when fields move.

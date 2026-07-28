@@ -5,8 +5,6 @@ date: "2026-07-15"
 tags: [architecture, astro]
 ---
 
-import { IslandBoundaryLab } from "@web/content/labs/island-boundary-lab";
-
 In the [previous post](/blog/rewriting-my-portfolio-for-self-hosting), I compressed the frontend architecture into one sentence: [Astro](https://astro.build/) turns most of the site into HTML, and [Solid](https://www.solidjs.com/) starts only the live islands in the browser.
 
 That sentence hides one of the most useful boundaries in the rewrite.
@@ -56,10 +54,6 @@ For this overlay, skipping the build-time render is the correct tradeoff. The co
 The empty state is valid. Until the island starts, there are no floating telemetry panels or remote cursors. The heading, project links, navigation, and metadata do not need a loading placeholder because they were never inside the island.
 
 If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. That failure mode is part of the design.
-
-The boundary inspector below makes that ownership visible. Switch between the architecture I shipped and a counterfactual where the client owns the document, then inject a JavaScript or stream failure. “Client-owned” is deliberately narrower than “SPA”: the comparison is about which layer produced the content, not a verdict on every client-side application.
-
-<IslandBoundaryLab client:load locale="en-US" />
 
 The two failures remove different things. Blocking JavaScript prevents the live island from starting; dropping the stream leaves the island running but without fresh data. In both cases, the generated Astro document remains available because neither dependency owns it.
 

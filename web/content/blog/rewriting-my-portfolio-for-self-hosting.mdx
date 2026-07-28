@@ -5,8 +5,6 @@ date: "2026-06-23"
 tags: [self-hosting]
 ---
 
-import { DeploymentShapeLab } from "@web/content/labs/deployment-shape-lab";
-
 At some point this portfolio stopped being just a static page. I kept adding telemetry, API routes, cursor presence, background polling, local data, and internal jobs. It was still a small project, but “static-site deployment” was no longer an honest description of it.
 
 I rewrote it because I wanted the deployment to have a physical answer: one machine. [Astro](https://astro.build/) would still produce static pages and [Elysia](https://elysiajs.com/) would still handle live routes, but the whole application would ship as one container to an unused laptop.
@@ -56,9 +54,7 @@ flowchart TB
 
 I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and keeps the deployment workflow easy to inspect. The infrastructure still has several pieces, but the application has fewer runtime boundaries: one deploy target, one container, and one server process.
 
-Those paths meet at the running container, but they carry different things. Trace a request in the model below, then deploy another revision. The container changes; the mounted `/app/data` directory does not.
-
-<DeploymentShapeLab client:load locale="en-US" />
+Those paths meet at the running container, but they carry different things. A new deploy replaces the container while the mounted `/app/data` directory remains.
 
 ## The build artifact
 

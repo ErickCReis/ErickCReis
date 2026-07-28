@@ -5,8 +5,6 @@ date: "2026-07-15"
 tags: [architecture, astro]
 ---
 
-import { IslandBoundaryLab } from "@web/content/labs/island-boundary-lab";
-
 No [post anterior](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting), resumi a arquitetura do frontend em uma frase: o [Astro](https://astro.build/) transforma a maior parte do site em HTML, e o [Solid](https://www.solidjs.com/) inicia apenas as ilhas interativas no navegador.
 
 Essa frase esconde uma das fronteiras mais úteis da reescrita.
@@ -56,10 +54,6 @@ Para esta camada, deixar de renderizar o componente durante o build é a escolha
 O estado vazio é válido. Enquanto a ilha não inicia, não há painéis de telemetria flutuando pela tela nem cursores remotos. O título, os links dos projetos, a navegação e os metadados não precisam de um estado de carregamento porque nunca estiveram dentro da ilha.
 
 Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Esse modo de falha faz parte do design.
-
-O inspetor de fronteiras abaixo torna essa responsabilidade visível. Alterne entre a arquitetura que coloquei em produção e uma alternativa em que o cliente controla o documento; depois, injete uma falha no JavaScript ou no fluxo de dados. “Controlado pelo cliente” é intencionalmente mais específico do que “SPA”: a comparação mostra qual camada produziu o conteúdo, não pretende avaliar toda aplicação executada no cliente.
-
-<IslandBoundaryLab client:load locale="pt-BR" />
 
 As duas falhas removem partes diferentes. Bloquear o JavaScript impede que a ilha interativa inicie; derrubar o fluxo mantém a ilha em execução, mas sem dados novos. Nos dois casos, o documento gerado pelo Astro continua disponível porque nenhuma dessas dependências o controla.
 
