@@ -1,33 +1,29 @@
 ---
-title: "The blog layer: static pages, live view counts"
-description: How Astro content collections handle build-time publishing while two small Solid islands add deduplicated SQLite view totals.
+title: "Static blog compilation with live view counters"
+description: How Astro compiles localized MDX into scheduled routes while a narrow Solid and SQLite boundary adds deduplicated counters with explicit consistency and failure semantics.
 date: "2026-08-22"
-tags: [astro, architecture]
+tags: [astro, solidjs, sqlite, architecture]
 ---
 
-import { ViewCounterLab } from "@web/content/labs/view-counter-lab";
-
-The [runtime telemetry post](/blog/health-telemetry-from-the-real-runtime) ended with several kinds of data moving through the live server. The article you are reading takes the opposite path: its title, description, tags, date, body, and route all existed before the server started.
-
-I wanted this blog to participate in the same live system without turning it into a dynamic publishing application. That led to a deliberately uneven split: Astro owns the complete article, while Elysia adds one narrow runtime value—how many deduplicated views each language version has received.
+A blog article should be validated and rendered before deployment. Its view count must change afterward. The site compiles content with Astro and gives the counter a narrow Solid, Elysia, and SQLite path:
 
 ```mermaid center
-flowchart TB
-  MDX["MDX files"] --> Build["Astro content build"]
-  Build --> Archive["Static archive"]
-  Build --> Article["Static article HTML"]
-  Archive ~~~ Article
-  SQLite["SQLite view totals"] --> ReadIsland["Archive count hydrator"]
-  SQLite --> CountIsland["Article view counter"]
-  Article ~~~ SQLite
-  ReadIsland ~~~ CountIsland
-  ReadIsland --> Archive
-  CountIsland --> Article
+flowchart LR
+  MDX["Localized MDX"] --> Collection["Astro content collection"]
+  Collection --> Filter["Publication filter"]
+  Filter --> Paths["Static route generation"]
+  Paths --> HTML["Article and archive HTML"]
+
+  Browser["Hydrated Solid island"] --> API["Elysia view API"]
+  API --> SQLite["SQLite totals and dedupe state"]
+  SQLite --> Browser
 ```
 
-## Content is a build-time concern
+Astro owns content identity, locale selection, navigation, and publication. SQLite owns the counters. If the API fails, the article still renders.
 
-[`web/content.config.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/content.config.ts) defines one Astro content collection. A glob loader discovers Markdown and MDX files, and a schema requires a title, description, date, and optional list of non-empty tags.
+## Compile the content contract before generating routes
+
+Astro's collection schema is the first boundary. [`web/content.config.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/content.config.ts) discovers both Markdown and MDX and converts `date` into a `Date` while validating every other frontmatter field:
 
 ```ts
 const blog = defineCollection({
@@ -44,81 +40,185 @@ const blog = defineCollection({
 });
 ```
 
-A malformed article fails during the build, where it should. The archive can read typed frontmatter, sort by date, derive its tag filters, and generate links without querying the production server. The detail route asks Astro to render the selected MDX entry and places the resulting component inside the shared layout and typography styles.
+This makes malformed frontmatter a build error rather than a partially rendered production page. The archive can derive tag filters and sort entries from typed data; the detail route can call `render(post)` and emit the MDX body as static HTML.
 
-MDX is useful here because an article can include the build-time Mermaid diagrams used throughout this series without giving up Markdown as the normal authoring format. Each article still builds to HTML.
+The schema does not require non-empty copy, constrain tag vocabulary, enforce unique dates, or verify locale pairs.
 
-## A date is also a publication boundary
+## Treat the source filename as content identity
 
-The `date` field serves two related jobs. It is displayed on the article, and it decides whether a production build may include that article.
+The two localized files for one article are:
 
-[`web/lib/blog-publication.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog-publication.ts) compares the frontmatter date with the current calendar date in `America/Sao_Paulo`. The archive list and article static paths both filter through that rule. In local development they opt into scheduled entries, so future English and Portuguese files can be reviewed through their real routes.
-
-This series uses that boundary directly: each remaining pair is dated on a Saturday. A production build before that Saturday omits the post from the archive, article routes, and generated sitemap. The output does not wake up and publish itself at midnight; a build made on or after the scheduled date is still required.
-
-Scheduling therefore remains a static concern. There is no runtime draft query, publishing table, or administrator session.
-
-## The dynamic requirement is one number
-
-The archive initially renders a placeholder beside each post. After the page loads, a client-only Solid component sends one batch `GET /blog/views` request for the listed entries and replaces the placeholders with totals. Reading the archive does not register an article view.
-
-The article page uses a different island, [`PostViewCounter`](https://github.com/ErickCReis/ErickCReis/blob/main/web/islands/post-view-counter.tsx). When mounted, it sends `POST /blog/views` for that article's view key and displays the returned total. If the document opened in a background tab, the island waits until the document becomes visible before sending. A browser preload should not look like a person reading a post.
-
-```mermaid center
-flowchart TB
-  Page["Static article"] --> Mount["Solid counter mounts"]
-  Mount --> Visible["Wait until the document is visible"]
-  Visible --> Post["POST the article key"]
-  Post --> Store["SQLite deduplicates and increments"]
-  Store --> Result["Return the current total"]
-  Result --> Replace["Replace the placeholder"]
+```text
+the-blog-layer-static-pages-live-view-counts.mdx
+the-blog-layer-static-pages-live-view-counts.pt-BR.mdx
 ```
 
-If either request fails, the archive hides its count labels and the article removes its counter. The content, route, metadata, and navigation were never inside those islands, so the failure does not turn the post into an error page.
+[`web/lib/blog.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog.ts) derives two identities from those names:
 
-## The view key follows the content file
+```ts
+export function getBlogSlug(entry: BlogEntry) {
+  const sourceName = getSourceName(entry);
 
-The public English and Portuguese routes share a readable slug, but their source files have different names: `post.mdx` and `post.pt-BR.mdx`. [`web/lib/blog.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog.ts) removes the locale suffix to create the public route and keeps the full source name as the view key.
+  for (const suffix of localeSuffixes) {
+    if (sourceName.endsWith(suffix)) {
+      return sourceName.slice(0, -suffix.length);
+    }
+  }
 
-As a result, `post` and `post.pt-BR` receive separate totals even though both language routes end in `/blog/post`. The runtime API never needs to resolve a locale or inspect an MDX file; it receives the stable key the build selected.
+  return sourceName;
+}
 
-The shared request schema allows letters, numbers, and a limited set of separators, caps a key at 160 characters, and limits batch reads to 100 keys. That validates the shape and size of public input. It does not currently verify that a key belongs to the built content collection, so a direct client could create a total for an invented but well-formed key. The UI only asks for real entries, but a generated allow-list would be a reasonable hardening step.
-
-## Deduplicating without an account
-
-The server assigns the first count request an opaque `ct_` visitor ID in a strict same-site, HTTP-only cookie. It is secure in production and expires after one year. JavaScript can make credentialed requests but cannot read or choose the cookie value.
-
-Two SQLite tables serve different retention needs:
-
-| Table                     | Purpose                     | Key                           |
-| ------------------------- | --------------------------- | ----------------------------- |
-| `blog_post_view_totals`   | Permanent aggregate count   | article view key              |
-| `blog_post_view_visitors` | Recent deduplication record | article view key + visitor ID |
-
-[`server/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/blog/views.ts) handles a write in one immediate transaction. It opportunistically deletes visitor rows older than 24 hours, checks the current article-and-visitor pair, and returns the existing total when that pair is still inside the window. Otherwise it upserts the visitor timestamp and atomically inserts or increments the aggregate total.
-
-```mermaid center
-flowchart TB
-  Request["Article + visitor ID"] --> Recent{"Counted within 24 hours?"}
-  Recent -->|yes| Existing["Return total · counted false"]
-  Recent -->|no| Visitor["Upsert recent visitor row"]
-  Existing ~~~ Visitor
-  Visitor --> Total["Increment permanent total"]
-  Total --> Result["Return total · counted true"]
+export function getBlogViewKey(entry: BlogEntry) {
+  return getSourceName(entry);
+}
 ```
 
-The immediate transaction prevents two concurrent requests from reading the same old state and both incrementing outside the intended sequence. It also keeps the visitor record and total update together.
+The public slug removes a recognized non-default locale suffix, so both variants map to the same route-shaped identifier. The view key preserves the full source name, so the English and Portuguese articles accumulate independent totals:
 
-The lab below makes that transaction visible. Read as browser A twice: the first request increments the total, while the second finds the active token and leaves it alone. Browser B has an independent token. You can also hide the tab to hold a read at the visibility gate, or advance the clock by 25 hours and make a browser eligible again. Notice that the MDX half never changes; only the runtime number and short-lived token set move.
+| Concern | English | Portuguese |
+| --- | --- | --- |
+| Source identity | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
+| Public path | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
+| Counter key | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
 
-<ViewCounterLab client:load locale="en-US" />
+Keeping the locale in the counter key avoids silently merging audiences. It also means renaming a source file creates a new counter identity; there is no alias or migration mechanism connecting the old key to the new one.
 
-The view tables do not store an IP address, user agent, account, or referrer. They do store the same opaque visitor ID beside each recently viewed article, which means views can be correlated during the deduplication window. Expired rows are pruned on a later write rather than by a dedicated cleanup job. Its privacy description should call out that short-term correlation instead of presenting the counter as anonymous analytics.
+Locale pairing is convention-based. For a requested locale, `getBlogEntry` first looks for `${slug}.${normalizedLocale}` and then falls back to the unsuffixed source:
 
-## Static first, dynamic at the edge
+```ts
+return (
+  visibleEntries.find((entry) => getSourceName(entry) === `${slug}.${normalizedLocale}`) ??
+  visibleEntries.find((entry) => getSourceName(entry) === slug)
+);
+```
 
-The content changes at deploy time; only the count changes between requests. Astro content collections give authoring, validation, localized variants, and static routes. Two small islands give the archive a batch read and the article an intentional write.
+That fallback prevents a missing translation from becoming a missing route. The tradeoff is that a Portuguese URL may render English content when its `.pt-BR` file does not exist. The build does not currently report incomplete locale pairs.
 
-It is the same boundary I keep returning to on the homepage: the document exists without client state, and JavaScript enters where a live value adds something useful.
+## Generate only routes visible to that build
 
-The next post follows the localized variants mentioned here. It explains the small build plugin and runtime that collect translation strings, generate catalogs, and make the same locale available to Astro pages and hydrated Solid islands.
+The detail page's `getStaticPaths` takes every visible logical slug and produces its Cartesian product with the configured locales:
+
+```ts
+const slugs = [...new Set(filterPublishedEntries(entries, options).map(getBlogSlug))];
+
+return locales.flatMap((locale) =>
+  slugs.map((slug) => ({
+    params: {
+      locale: locale === defaultLocale ? undefined : locale,
+      slug,
+    },
+    props: { locale, slug },
+  })),
+);
+```
+
+The default locale omits the URL prefix; other locales receive one through the optional catch-all route. The archive applies the same publication filter and then selects at most one source per logical slug, preferring an exact localized source over the default fallback. Using the same selection functions for route generation, archive links, article navigation, and counter keys prevents those consumers from inventing slightly different identities.
+
+Publication is a calendar comparison, not a timestamp comparison. [`web/lib/blog-publication.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog-publication.ts) reads the frontmatter date as a UTC calendar key and compares it with the current date in `America/Sao_Paulo`:
+
+```ts
+export function isBlogPostPublished(date: Date, now = new Date()) {
+  return getScheduledDateKey(date) <= getPublicationDateKey(now);
+}
+```
+
+Both the archive and detail route pass `includeScheduled: true` only in development. Production builds exclude future entries from the archive and from `getStaticPaths`; development builds expose them for review.
+
+This is scheduled compilation, not runtime scheduling. A build produced on August 21 does not reveal the article when São Paulo reaches August 22. A new build must run on or after the publication date. Conversely, once a route is emitted, changing the server clock does not retract it. The publication date should therefore be understood as a build input.
+
+## Keep the client boundary narrower than the document
+
+The archive and article use different client behaviors.
+
+The archive renders every title, description, date, tag, link, and a `-- views` placeholder into HTML. A `client:only="solid-js"` hydrator returns no DOM of its own; on mount it finds all `[data-post-view-count]` spans and makes one batch request for their keys. It then replaces each placeholder:
+
+```ts
+void fetchPostViewCounts(props.slugs)
+  .then((result) => {
+    for (const placeholder of placeholders) {
+      const slug = placeholder.dataset.postViewCount;
+      if (!slug) continue;
+
+      placeholder.textContent = formatViewCountLabel(result[slug] ?? 0);
+    }
+  })
+  .catch(() => {
+    for (const placeholder of placeholders) {
+      placeholder.hidden = true;
+      placeholder.textContent = "";
+    }
+  });
+```
+
+The article uses `PostViewCounter`, also as a client-only Solid island. It performs the write only after the document is visible. A background tab waits for `visibilitychange`, reducing counts caused by speculative navigation or a tab the reader never foregrounds.
+
+Without JavaScript, the article remains readable and the archive keeps its placeholder. Failed archive reads hide the labels, and failed article writes hide the counter. An `isDisposed` guard prevents signal updates after unmount.
+
+The request itself is not aborted on unmount, and visibility is only a coarse reading signal. A foreground tab is counted even if the visitor immediately leaves, while a reader with JavaScript disabled is never counted.
+
+## Validate the transport independently of the UI
+
+The browser and server share Valibot request schemas from [`shared/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/blog/views.ts):
+
+```ts
+export const blogPostSlugSchema = v.pipe(
+  v.string(),
+  v.minLength(1),
+  v.maxLength(160),
+  v.regex(/^[A-Za-z0-9]+(?:[./_-][A-Za-z0-9]+)*$/),
+);
+
+export const blogPostQueryRequestSchema = v.object({
+  slugs: v.pipe(v.array(blogPostSlugSchema), v.minLength(1), v.maxLength(100)),
+});
+```
+
+`GET /blog/views` reads up to 100 keys in one query. `POST /blog/views` accepts one key and registers a view. Both responses set `cache-control: no-store`; the client also requests `cache: "no-store"`. This avoids serving an old counter from the browser or an intermediary cache.
+
+The API validates key shape but does not verify that a key belongs to the built collection. Any caller can create rows for a well-formed invented key. There is also no rate limiter beyond per-cookie deduplication, so clients that discard cookies can inflate totals.
+
+## Make deduplication and aggregation one transaction
+
+The first `POST` assigns an opaque visitor ID matching `ct_[A-Za-z0-9_-]{21}`. Elysia stores it in a strict same-site, HTTP-only cookie with a one-year lifetime and enables `Secure` in production. Client JavaScript sends the cookie but cannot read or select its value.
+
+SQLite stores four projections:
+
+| Table | Primary key | Retention and purpose |
+| --- | --- | --- |
+| `blog_post_view_totals` | `slug` | Permanent total |
+| `blog_post_view_visitors` | `slug, visitor_id` | 24-hour dedupe state |
+| `blog_post_daily_views` | `date, slug` | Daily report aggregate |
+| `blog_post_weekly_views` | `week_start, slug` | Sunday-to-Saturday aggregate |
+
+`registerPostView` runs an immediate SQLite transaction. It calculates a 24-hour cutoff, removes stale visitor rows, checks the current visitor-and-key pair, and returns the existing total when that pair is still recent. Otherwise it upserts the dedupe row and increments the total, daily, and weekly projections:
+
+```ts
+tx.insert(blogPostViewTotals)
+  .values({ slug, totalViews: 1, updatedAtMs: nowMs })
+  .onConflictDoUpdate({
+    target: blogPostViewTotals.slug,
+    set: {
+      totalViews: sql`${blogPostViewTotals.totalViews} + 1`,
+      updatedAtMs: nowMs,
+    },
+  })
+  .run();
+```
+
+The daily date and week start are calculated in the same São Paulo timezone used by reporting. At midnight, a cron job builds either the previous day's report or, on Sunday, the previous Sunday-to-Saturday weekly report. These report tables are denormalized at write time; reports do not scan visitor rows or reconstruct history from the permanent total.
+
+`behavior: "immediate"` acquires SQLite's write reservation before the read-modify-write sequence. Concurrent writers cannot both observe an absent dedupe row and independently increment outside that sequence. The four projections and the dedupe token commit together: an exception before commit rolls the transaction back, while a successful response reflects a committed total selected inside the transaction.
+
+This is atomic within one SQLite database, not a distributed exactly-once protocol. Durability still depends on the database file and its storage configuration. Multiple application instances need to share the same database with compatible locking semantics; independent SQLite files would produce divergent totals. Opportunistic cleanup also means expired visitor rows remain until a later successful write.
+
+## Define what the number means
+
+The displayed value counts accepted `(content key, visitor cookie, 24-hour window)` writes committed to this database. It does not represent unique people or sessions.
+
+That definition exposes the system's limits:
+
+- Clearing or blocking the cookie creates a new visitor identity.
+- Several people sharing one browser profile are deduplicated together.
+- One person using multiple browsers or devices is counted multiple times.
+- View totals split when a localized source or filename uses a different key.
+- The visitor table permits short-term cross-article correlation through the same opaque ID, even though it stores no IP address, account, referrer, or user agent.

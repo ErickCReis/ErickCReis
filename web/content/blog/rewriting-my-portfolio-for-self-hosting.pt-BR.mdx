@@ -5,8 +5,6 @@ date: "2026-06-23"
 tags: [self-hosting]
 ---
 
-import { DeploymentShapeLab } from "@web/content/labs/deployment-shape-lab";
-
 Em algum momento, este portfólio deixou de ser apenas uma página estática. Fui acrescentando telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas “deploy de site estático” já não era uma descrição honesta dele.
 
 Fiz a reescrita porque queria que o deploy tivesse uma resposta física: uma máquina. O [Astro](https://astro.build/) continuaria gerando páginas estáticas e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas, mas a aplicação inteira seria empacotada em um único container e executada em um notebook que estava parado.
@@ -56,9 +54,7 @@ flowchart TB
 
 Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e deixa o fluxo de deploy fácil de inspecionar. A infraestrutura ainda tem várias peças, mas a aplicação tem menos fronteiras de runtime: um destino de deploy, um container e um processo de servidor.
 
-Esses caminhos se encontram no container em execução, mas carregam coisas diferentes. Acompanhe uma requisição no modelo abaixo e, depois, faça o deploy de outra revisão. O container muda; o diretório `/app/data` montado não.
-
-<DeploymentShapeLab client:load locale="pt-BR" />
+Esses caminhos se encontram no container em execução, mas carregam coisas diferentes. Um novo deploy substitui o container, enquanto o diretório `/app/data` montado permanece.
 
 ## O artefato de build
 

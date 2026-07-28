@@ -1,97 +1,181 @@
 ---
-title: "Email templates without a template framework"
-description: How a small Solid JSX renderer turned one battery alert into reusable HTML and plain-text emails for scheduled blog reports.
+title: "Type-safe email markup with a 45-line JSX renderer"
+description: A code-level look at typed message contracts, escaped JSX rendering, table-based layout, multipart output, delivery boundaries, and client compatibility.
 date: "2026-09-12"
-tags: [architecture, telemetry]
+tags: [typescript, architecture, email]
 ---
 
-The first email sent by this site did not need a template system. It was the battery warning from the [runtime telemetry post](/blog/health-telemetry-from-the-real-runtime): a subject, a few lines of plain text, and one HTML string assembled inside the cron task.
+Email templates in this server are TypeScript functions. They accept domain data, compose a small set of TSX primitives, and return a provider-independent message:
 
-That stopped being enough when I added daily and weekly reports for the [blog's live view counts](/blog/the-blog-layer-static-pages-live-view-counts). The new message needed a heading, a reporting period, totals, and a table whose rows came from SQLite. Copying more HTML into a second cron file would have worked, but it would also have mixed scheduling, data aggregation, markup, and delivery in one place again.
-
-I kept the solution small: a custom JSX renderer built with [Solid](https://www.solidjs.com/), a few table-based components, and one delivery adapter for the [Resend Email API](https://resend.com/docs/api-reference/emails/send-email).
-
-```mermaid center
-flowchart TB
-  Cron["Cron task"] --> Data["Build report data"]
-  Data --> Template["Render JSX template"]
-  Template --> Message["Subject + text + HTML"]
-  Message --> Delivery["Shared Resend adapter"]
-  Delivery --> Inbox["Inbox"]
+```ts
+type RenderedMessage = {
+  subject: string;
+  text: string;
+  html: string;
+};
 ```
 
-## The old alert exposed the boundary
+Solid's server renderer turns the TSX tree into HTML. A local JSX factory handles the integration; no reactivity or hydration is involved.
 
-The [original battery cron](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/cron/battery-alert.ts) owned the whole operation. It read environment variables, created a Resend client, built both message bodies, sent the request, and handled errors. That was reasonable while it was the only caller.
+```mermaid center
+flowchart LR
+  Data["Typed domain data"] --> Renderer["Template function"]
+  Renderer --> Text["Plain text"]
+  Renderer --> JSX["Typed TSX tree"]
+  JSX --> HTML["Escaped HTML document"]
+  Text --> Message["subject + text + html"]
+  HTML --> Message
+  Message --> Adapter["Resend adapter"]
+```
 
-The [blog report cron](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/cron/blog-report.ts) introduced a second caller with different data but the same delivery needs. That made the boundary clearer:
+## Put the type boundary before the markup
 
-- cron tasks decide when to send;
-- report code decides what the data means;
-- templates decide how the message reads;
-- the email adapter decides how it leaves the server.
+The templates do not query SQLite, read the battery, inspect environment variables, or know when a cron task runs. Their inputs describe only what is required to render a message.
 
-The refactored cron now reads the battery, calls [`renderBatteryAlert`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/email/battery-alert.tsx), and passes the returned message to [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/lib/email.ts). The report cron follows the same path with [`createBlogReport`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/blog/report.ts) and [`renderBlogReport`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/email/blog-report.tsx). Both renderers return provider-independent messages, so `sendEmail` can accept them without knowing what a battery percentage or blog view is.
+The battery alert accepts three scalar values:
 
-## JSX is the template syntax
+```ts
+type BatteryAlert = {
+  batteryPercent: number;
+  thresholdPercent: number;
+  timestamp: string;
+};
 
-The [earlier Solid post](/blog/astro-static-shell-solid-live-layer) used TSX for interactive browser islands. These templates use it as a server-only authoring syntax. A file-level JSX pragma sends every element through a local `emailElement` factory:
-
-```tsx
-/** @jsx emailElement */
-
-function BatteryAlertEmail(props: BatteryAlert) {
-  return (
-    <EmailLayout preview={`Battery alert: ${props.batteryPercent}% and discharging`}>
-      <EmailCard>
-        <EmailHeading>Battery alert</EmailHeading>
-        <EmailText>
-          Your battery is at <strong>{props.batteryPercent}%</strong>.
-        </EmailText>
-      </EmailCard>
-    </EmailLayout>
-  );
+export function renderBatteryAlert(alert: BatteryAlert) {
+  return {
+    subject: `Battery alert: ${alert.batteryPercent}% and discharging`,
+    text: [
+      "Battery alert",
+      "",
+      `Your battery is at ${alert.batteryPercent}% and is currently discharging.`,
+      `Alert threshold: below ${alert.thresholdPercent}%.`,
+      `Checked at: ${alert.timestamp}.`,
+    ].join("\n"),
+    html: renderEmail(() => <BatteryAlertEmail {...alert} />),
+  };
 }
 ```
 
-For a component such as `EmailCard`, the factory calls the function with its props and children. For an intrinsic element such as `table` or `strong`, it delegates to Solid's server-side `ssrElement`. Finally, [`renderToString`](https://docs.solidjs.com/reference/rendering/render-to-string) turns the tree into an HTML document.
+The report uses a discriminated union:
 
 ```ts
-export function emailElement(type, props, ...children) {
+export type BlogReport =
+  | (BlogReportBase & { kind: "daily" })
+  | (BlogReportBase & {
+      kind: "weekly";
+      previousDayViews: number;
+    });
+```
+
+Checking `report.kind === "weekly"` narrows the value before the template accesses `previousDayViews`. A daily report cannot accidentally require that field, and a weekly report cannot be constructed without it. The report builder also depends on the narrow `BlogViewsReader` interface rather than the concrete SQLite store, so aggregation can be tested with an in-memory object.
+
+Domain data is complete before rendering, component props are checked at TSX call sites, and delivery always receives `{ subject, text, html }`. Current inputs are constructed inside the server; network data would still need runtime validation.
+
+## A JSX factory only needs two branches
+
+Each email TSX file starts with `/** @jsx emailElement */`. Bun's JSX transform therefore sends both components and intrinsic tags to the local factory in [`server/email/components.tsx`](https://github.com/ErickCReis/ErickCReis/blob/main/server/email/components.tsx).
+
+```ts
+export function emailElement(
+  type: EmailElementType,
+  props: Record<string, unknown> | null,
+  ...children: unknown[]
+): JSX.Element {
   const resolvedChildren = children.length === 1 ? children[0] : children;
 
   if (typeof type === "function") {
     return type({ ...props, children: resolvedChildren });
   }
 
-  return ssrElement(type, props, resolveIntrinsicChild(resolvedChildren), false);
+  return ssrElement(
+    type,
+    props,
+    resolveIntrinsicChild(resolvedChildren),
+    false,
+  ) as unknown as JSX.Element;
 }
+```
 
-export function renderEmail(template) {
+There are only two cases:
+
+1. A function means a local component such as `EmailCard`; call it with its props and children.
+2. A string means an intrinsic HTML element such as `table`; pass it to Solid's `ssrElement`.
+
+`renderEmail` then wraps Solid's server output in a doctype:
+
+```ts
+export function renderEmail(template: () => JSX.Element) {
   return `<!doctype html>${renderToString(template)}`;
 }
 ```
 
-The code produces server-rendered HTML and stops there. JSX provides a convenient way to compose that markup with typed props.
+The callback matters because `renderToString` establishes the server-rendering context while evaluating the tree. The output is a complete HTML document, not a fragment to be assembled later by the delivery adapter.
 
-## The component library is intentionally small
+The factory's `Record<string, unknown>` signature is permissive. A larger component set would need tighter props and return types.
 
-Email HTML has different constraints from the site. The shared layout uses presentation tables, conservative fonts, and inline styles because inbox rendering is less predictable than browser rendering.
+## Escape at the intrinsic-element boundary
 
-[`server/email/components.tsx`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/email/components.tsx) currently exports only the pieces shared by both messages:
-
-- `EmailLayout` creates the document, preview text, background, and centered container;
-- `EmailCard` provides the 600-pixel content surface;
-- `EmailHeading` and `EmailText` keep typography consistent;
-- `renderEmail` produces the final document.
-
-The report template keeps its data table because the battery alert does not need one. Promoting every tag into a reusable component would create an API larger than the two emails it serves. I only move a primitive into the shared file after both templates need the same markup.
-
-## Plain text stays explicit
-
-Each renderer returns one complete message rather than HTML alone:
+Template data eventually becomes children of HTML elements. Before handing those children to `ssrElement`, the renderer recursively resolves arrays and child functions, then escapes strings:
 
 ```ts
+function resolveIntrinsicChild(child: unknown): unknown {
+  if (Array.isArray(child)) return child.map(resolveIntrinsicChild);
+  if (typeof child === "function") return resolveIntrinsicChild(child());
+  if (typeof child === "string") return escape(child);
+  return child;
+}
+```
+
+This placement keeps component composition intact: a component may forward its children through several function calls, but strings are escaped when they cross into an intrinsic tag. Numeric children remain numeric and are serialized by Solid.
+
+The report test uses the slug `typescript-<patterns>` as a concrete injection boundary. The plain-text body retains that readable value, while the HTML must contain `typescript-&lt;patterns>` and must not contain the raw tag-shaped string.
+
+This protects text children used by the current templates. The renderer does not offer an API for trusted raw HTML, and the templates do not interpolate user-controlled style declarations, attribute names, or markup. Adding any of those features would require a separate review of the escaping model.
+
+## Build primitives for email layout, not browser layout
+
+The shared component layer contains four visual primitives:
+
+- `EmailLayout` owns the document shell, hidden preview text, page background, and outer presentation table.
+- `EmailCard` creates a centered content surface with a maximum width of 600 pixels.
+- `EmailHeading` and `EmailText` provide repeatable typography.
+- `renderEmail` serializes the final tree.
+
+The layout uses tables with `role="presentation"`, HTML alignment attributes, conservative system fonts, and inline style objects:
+
+```tsx
+<table
+  role="presentation"
+  style={{
+    width: "100%",
+    "border-collapse": "collapse",
+    "background-color": "#f4f4f5",
+  }}
+>
+  <tbody>
+    <tr>
+      <td align="center" style={{ padding: "32px 16px" }}>
+        {props.children}
+      </td>
+    </tr>
+  </tbody>
+</table>
+```
+
+These choices reduce dependence on stylesheet support and modern layout engines. They do not guarantee identical rendering in every inbox. For example, the card uses `max-width` and `border-radius` without Outlook-specific conditional markup, and there are no dark-mode overrides.
+
+The report's two-column data table remains inside `BlogReportEmail`. It is message-specific structure, not a shared primitive. Reuse here follows an actual common layout requirement; it does not wrap every HTML tag in a component.
+
+## Generate the two MIME alternatives explicitly
+
+Both renderers produce HTML and plain text from the same typed input. The text version is written explicitly:
+
+```ts
+const rows =
+  report.views.length === 0
+    ? ["No blog reads were recorded in this period."]
+    : report.views.map((row) => `${row.slug}: ${row.views}`);
+
 return {
   subject: `${label} blog report: ${total}`,
   text: [
@@ -99,39 +183,56 @@ return {
     period,
     "",
     `Total: ${total}`,
+    ...previousDaySummary,
     ...rows,
   ].join("\n"),
   html: renderEmail(() => <BlogReportEmail report={report} />),
 };
 ```
 
-I write the plain-text version directly instead of stripping tags from the HTML. It is short, and writing it separately gives me control over line breaks, labels, and empty states. Every template returns the same clear contract: a subject, text body, and HTML body.
+An explicit text renderer controls hierarchy, whitespace, empty states, and table flattening. It also makes divergence visible in the same function: changing the report label or adding a field requires reviewing both representations together.
 
-Dynamic content still needs escaping. Blog slugs come from the view store and are inserted into table cells. `resolveIntrinsicChild` escapes string children before passing them to Solid's serializer. A [rendering test](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/blog/report.test.ts) uses `typescript-<patterns>` and verifies that the HTML contains `typescript-&lt;patterns>` while the plain-text body keeps the readable original.
+There is still duplication between the text and HTML branches. The current messages are short enough that the duplicated presentation logic is easier to audit than a shared intermediate document AST. A larger template set could justify such an AST, but the current code does not need one.
 
-## Reports use São Paulo calendar days
+## Keep scheduling, rendering, and delivery separate
 
-The email work was triggered by a reporting feature, so the period calculation matters as much as the markup.
+The scheduled report follows a narrow pipeline:
 
-Every accepted post view now increments a permanent total plus daily and weekly SQLite aggregates in [`server/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/blog/views.ts). The keys use the `America/Sao_Paulo` calendar. At midnight, an [`@elysiajs/cron`](https://github.com/elysiajs/elysia-cron) task creates a report for the completed day. On Sundays, that daily email is replaced by a report for the completed Sunday-to-Saturday week.
+```ts
+const message = renderBlogReport(createBlogReport(blogViewsStore, now));
 
-```mermaid center
-flowchart TB
-  View["Deduplicated post view"] --> Daily["Daily aggregate"]
-  View --> Weekly["Sunday-to-Saturday aggregate"]
-  Midnight["Midnight in São Paulo"] --> Choice{"Sunday?"}
-  Choice -->|no| DailyMail["Previous-day report"]
-  Choice -->|yes| WeeklyMail["Completed-week report"]
-  Daily --> DailyMail
-  Weekly --> WeeklyMail
+return sendEmail({
+  to: BLOG_REPORT_EMAIL_TO,
+  ...message,
+});
 ```
 
-The [`createBlogReport` builder](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/blog/report.ts) returns plain data: kind, date range, sorted rows, and totals. I keep JSX and cron patterns out of it, which makes boundary cases testable with fixed dates. The Sunday switch can be tested without rendering or sending an email.
+`createBlogReport` owns calendar and aggregation rules. `renderBlogReport` owns presentation. The cron task owns timing and recipient selection. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) owns the provider call and sender address.
 
-## Delivery is deliberately boring
+The delivery adapter accepts `to`, `subject`, `text`, and `html`, adds the fixed sender, and calls `resend.emails.send`. If `RESEND_API_KEY` is missing it returns `false`. It also returns `false` for a provider error or thrown exception after logging the error, and `true` only when the API call succeeds.
 
-[`server/lib/email.ts`](https://github.com/ErickCReis/ErickCReis/blob/71c27c7d200ad5da15b328941a2fae4c5cd484dd/server/lib/email.ts) owns the Resend client and sender address. It accepts a recipient plus the message returned by a renderer. Missing configuration turns scheduled email into a no-op; provider errors are logged and returned as `false`.
+That boolean is operationally significant in the battery cron. The in-memory `batteryAlertSent` latch is assigned from `sendEmail`, so a failed attempt does not suppress the next five-second check. A successful attempt suppresses repeats until the battery status changes. The blog report cron returns the result; the current code has no retry queue or persisted delivery record.
 
-That adapter is small, but centralizing it fixed two problems. The battery and report tasks now agree on configuration and failure behavior, and changing the provider no longer requires editing message markup.
+## Test the seams that can break independently
 
-There are limits to this approach. It has no visual preview server, CSS inliner, compatibility matrix, or broad component catalog. If this site needed transactional emails across many clients, those omissions would make an established email framework a better trade. For two operational messages, the custom layer is easier to understand than the dependency it would replace.
+The tests exercise three different boundaries:
+
+- `createBlogReport` receives fixed dates and fake reader methods, verifying the previous São Paulo calendar day, the Sunday-to-Saturday weekly switch, sort order, and totals.
+- `renderBlogReport` verifies the subject, plain-text row, and escaped HTML output.
+- `renderBatteryAlert` verifies the shared message shape, doctype, threshold text, and rendered percentage.
+
+These are deterministic unit tests: they do not need SQLite for report construction and do not call Resend. There is currently no snapshot suite across email clients, delivery-adapter mock test, or automated visual regression test. Running the HTML through real inboxes remains a manual compatibility check.
+
+## Where this design stops
+
+This renderer is appropriate for the two operational emails currently in the server. Its limits are explicit:
+
+- no CSS inliner or stylesheet transformation;
+- no Outlook/VML compatibility layer;
+- no responsive component system or dark-mode policy;
+- no local preview server;
+- no runtime validation for template inputs;
+- no persisted retries, idempotency key, or delivery audit;
+- no automated rendering matrix across clients.
+
+More templates, stricter Outlook support, or automated client previews would justify moving to a dedicated email framework.

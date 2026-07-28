@@ -5,8 +5,6 @@ date: "2026-07-25"
 tags: [telemetry, architecture]
 ---
 
-import { SourcePolicyLab } from "@web/content/labs/source-policy-lab";
-
 Um painel de telemetria dinâmica não deve ser um cliente de API escondido dentro de um componente de interface. Ele deve ser um pequeno adaptador de origem, com políticas explícitas de atualidade, normalização, retenção e falhas.
 
 Spotify e GitHub são exemplos contrastantes. A reprodução do Spotify pode se tornar enganosa em poucos segundos e pode nem existir. Os dados de contribuições do GitHub mudam devagar, podem ser derivados de uma resposta maior e valem um cache entre reinicializações do processo. Ainda assim, as duas fontes precisam chegar à mesma camada de estatísticas do navegador.
@@ -157,8 +155,6 @@ Os dados do GitHub são lentos o suficiente para sobreviver a uma reinicializaç
 Armazenar o objeto normalizado evita persistir uma resposta do provedor que o restante da aplicação precisaria interpretar novamente. A validação faz com que um schema antigo ou um arquivo malformado vire um cache miss, em vez de entrar silenciosamente no fluxo.
 
 A política de erro distingue “tentar mais tarde” de “mostrar um novo estado”. Uma resposta limitada lê `X-RateLimit-Reset` e preserva o último retrato válido até aquele horário, usando 15 minutos como fallback. Outras falhas publicam um retrato configurado vazio e repetem a tentativa no intervalo mais longo. Assim, o painel não apresenta um valor antigo como se fosse atual, mas um limite temporário também não apaga sem necessidade um dado válido conhecido.
-
-<SourcePolicyLab client:load locale="pt-BR" />
 
 ## Mantenha o painel alheio ao provedor
 

@@ -5,8 +5,6 @@ date: "2026-07-18"
 tags: [realtime, architecture]
 ---
 
-import { CursorProtocolLab } from "@web/content/labs/cursor-protocol-lab";
-
 O [post anterior](/pt-BR/blog/astro-static-shell-solid-live-layer) terminou na fronteira da ilha do Solid. Este acompanha um ponteiro atravessando essa fronteira.
 
 Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página for aberta em outro navegador, esse marcador aparece ali como um cursor remoto. Gosto do resultado visível porque ele é divertido; gosto da implementação porque ela continua enxuta. É um bom exemplo da arquitetura por trás do site: poucas peças, cada uma responsável por uma ponta da interação.
@@ -67,10 +65,6 @@ Nessa primitive, as coordenadas do mouse já acompanham o documento. No toque, e
 Publicar cada evento do ponteiro criaria um volume de trabalho que a interface não conseguiria exibir. O [`@solid-primitives/scheduled`](https://primitives.solidjs.community/package/scheduled/) limita os envios a uma atualização a cada 50 milissegundos. O marcador local é atualizado pelo mesmo caminho, enquanto os marcadores remotos usam uma transição CSS curta para suavizar os intervalos entre atualizações da rede.
 
 O hook amostra o movimento para a tela e não garante a entrega. Se o socket não estiver aberto, a atualização atual é descartada. Em pouco tempo, uma posição mais nova tomará seu lugar.
-
-A bancada abaixo comprime todo o caminho em uma única superfície. Mova o cursor local azul e, sem movê-lo novamente, altere a rolagem: sua posição na área visível permanece fixa, enquanto seu `y` no documento e o marcador violeta no documento remoto mudam. Feche o socket ou faça os IDs divergirem, mova outra vez e veja a amostra parar naquela etapa. “Avançar 7 s” demonstra a regra separada de limpeza da presença expirada.
-
-<CursorProtocolLab client:load locale="pt-BR" />
 
 ## Um socket compartilhado com um ciclo de vida pequeno
 

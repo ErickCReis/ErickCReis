@@ -1,37 +1,27 @@
 ---
-title: "The stats pipeline"
-description: How independent collectors, compact shared payloads, Elysia SSE, and Solid stores turn several update rates into one live layer.
+title: "Designing a latest-state telemetry pipeline"
+description: A technical walkthrough of collector contracts, compact history snapshots, version-gated SSE, Solid stores, and the delivery guarantees between them.
 date: "2026-08-01"
-tags: [telemetry, architecture]
+tags: [telemetry, architecture, sse, typescript]
 ---
 
-import { StatsPipelineLab } from "@web/content/labs/stats-pipeline-lab";
-
-The [Spotify and GitHub panels](/blog/personal-telemetry-from-spotify-and-github) have different credentials, polling intervals, cache policies, and empty states. Their components do not know any of that.
-
-That is the job of the stats pipeline.
-
-The hard part was letting every source keep its own clock while giving the browser one place to bootstrap, listen, and decode. I wanted the panels to feel coordinated without making their collectors pretend to work at the same pace.
-
-The homepage currently combines system resources, external uptime, visitor presence, Spotify playback, GitHub contributions, and agent token usage. Some sources change every few seconds; others change every 30 minutes or only when another process syncs them. The interface needs an initial chart for each one and new snapshots after it starts, without six independent networking implementations.
-
-The resulting path has four layers: collectors on the server, an initial history response, a shared server-sent event stream, and small Solid stores.
+A telemetry dashboard has to reconcile sources with incompatible update models. CPU is sampled every 1.5 seconds, Spotify switches between active and idle polling, GitHub is rate-limited, and another process writes token usage. Each collector keeps its own polling, retry, cache, and retention policy. The delivery layer reads their snapshots through one browser-facing contract.
 
 ```mermaid center
-flowchart TB
-  Sources["Runtime and external sources"] --> Modules["Stat modules"]
-  Modules --> History["GET /stats/history"]
-  Modules --> Stream["GET /stats/stream · SSE"]
-  History ~~~ Stream
-  History --> Transport["Shared transport decoders"]
-  Stream --> Transport
-  Transport --> Stores["Solid stores"]
+flowchart LR
+  Sources["OS · UptimeRobot · presence · Spotify · GitHub · disk"] --> Collectors["Independent stat modules"]
+  Collectors --> History["GET /stats/history"]
+  Collectors --> Gate["Per-connection version gate"]
+  Gate --> SSE["GET /stats/stream · SSE"]
+  History --> Codec["Shared tuple codecs"]
+  SSE --> Codec
+  Codec --> Stores["Solid latest/history stores"]
   Stores --> Panels["Telemetry panels"]
 ```
 
-## A narrow collector interface
+## The collector boundary is a read model
 
-Every source implements the same small [`StatModule`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/types.ts) shape:
+Every source implements the same [`StatModule`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/types.ts) contract:
 
 ```ts
 type StatModule<T> = {
@@ -42,72 +32,158 @@ type StatModule<T> = {
 };
 ```
 
-`start` belongs to the source. The system module can sample frequently, Spotify can switch intervals based on playback, GitHub can wait 30 minutes, and token usage can wait for an internal sync. The common pipeline does not impose one global timer on them.
+Polling intervals, errors, persistence, and subscriptions stay inside each collector:
 
-The other three operations expose a snapshot of each module's state. `getLatest` supplies the complete current value. `getHistory` supplies the recent samples available to a new browser. `getVersion` is a monotonically increasing change marker; the streaming route can ask whether something changed without comparing large objects or understanding their timestamps.
+| Module | Acquisition policy | Server retention |
+| --- | --- | ---: |
+| system | sample process/cgroup resources every 1.5 s | 84 snapshots |
+| websocket | sample every 5 s and update on presence changes | 84 snapshots |
+| Spotify | poll every 2.5 s while playing, otherwise every 15 s | 84 snapshots |
+| GitHub | poll every 30 min, with rate-limit-aware delay and a disk cache | 84 snapshots |
+| server uptime | poll every 5 min, or retry after 1 min following a failed cycle | 10 snapshots |
+| token usage | inspect the persisted aggregate every 30 s | 30 snapshots |
 
-Each module still owns its state, retention limit, persistence choices, and source-specific errors. The interface only defines what the delivery layer needs.
+`startStatsServices()` starts each module after Elysia is listening. The modules run independently of browser connections, so opening the page reads already-collected process state instead of triggering six upstream operations.
 
-The application starts the modules once, after Elysia begins listening. They keep collecting even when nobody has the homepage open. That makes a new visitor a reader of current server state rather than the trigger for six upstream requests.
+`getVersion()` returns an in-memory dirty counter. Each module increments it when publishing a snapshot; only the SSE route reads it.
 
-## History and “now” are different payloads
-
-A chart needs recent context, but a live event needs the full current state. Sending the full snapshot for every historical point would repeat fields the chart never reads.
-
-[`server/stats/history.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) deliberately projects smaller history records. System history keeps a timestamp, CPU usage, and memory usage; the latest system snapshot also includes memory totals, CPU count, and battery state. Spotify history keeps enough information to find the previous track, while its latest snapshot also carries the album, link, progress, and duration.
-
-`GET /stats/history` returns both forms for all modules and uses `Cache-Control: no-store`. The response bootstraps process state, so an intermediary cache cannot decide its freshness.
-
-In the browser, the live overlay starts this request and the stream subscription together. When history arrives, each store merges its points by timestamp, sorts them, and retains its configured window. Stream events arriving around the same time use the same store instead of a second state tree.
-
-## Why SSE fits this direction
-
-Cursor presence needed a WebSocket because the browser sends positions and receives positions. Telemetry only flows from the server to the browser after the initial request, which makes [server-sent events](https://html.spec.whatwg.org/multipage/server-sent-events.html) the smaller protocol for this job.
-
-The Elysia route in [`server/stats/routes.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/routes.ts) keeps a `lastSeen` version map for each connected response. Every 500 milliseconds it walks the six modules. When a module's version is greater than the version seen by that response, the route serializes the latest snapshot and yields one named SSE event.
+For example, the system collector publishes a sample and advances its version in the same tick:
 
 ```ts
-for (const { name, mod } of statModules) {
-  const version = mod.getVersion();
-  if (version > (lastSeen.get(name) ?? 0)) {
-    lastSeen.set(name, version);
-    const payload = serializeStatsStreamEvent(name, mod.getLatest());
-    yield sse({ event: payload.e, data: payload.d });
+const tick = () => {
+  latest = sample();
+  history.push(latest);
+  if (history.length > MAX_HISTORY) history.shift();
+  version++;
+};
+```
+
+That ordering is the module's publication boundary. JavaScript's run-to-completion semantics ensure the route cannot observe the increment halfway through the synchronous update.
+
+## Project bootstrap history for charts
+
+A newly mounted panel needs context for a chart and a complete current value for labels and details. Those are separate data shapes.
+
+[`buildStatsHistoryResponse()`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) returns `{ latest, history }` for every module, but projects each historical sample down to chart-relevant fields:
+
+```ts
+system: {
+  latest: systemStat.getLatest(),
+  history: systemStat.getHistory().map((sample) => ({
+    timestamp: sample.timestamp,
+    cpuUsagePercent: sample.cpuUsagePercent,
+    systemMemoryUsedPercent: sample.systemMemoryUsedPercent,
+  })),
+},
+```
+
+The full system snapshot also contains used and total memory, CPU count, and battery data. Repeating those fields across 84 points would not improve its two-series chart. The same rule applies to Spotify: historical points retain track identity so the UI can derive the previous track, while only `latest` carries progress, duration, album, and URL.
+
+`GET /stats/history` is marked `Cache-Control: no-store`. This endpoint reflects mutable in-process state; an intermediary cache would create a second, uncontrolled freshness policy.
+
+Most history arrays live in memory, have fixed limits, and reset with the process. Presence restores a bounded persisted series, and GitHub can restore a fresh cache. Neither turns the pipeline into an event log.
+
+## One stream, six independent clocks
+
+The live route does not subscribe to source-specific emitters. Each SSE response owns a `lastSeen` map and scans module versions every 500 milliseconds:
+
+```ts
+const lastSeen = new Map<string, number>();
+
+while (true) {
+  for (const { name, mod } of statModules) {
+    const version = mod.getVersion();
+    if (version > (lastSeen.get(name) ?? 0)) {
+      lastSeen.set(name, version);
+      const payload = serializeStatsStreamEvent(name, mod.getLatest());
+      yield sse({ event: payload.e, data: payload.d });
+    }
   }
+  await Bun.sleep(SSE_POLL_INTERVAL_MS);
 }
 ```
 
-The 500-millisecond loop does not make slow sources poll faster. It only notices their versions. It also coalesces multiple source changes that happen between checks into the newest snapshot, which is appropriate for a live dashboard: the browser needs the current value, not an audit log of every intermediate mutation.
+The 500 ms interval is a delivery scan, not a collection interval. A GitHub collector still waits 30 minutes; the route merely notices its next publication within at most one scan period.
 
-The version check is easiest to see as a gate. In the lab below, change the same collector more than once before inspecting the versions: its counter advances each time, but the stream emits one event containing only the newest snapshot. Opening a new SSE connection sends every current snapshot because that response starts with no versions in `lastSeen`.
-
-<StatsPipelineLab client:load locale="en-US" />
-
-If the stream ends, the client waits one second and subscribes again while the island is mounted. An `AbortController` ends that loop when Astro navigation removes the overlay. The next SSE response has a fresh `lastSeen` map, so it emits the current versions again without a resume-token protocol.
-
-## Compact on the wire, named in the application
-
-The domain objects use descriptive fields. Repeating those names across every sample in a history response adds bytes without adding information, so the shared transport maps them to tuples and short event codes.
-
-A WebSocket-presence snapshot, for example, changes from a named object into a positional array:
+The version gate intentionally coalesces. If Spotify publishes versions 41, 42, and 43 before the route checks it, the response emits one event containing the snapshot at version 43. This gives the pipeline **latest-state semantics**:
 
 ```text
-Application: { timestamp, connectedUsers, maxConcurrentUsers, connectionStartedAt }
-Wire event "ws": [timestamp, connectedUsers, maxConcurrentUsers, connectionStartedAt]
+collector transitions: v41 → v42 → v43
+stream observation:                 v43
 ```
 
-History can be smaller again: `[timestamp, connectedUsers]`. At the outer level, `system`, `server`, `websocket`, `spotify`, `github`, and `tokenUsage` become `sy`, `sr`, `ws`, `sp`, `gh`, and `tu`.
+That is appropriate for gauges and “now playing,” but not for billing, auditing, or any domain where every transition matters. Those systems need a durable log, sequence identifiers, and resumable consumers.
 
-The smaller payload trades away self-description. Changing a tuple's field order requires both ends to change together. [`shared/stats/transport.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/stats/transport.ts) and the source-specific `*.transport.ts` files make that coupling explicit: every wire type has a serializer and deserializer next to it. The rest of the application continues to use named objects.
+Because `lastSeen` belongs to one response, a fresh connection starts with no observed versions. Every initialized module whose version is greater than zero emits its current snapshot. A module still at version zero is supplied by `/stats/history` and will enter the stream after its first publication.
 
-I would not start with tuple serialization for an API maintained by unrelated clients. Here, one repository builds both ends, the stream is repetitive, and the boundary is small enough to inspect. Those constraints make the compromise reasonable.
+## Tuple codecs define the wire protocol
 
-## Stores keep panels local
+Application code uses named objects. The wire protocol uses short outer keys and positional tuples to avoid repeating property names across history arrays and frequent events.
 
-[`web/stats/history.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/stats/history.ts) decodes the bootstrap response and hands each pair of `history` and `latest` values to its store. [`web/stats/stream.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/stats/stream.ts) decodes each event code and dispatches the full snapshot to the same store.
+The aggregate history response is structurally:
 
-A store only knows two operations: merge initial history and push a new sample. It also reduces a full new snapshot to the fields useful as a history point and caps the array, usually at 84 items. The panel reads reactive signals such as `latest()` and `history()` and turns them into labels, progress bars, or charts.
+```ts
+type StatsHistoryItemWire<L, H> = { l: L; h: H[] };
 
-Adding a stat is not automatic. It still needs a source module, domain and transport types, registration in the routes, history projection, a client store, stream dispatch, and a panel. That repetition is visible, but it is also auditable. Each new source crosses the same explicit boundaries rather than disappearing behind a framework with more flexibility than this site needs.
+type StatsHistoryResponseWire = {
+  sy: StatsHistoryItemWire<SystemStatTuple, SystemHistoryPointTuple>;
+  sr: StatsHistoryItemWire<ServerInfoStatTuple, ServerHistoryPointTuple>;
+  ws: StatsHistoryItemWire<WebSocketStatTuple, WebSocketHistoryPointTuple>;
+  sp: StatsHistoryItemWire<SpotifyNowPlayingTuple, SpotifyHistoryPointTuple>;
+  gh: StatsHistoryItemWire<GitHubCommitStatsTuple, GitHubHistoryPointTuple>;
+  tu: StatsHistoryItemWire<TokenUsageSnapshotTuple, TokenUsageHistoryPointTuple>;
+};
+```
 
-The next post moves below the API routes and explains how the same Bun process also serves Astro's static output as the production site.
+A presence snapshot illustrates the compression:
+
+```text
+domain: { timestamp, connectedUsers, maxConcurrentUsers, connectionStartedAt }
+wire:   [timestamp, connectedUsers, maxConcurrentUsers, connectionStartedAt]
+history point: [timestamp, connectedUsers]
+event code: "ws"
+```
+
+Serializers run in the server and deserializers restore domain objects in the browser. Keeping both in `shared/stats/*.transport.ts` makes tuple order an explicit, reviewable contract.
+
+Tuples are compact but not self-describing. Reordering one field breaks the protocol, and the decoder converts positions without schema validation. It catches conversion errors, but structurally plausible invalid values can still pass through.
+
+## Browser stores reconcile bootstrap and live samples
+
+The Solid island starts both paths on mount:
+
+```ts
+void fetchStatsHistory();
+void subscribeStatsStream(controller.signal);
+```
+
+The history client decodes the aggregate payload and calls `loadHistory()` on each source store. The stream client decodes a named event and calls that same store's `pushSample()`. A typical store merges history by timestamp, sorts it, and truncates its client-side window:
+
+```ts
+const merged = new Map<number, SystemHistoryPoint>();
+for (const sample of prev) merged.set(sample.timestamp, sample);
+for (const sample of data) merged.set(sample.timestamp, sample);
+
+return [...merged.values()]
+  .sort((a, b) => a.timestamp - b.timestamp)
+  .slice(-MAX_POINTS);
+```
+
+This handles duplicate chart points when bootstrap and SSE overlap. It does not provide a fully ordered initialization transaction: `loadHistory()` also assigns its `latest` value unconditionally. If a newer stream event arrives before a slower history response, the history response can temporarily replace `latest` with an older snapshot. Subsequent stream data corrects it, and the merged chart remains ordered, but a strict implementation should compare source timestamps before replacing `latest`, or establish the stream first and buffer events until bootstrap completes.
+
+## Failure and reconnection semantics
+
+The stream client consumes Elysia's async iterable. A malformed event is logged and ignored without terminating the subscription. If the request fails or the iterable ends, it waits one second and reconnects; an `AbortController` stops both the request and retry timer when the Solid island unmounts.
+
+There is no SSE `id`, `Last-Event-ID`, exponential backoff, or server-side replay buffer. Recovery works because the protocol transfers snapshots rather than events: a new response has a fresh `lastSeen` map and sends the current value of every initialized module.
+
+The resulting guarantees are intentionally narrow:
+
+- bounded, in-memory chart context;
+- eventual convergence to current module state after reconnect;
+- possible coalescing and loss of intermediate states;
+- no ordering guarantee across different modules;
+- no durable replay across process restarts;
+- one fixed-delay retry loop per mounted telemetry island.
+
+Auditability, multiple server replicas, or independently versioned clients would require replacing the in-memory version gate and repository-coupled tuple protocol.

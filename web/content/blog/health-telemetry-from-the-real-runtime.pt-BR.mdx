@@ -1,57 +1,94 @@
 ---
-title: "Telemetria de saúde do ambiente real de execução"
-description: Como CPU do processo, memória do cgroup, arquivos da bateria do host e um monitor externo descrevem partes diferentes do mesmo deploy.
+title: "Projetando telemetria de runtime entre fronteiras do sistema"
+description: Uma análise técnica de CPU do processo, memória do cgroup, bateria do host, uptime externo, amostragem de presença, histórico limitado e transporte SSE até a interface.
 date: "2026-08-15"
-tags: [telemetry, self-hosting]
+tags: [telemetry, observability, self-hosting]
 ---
 
-import { RuntimeVantageLab } from "@web/content/labs/runtime-vantage-lab";
-
-O [post anterior](/pt-BR/blog/shipping-astro-from-a-bun-server) colocou os arquivos do Astro e o servidor Bun dentro de um único container. Quando esse container se tornou a unidade de produção, uma pergunta simples deixou de ter uma resposta simples: quando o site exibe a “saúde do sistema”, qual sistema está descrevendo?
-
-CPU pode significar o notebook inteiro, a capacidade permitida ao container ou o próprio processo do servidor. A memória informada por `node:os` pode descrever o host mesmo quando o processo está restrito por um cgroup. O notebook tem bateria, mas o container não consegue enxergá-la sem que esse detalhe do host seja exposto de propósito. O tempo de vida do processo não diz se o domínio público estava acessível.
-
-Quando coloquei essas leituras lado a lado pela primeira vez, a proximidade fez com que parecessem intercambiáveis. A telemetria deste site mantém separadas quatro lentes de observação (processo, cgroup, host e observador externo), pois uma única medida não consegue descrever todo o deploy.
+Uma métrica de runtime está incompleta enquanto não identifica onde foi observada e o que seu denominador significa. Neste deploy, o processo Bun roda em um container hospedado em um notebook e é acessado por um caminho público de rede. Essas camadas produzem medidas com escopos diferentes:
 
 ```mermaid center
 flowchart LR
-  Process["Bun<br/>CPU"] --> Panels["Painéis de saúde"]
-  Cgroup["Cgroup<br/>CPU + memória"] --> Panels
-  Host["Notebook<br/>bateria"] --> Panels
-  Outside["UptimeRobot<br/>disponibilidade"] --> Panels
+  Process["Processo Bun<br/>tempo de CPU"] --> Stats["Módulos de estatísticas"]
+  Cgroup["Cgroup do container<br/>orçamento de memória"] --> Stats
+  Host["sysfs montado do host<br/>bateria"] --> Stats
+  Outside["UptimeRobot<br/>acessibilidade pública"] --> Stats
+  Presence["Abas do navegador<br/>heartbeats HTTP"] --> Stats
+  Stats --> Bootstrap["GET /stats/history"]
+  Stats --> Stream["GET /stats/stream · SSE"]
+  Bootstrap --> Stores["Stores limitados do Solid"]
+  Stream --> Stores
+  Stores --> Panels["Painéis de sistema, uptime e presença"]
 ```
 
-## A CPU é relativa à capacidade atribuída ao processo
+## Um contrato de módulo, várias políticas de amostragem
 
-O arquivo [`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) coleta uma amostra a cada 1,5 segundos. Para a CPU, ele começa com `process.cpuUsage()`, que informa o tempo de CPU gasto pelo processo Bun em espaço de usuário e de sistema. O módulo compara esses valores cumulativos com a amostra anterior e divide o trabalho pelo tempo decorrido.
-
-O denominador também inclui o número de CPUs disponível para o deploy. No cgroup v2, o módulo lê `cpu.max` e divide a cota pelo período. Ele aceita os arquivos equivalentes do cgroup v1 e usa `os.cpus().length` quando não há uma cota finita disponível.
+Os coletores do runtime implementam a mesma interface, deliberadamente pequena:
 
 ```ts
-const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
+export type StatModule<T> = {
+  start: (...args: any[]) => void;
+  getLatest: () => T;
+  getHistory: () => T[];
+  getVersion: () => number;
+};
 ```
 
-O resultado representa a parcela da capacidade de CPU do deploy consumida por este processo, limitada entre zero e 100 por cento. Hoje, o Docker Compose limita o serviço a uma CPU, então o painel mostra quanto da CPU atribuída a esta aplicação está sendo consumido pelo processo Bun.
+Cada módulo controla seu relógio e sua política de retenção. O sistema produz amostras a cada 1,5 segundos, a presença a cada 5 segundos e o uptime externo a cada 5 minutos. A interface compartilhada padroniza a entrega; a fonte define o significado de cada valor.
 
-O número de CPUs calculado a partir do cgroup arredonda a cota para um inteiro e nunca fica abaixo de um. Isso é suficiente para o limite atual de uma CPU, mas seria um modelo aproximado para cotas fracionárias. A telemetria só é útil quando sua interpretação e suas limitações permanecem visíveis.
+## CPU do processo normalizada por uma cota inferida do cgroup
 
-## A memória deve respeitar o cgroup
+O arquivo [`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/system.ts) mede CPU com `process.cpuUsage()`. Essa API retorna, em microssegundos, o tempo cumulativo gasto pelo processo Bun em espaço de usuário e de sistema. O coletor calcula a diferença entre amostras e a divide pelo tempo de relógio monotônico obtido com `Bun.nanoseconds()`:
 
-Chamar `os.totalmem()` dentro de um container pode expor a memória total do host, não a quantidade que o serviço pode usar. O módulo verifica primeiro a fronteira do container.
+```ts
+const usedMicroseconds =
+  currentCpuUsage.user -
+  previousCpuUsage.user +
+  (currentCpuUsage.system - previousCpuUsage.system);
 
-No cgroup v2, ele lê `memory.current` e `memory.max`; no v1, usa `memory.usage_in_bytes` e `memory.limit_in_bytes`. Um limite `max` no v2 significa que não há limite. O cgroup v1 pode representar a mesma ideia com um número muito grande, por isso o módulo rejeita um limite informado que ultrapasse duas vezes a memória do host.
+const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
+return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
+```
 
-Se os arquivos do cgroup não estiverem disponíveis ou não houver limite, o fallback é a memória do host informada por `node:os`. Caso contrário, o painel calcula os megabytes usados e o percentual a partir dos valores do cgroup. Com o limite atual de 1 GB no Compose, “memória usada” descreve a pressão sobre o orçamento do container, não sobre toda a RAM instalada no notebook.
+O numerador representa o trabalho do processo, não o uso total de CPU do cgroup nem o uso do host. Um segundo processo no mesmo container não apareceria nesse valor.
 
-`memory.current` mede mais do que o heap do Bun. Ele contabiliza memória na fronteira do cgroup, o que pode incluir o processo, alocações nativas e cache do sistema de arquivos. O valor mostra se o container está se aproximando do orçamento imposto; ele não permite diagnosticar qual alocação dentro do Bun o consumiu.
+`CPU_COUNT` é resolvido uma vez durante o carregamento do módulo. No cgroup v2, o código lê `cpu.max`; no v1, lê `cpu.cfs_quota_us` e `cpu.cfs_period_us`. Uma cota finita é convertida em quantidade de CPUs com:
 
-Essa distinção importa antes de uma interrupção por falta de memória. Um host com RAM livre ainda pode encerrar um container que ultrapassa seu próprio limite.
+```ts
+Math.max(1, Math.round(Number(quota) / Number(period)));
+```
 
-## A bateria é uma exposição intencional do host
+Sem uma cota finita do cgroup, o fallback é `os.cpus().length`. O Compose atual define `cpus: "1"`, então 100% significa que o processo Bun consumiu aproximadamente uma CPU atribuída durante o intervalo da amostra.
 
-A aplicação roda em um notebook, por isso o estado da energia é relevante de uma forma incomum. O Linux o expõe por `/sys/class/power_supply`, mas esse caminho pertence ao host.
+Cotas fracionárias são arredondadas para um inteiro, o resultado é limitado a 100%, e a cota é lida somente durante o carregamento do módulo. O módulo mantém 84 amostras, cerca de 126 segundos de histórico, e perde esse histórico ao reiniciar.
 
-A [configuração do Compose](https://github.com/ErickCReis/ErickCReis/blob/main/docker-compose.yml) monta apenas esse diretório dentro do container, em modo somente leitura, no caminho `/host-sys/class/power_supply`. A variável `BATTERY_SUPPLY_ROOT` instrui a aplicação a procurar ali:
+## Memória do cgroup é uma métrica de orçamento, não de heap
+
+A memória usa outra fronteira de observação. O coletor lê `memory.current` e `memory.max` no cgroup v2, com os arquivos equivalentes do v1 como alternativas. Ele usa a fronteira do cgroup apenas quando tanto o uso atual quanto um limite finito estão disponíveis:
+
+```ts
+if (input.cgroupUsedBytes !== null && input.cgroupTotalBytes !== null) {
+  return {
+    usedBytes: input.cgroupUsedBytes,
+    totalBytes: input.cgroupTotalBytes,
+  };
+}
+
+return {
+  usedBytes: input.hostUsedBytes,
+  totalBytes: input.hostTotalBytes,
+};
+```
+
+Isso evita dividir o uso do container pela capacidade do host. Se um dos valores do cgroup estiver indisponível, numerador e denominador usam `os.totalmem() - os.freemem()` e `os.totalmem()`.
+
+No cgroup v2, `memory.max === "max"` indica a ausência de limite finito. O cgroup v1 representa uma fronteira ilimitada com um número muito grande; por isso, o coletor só aceita o limite do v1 quando ele é inferior ao dobro da memória do host. No deploy do Compose, `memory: 1G` fornece ao painel um denominador do tamanho do container.
+
+`memory.current` não é `process.memoryUsage().heapUsed`. Ele pode incluir o heap do Bun, alocações nativas, outros processos no cgroup e cache de páginas contabilizado. Ele responde “quão perto este container está do limite de memória imposto?”, não “qual alocação JavaScript está crescendo?”. Se o cgroup for ilimitado, o fallback para o host muda novamente a pergunta para a pressão de memória do host inteiro. O schema e o painel não expõem hoje qual fronteira foi escolhida, então interpretar o percentual exige conhecer o deploy.
+
+## A bateria do host é uma capacidade opcional com cache
+
+Normalmente, o container não enxerga o estado de energia do notebook. O Compose expõe somente a subárvore necessária do host, em modo somente leitura:
 
 ```yaml
 volumes:
@@ -60,40 +97,74 @@ environment:
   BATTERY_SUPPLY_ROOT: /host-sys/class/power_supply
 ```
 
-O arquivo [`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) encontra o primeiro diretório cujo nome começa com `BAT`, lê `capacity` e `status`, valida um percentual entre zero e 100 e normaliza o estado em quatro categorias: `charging`, `discharging`, `full` ou `unknown`. As leituras ficam em cache por 15 segundos mesmo que a estatística do sistema seja coletada com mais frequência; o estado da bateria não exige uma leitura do disco a cada 1,5 segundos.
+O arquivo [`server/lib/battery.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/battery.ts) seleciona a primeira entrada cujo nome começa com `BAT`, lê `capacity` e `status`, valida o percentual e normaliza o estado como `charging`, `discharging`, `full` ou `unknown`.
 
-Se a montagem, a bateria ou os arquivos não existirem, o leitor retorna valores `null`, e o painel mostra `n/a`. A telemetria da bateria do host é opcional e específica dos deploys que a expõem.
+O leitor mantém o resultado em cache por 15 segundos:
 
-Essa é uma exposição intencional e estreita pela fronteira do container. Montar todo o sistema de arquivos do host facilitaria a criação do painel, mas reduziria muito a confiabilidade da aplicação. Expor apenas o diretório de alimentação declara exatamente qual detalhe do host a aplicação tem permissão para observar.
+```ts
+if (!forceRefresh && now - cachedBatteryAt < BATTERY_CACHE_MS) {
+  return cachedBatteryInfo;
+}
+```
 
-## O uptime precisa de um ponto de vista externo
+Assim, o amostrador de sistema que roda a cada 1,5 segundos pode emitir valores repetidos da bateria sem reler o sysfs em cada ciclo. Montagem ausente, bateria inexistente, arquivos ilegíveis e capacidade inválida se tornam campos anuláveis; o painel exibe `n/a` quando o percentual está ausente.
 
-O valor original de uptime se parecia com um contador do processo. Ele pode dizer há quanto tempo o processo atual está vivo, mas não informa se DNS, túnel da Cloudflare, rede, container e servidor HTTP formaram um caminho público funcional.
+O leitor não distingue todas as causas de falha, e a primeira entrada `BAT*` não é suficiente para um host com várias baterias. O cron de alerta, executado a cada cinco segundos, ignora o cache com `forceRefresh: true`.
 
-O arquivo [`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/server.ts) agora consulta o [UptimeRobot](https://uptimerobot.com/) a cada cinco minutos. A requisição pede 30 intervalos diários explícitos em UTC, uma taxa de 30 dias e os logs recentes de disponibilidade. O monitor retornado se transforma em três dados do produto:
+## Uptime externo é uma agregação de 30 dias
 
-- disponibilidade diária para a barra dos últimos 30 dias;
-- disponibilidade geral durante essa janela;
-- período contínuo de disponibilidade, calculado a partir do último log de recuperação.
+Tempo de vida do processo não é disponibilidade pública. O arquivo [`server/stats/server.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/server.ts) usa o UptimeRobot para observar a rota de fora do host. A requisição contém 30 intervalos UTC explícitos, um percentual de uptime para o período de 30 dias e até 50 logs recentes de transição.
 
-Os dias anteriores à criação do monitor permanecem como `null` em vez de se tornarem períodos com zero por cento de disponibilidade. Entre dois retratos do servidor, o painel do Solid prolonga localmente esse período a cada segundo, fazendo o contador visível avançar sem consultar a API externa a cada segundo.
+O arquivo [`server/stats/uptime.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/uptime.ts) cria 29 intervalos correspondentes a dias UTC completos e um intervalo parcial entre o início de hoje e `now`. Depois, associa `custom_uptime_ranges` a essas datas. Um dia inteiro anterior à criação do monitor é representado como `null`; um percentual ausente para um dia posterior à criação se torna `0`.
 
-A requisição tem um timeout de 15 segundos e novas tentativas curtas após falhas de rede, respostas `429` e erros do servidor. Se essas tentativas falharem depois que o módulo já obteve um monitor válido, ele mantém o último retrato bem-sucedido e tenta o ciclo de polling novamente após um minuto. Uma indisponibilidade da API de monitoramento não deve reescrever imediatamente como zero a última disponibilidade conhecida do site.
+O valor geral prefere `custom_uptime_ratio`, fornecido pelo UptimeRobot. Se esse campo estiver ausente, o fallback é a média aritmética sem ponderação dos percentuais diários não nulos:
 
-Uso o laboratório abaixo como um depurador de fronteiras. Escolha uma lente, altere apenas o sinal disponível para ela e observe tanto a resposta quanto seu ponto cego. Em especial, mantenha o processo Bun “ativo há 7d” enquanto tira a rota pública do ar: as duas afirmações podem ser verdadeiras ao mesmo tempo.
+```ts
+const availableDays = dailyUptime.filter((day) => day.uptimePercent !== null);
+const total = availableDays.reduce(
+  (sum, day) => sum + (day.uptimePercent ?? 0),
+  0,
+);
+return Number((total / availableDays.length).toFixed(2));
+```
 
-<RuntimeVantageLab client:load locale="pt-BR" />
+Esse fallback dá ao dia parcial de hoje o mesmo peso de um dia completo. Portanto, é uma aproximação, não um cálculo de disponibilidade ponderado por duração.
 
-O medidor precisa de contexto. Seu observador, denominador e ponto cego fazem parte do valor; sem esses rótulos, um percentual preciso ainda pode contar a história errada.
+O período contínuo de acessibilidade também é derivado. Se o monitor não estiver ativo, o valor é zero. Caso contrário, o coletor ordena os logs do mais novo para o mais antigo e conta a partir do evento mais recente de recuperação. Se não houver logs, usa a data de criação do monitor. Como a requisição limita a resposta a 50 logs, um período com muitas transições pode impedir que o coletor encontre um ponto de recuperação mais antigo.
 
-## De estatística visível a sinal acionável
+O navegador não espera cinco minutos para redesenhar esse contador. `ServerPanel` adiciona ao retrato o tempo transcorrido no cliente, uma vez por segundo, enquanto `currentStreakSeconds > 0`. Essa é uma extrapolação de apresentação: ela presume que a rota continua acessível até que o próximo retrato do servidor informe o contrário.
 
-O nível da bateria também alimenta uma pequena ação operacional. Uma tarefa do [`@elysiajs/cron`](https://github.com/elysiajs/elysia-cron) verifica a bateria a cada cinco segundos e força uma nova leitura. Quando o notebook está descarregando com menos de 50 por cento, ela envia um e-mail pelo [Resend](https://resend.com/).
+## Retentativas e dados antigos fazem parte da métrica
 
-A tarefa registra se um alerta foi enviado e limpa esse estado quando o status da bateria muda. Assim, evita mandar o mesmo aviso a cada cinco segundos. Sem a chave da API do Resend ou o endereço de destino, a tarefa não faz nada; a telemetria continua funcionando sem a configuração do e-mail.
+As requisições de uptime têm timeout de 15 segundos. Requisições que resultam em erros de rede, JSON inválido ou respostas HTTP `429` e `5xx` são repetidas; os atrasos são de um e dois segundos, com no máximo três tentativas. Requisições que resultam em falhas permanentes da API não são repetidas dentro do mesmo ciclo.
 
-O painel e o alerta respondem a perguntas diferentes. O painel ajuda os visitantes e também me ajuda a entender o deploy. O e-mail pede uma ação quando uma condição específica do host cruza um limite. Os dois reutilizam o mesmo leitor da bateria, mas não devem compartilhar a mesma política de entrega.
+Depois de um erro, o coletor agenda o próximo ciclo para um minuto, em vez de cinco. Antes do primeiro sucesso, publica um retrato vazio; depois de um sucesso, mantém o último retrato válido e não incrementa a versão quando uma atualização falha.
 
-Uma aplicação em container expõe vários sistemas que podem ser medidos. Este site mede o trabalho do processo em relação à capacidade do cgroup, escolhe observar um sinal do hardware do host e pergunta a um observador externo se o caminho público completo funciona. Manter essas perspectivas separadas impede que um número seja confundido com o estado de todo o deploy.
+Preservar o último valor válido evita transformar uma falha do provedor de monitoramento em uma indisponibilidade do site. Porém, o modelo não possui campos `stale`, `configured` ou `fetchError`. Somente pelos valores numéricos, o visitante não consegue distinguir credenciais ausentes, falha na inicialização ou um zero real. Quando um retrato válido fica antigo, seu timestamp original é o único sinal de atualidade, e o painel atual não o exibe.
 
-O próximo post volta à saída estática do Astro e adiciona a ela uma pequena funcionalidade de runtime: contagens de visualizações para artigos MDX sem tornar o blog dinâmico.
+## A estatística “WebSocket” mede presença por heartbeat
+
+O módulo e o painel ainda preservam o nome `websocket`, mas o mecanismo atual de presença usa HTTP. Um script inline atribui um ID a cada aba e envia `POST /presence/ping` a cada 15 segundos. Em `pagehide`, tenta enviar `POST /presence/leave`; as duas operações preferem `navigator.sendBeacon` e usam `fetch(..., { keepalive: true })` como fallback.
+
+O servidor mantém `tabId -> lastSeenAt` em um `Map`. Entradas com mais de 45 segundos são removidas:
+
+```ts
+const cutoff = now - VIEWER_STALE_AFTER_MS;
+for (const [tabId, lastSeenAt] of activeViewerTabs) {
+  if (lastSeenAt < cutoff) activeViewerTabs.delete(tabId);
+}
+```
+
+`connectedUsers` significa abas de navegador ativas recentemente, não pessoas autenticadas nem conexões WebSocket abertas. Várias abas da mesma pessoa são contadas separadamente. Uma aba pode continuar na contagem por aproximadamente 45 segundos depois de sair sem conseguir enviar a notificação.
+
+Mudanças de presença atualizam `latest` e `version` imediatamente. Em paralelo, um ciclo de cinco segundos acrescenta uma amostra a um histórico de 84 pontos, dando ao gráfico cerca de sete minutos de dados em memória. O pico de concorrência observado e registros compactos `{ ts, count }` são gravados em `presence-stats-v1.json` no máximo a cada 30 segundos. JSON persistido corrompido é ignorado, as escritas não têm tratamento local de erro, e as identidades das abas ativas nunca são persistidas.
+
+`connectionStartedAt` registra quando o coletor de presença iniciou. O painel rotula o valor como “Connected”, embora ele meça a duração do coletor no servidor, não uma sessão do navegador.
+
+## Bootstrap inicial e atualizações combinadas por SSE
+
+Quando `TelemetryBackdrop` é montado, ele inicia simultaneamente a requisição de histórico e a assinatura do stream. `GET /stats/history` retorna históricos projetados e os retratos completos mais recentes. Os pontos históricos do sistema contêm apenas timestamp, CPU e percentuais de memória; os de presença contêm somente timestamp e quantidade de abas conectadas. Os campos usados apenas nos rótulos permanecem em `latest`.
+
+O transporte usa tuplas posicionais e nomes curtos de evento, como `sy`, `sr` e `ws`. A rota SSE verifica as versões dos módulos a cada 500 milissegundos e envia apenas o retrato mais recente. Várias mudanças dentro de uma varredura podem virar um único evento.
+
+Depois de uma desconexão, o cliente tenta novamente em um segundo. Cada resposta começa com um mapa `lastSeen` vazio, então os módulos inicializados reenviam seus retratos atuais. Os stores mantêm 84 pontos de sistema e presença e 10 pontos de uptime. Os decoders das tuplas não executam validações com o Valibot na fronteira de transporte; servidor e cliente precisam ser implantados juntos quando os campos mudam.

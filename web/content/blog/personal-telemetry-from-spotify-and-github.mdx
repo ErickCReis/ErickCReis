@@ -5,8 +5,6 @@ date: "2026-07-25"
 tags: [telemetry, architecture]
 ---
 
-import { SourcePolicyLab } from "@web/content/labs/source-policy-lab";
-
 A live telemetry panel should not be an API client hidden inside a UI component. It should be a small source adapter with an explicit policy for freshness, normalization, retention, and failure.
 
 Spotify and GitHub are useful contrasting examples. Spotify playback can become misleading within seconds and may not exist at all. GitHub contribution data changes slowly, can be derived from one larger response, and is worth caching across a process restart. Both sources still need to reach the same browser-side stats layer.
@@ -157,8 +155,6 @@ GitHub data is slow enough to survive a restart. After a successful fetch, the a
 Caching the normalized object avoids storing a provider response that the rest of the application would have to interpret again. Validation means an old schema or malformed file becomes a cache miss instead of silently entering the stream.
 
 The error policy distinguishes “try later” from “show a new state.” A rate-limited response reads `X-RateLimit-Reset` and preserves the latest valid snapshot until that time, with a 15-minute fallback. Other failures publish an empty configured snapshot and retry on the slower interval. The panel therefore does not present a stale value as if it were fresh, but a temporary rate limit does not unnecessarily erase known-good data.
-
-<SourcePolicyLab client:load locale="en-US" />
 
 ## Keep the panel unaware of the provider
 
