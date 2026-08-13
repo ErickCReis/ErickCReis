@@ -1,21 +1,21 @@
 ---
-title: "Inside the rewrite: Astro for the document, Solid for the live layer"
-description: How one client-only island adds telemetry and cursor presence without owning the portfolio itself.
+title: "Astro owns the document, Solid owns the live layer"
+description: How one client-only Solid island adds telemetry and cursors while Astro keeps the portfolio in static HTML.
 date: "2026-07-15"
 tags: [architecture, astro]
 ---
 
-In the [previous post](/blog/rewriting-my-portfolio-for-self-hosting), I compressed the frontend architecture into one sentence: [Astro](https://astro.build/) turns most of the site into HTML, and [Solid](https://www.solidjs.com/) starts only the live islands in the browser.
+In the [previous post](/blog/rewriting-my-portfolio-for-self-hosting), I summed up the frontend in one sentence: [Astro](https://astro.build/) turns most of the site into HTML, and [Solid](https://www.solidjs.com/) starts only the live islands in the browser.
 
-That sentence hides one of the most useful boundaries in the rewrite.
+The split keeps the portfolio readable when the live code fails.
 
-The portfolio content is already part of the generated document. Solid starts later, when the browser needs telemetry, cursor presence, and state shared between those live surfaces. The rewrite removed deployment boundaries, but it did not remove the application boundaries that still help.
+The generated document already contains the portfolio content. Solid starts after the page reaches the browser, when telemetry and cursor presence need browser state. The rewrite combined the deploy into one process while keeping these two rendering jobs separate.
 
 ## From the container to the page
 
-The previous post ended with two artifacts inside one runtime image: the Astro output in `dist` and the compiled server executable. This post starts inside the first one.
+The previous post ended with two artifacts inside one runtime image: the Astro output in `dist` and the compiled server executable. This post starts with the files in `dist`.
 
-The homepage is an Astro page. During the build it resolves the locale, creates the project list, and renders the heading, description, navigation, and links. The shared Astro layout owns the document metadata, canonical URLs, alternate locales, fonts, and page transitions.
+The homepage is an Astro page. During the build, it resolves the locale, creates the project list, and renders the heading, description, navigation, and links. The shared Astro layout writes the document metadata, canonical URLs, alternate locales, fonts, and page transitions.
 
 The live layer enters through one line in [`index.astro`](https://github.com/ErickCReis/ErickCReis/blob/main/web/pages/%5B...locale%5D/index.astro):
 
@@ -29,7 +29,7 @@ The live layer enters through one line in [`index.astro`](https://github.com/Eri
 </BaseLayout>
 ```
 
-The placement is intentional. The Solid component sits beside the main content instead of wrapping it. Astro does not need Solid to render the portfolio, and Solid does not need to own the page to add live behavior to it.
+The Solid component sits beside the main content instead of wrapping it. Astro renders the portfolio on its own. Solid adds live behavior without taking control of the page.
 
 ```mermaid center
 flowchart TB
@@ -47,15 +47,15 @@ flowchart TB
 
 ## Why this island is client-only
 
-Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive skips rendering the component into HTML during the build and renders it in the browser instead. With no server-rendered component markup to resume, the browser performs a client render. The directive defines where rendering happens and carries no automatic performance benefit.
+Astro's [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) directive tells Astro to skip the component during the HTML build. The browser renders it from scratch. The directive chooses where rendering happens. It does not make that rendering faster by itself.
 
-For this overlay, skipping the build-time render is the correct tradeoff. The component depends on browser state such as the viewport size and pointer position. Its telemetry and cursor data also have no useful build-time value. A stat panel generated during the build would be stale before the page reached the browser.
+For this overlay, build-time HTML would be useless. The component depends on the viewport size and pointer position. Its telemetry and cursor data do not exist at build time either. A stat panel generated then would be stale before the page reached the browser.
 
-The empty state is valid. Until the island starts, there are no floating telemetry panels or remote cursors. The heading, project links, navigation, and metadata do not need a loading placeholder because they were never inside the island.
+The island needs no placeholder. Until it runs, the page has no floating telemetry panels or remote cursors. The heading, project links, navigation, and metadata need no loading state because Astro already rendered them outside the island.
 
-If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. That failure mode is part of the design.
+If the JavaScript fails to start, the page is still a portfolio. If the stats stream or WebSocket disconnects, the document does not disappear with it. I want failures to stop there.
 
-The two failures remove different things. Blocking JavaScript prevents the live island from starting; dropping the stream leaves the island running but without fresh data. In both cases, the generated Astro document remains available because neither dependency owns it.
+Blocking JavaScript prevents the live island from starting. Dropping the stream leaves the island running without fresh data. In both cases, the generated Astro document remains available because neither dependency controls it.
 
 ## One island instead of two
 
@@ -81,20 +81,20 @@ export function HomeLiveOverlay() {
 }
 ```
 
-A [Solid signal](https://docs.solidjs.com/concepts/signals) is enough to connect them. Keeping both surfaces inside the same island makes that relationship local. Splitting them into independent islands would require another communication mechanism for state that already belongs to the same visual layer.
+A [Solid signal](https://docs.solidjs.com/concepts/signals) connects them. Keeping both features inside the same island keeps `isStatsHovered` local. Splitting them into independent islands would require another way to pass that one value between them.
 
-In this project, a useful island draws one boundary around behavior that needs to react together. Component count and the page's full framework tree do not define that boundary.
+In this project, I group behavior that must react to the same state in one island. The number of components does not decide where the island starts or ends.
 
 ## JavaScript still exists outside Solid
 
-The base layout still uses Astro's client router, and small page behaviors can remain ordinary scripts. The boundary describes ownership; JavaScript can exist on both sides.
+The base layout still uses Astro's client router, and small page behaviors can remain ordinary scripts. This split assigns ownership. It does not ban JavaScript from either side.
 
-Astro owns the document and the content that should exist before browser state is available. Solid owns the component tree whose output changes as signals, streams, pointer positions, and connections change.
+Astro owns the document and the content that must exist before browser state is available. Solid owns the component tree that reacts to signals, data streams, pointer positions, and connections.
 
-There is still a cost to that choice. `client:only` loads the live overlay immediately, and the telemetry panels contain more client code than the rest of the homepage. I am accepting that cost because the overlay is the homepage's main live surface. If it grows far beyond that role, the next step is to split or delay parts of the live layer while the portfolio content stays in Astro.
+`client:only` loads the overlay immediately, and the telemetry panels contain more client code than the rest of the homepage. I accept that cost because the overlay is the homepage's main interactive feature. If it grows beyond that job, I will split or delay parts of it while the portfolio content stays in Astro.
 
-## The next boundary
+## Following one live feature
 
-The deployment now has one container and one server process. Inside the browser, the page still has a clear division: Astro provides the document, and Solid adds the parts that are only meaningful while the page is alive.
+The deployment now has one container and one server process. The browser still divides the work. Astro provides the document. Solid adds the parts that only make sense while the page is running.
 
-The next post will follow one of those parts across the boundary: pointer movement in the browser, a typed WebSocket message, cookie-backed identity, and the Solid layer that renders another visitor's cursor.
+The next post follows a pointer from browser movement through a typed WebSocket and cookie-backed identity to the Solid component that renders another visitor's cursor.

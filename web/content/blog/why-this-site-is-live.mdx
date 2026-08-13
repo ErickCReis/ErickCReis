@@ -1,20 +1,20 @@
 ---
-title: Why is this site live?
-description: A short note on why this portfolio is more than a static page.
+title: Why this site uses live data
+description: Why this portfolio shows telemetry and cursor presence alongside its static pages.
 date: "2026-03-22"
 tags: [architecture]
 ---
 
-Most portfolio sites are static. They show projects, skills, and links.
+Most portfolio sites are static. They show projects, skills, and links. That is usually enough.
 
-I wanted this one to show a bit more of how I build software.
+I wanted this one to show how I build software. A project list shows the result, but none of the decisions behind it.
 
-I turned it into a small live system. The site still works as a portfolio and exposes real-time signals from the app itself.
+So I added telemetry and cursor presence to the homepage. The site still works as a portfolio while reporting what the application is doing right now.
 
-The homepage includes live telemetry, presence, and data from services behind the UI. It is closer to the kind of software I like building: frontend applications connected to live data, small backend services, and shared contracts between client and server.
+The implementation is also the kind of software I like building. The frontend reacts to data from backend services, and the client and server use the same contracts.
 
 The stack is simple: Astro on the frontend, Solid for interactive islands, and Bun with Elysia on the backend.
 
-Most of the site stays static. Only the parts that need live behavior become dynamic.
+Astro still renders most of the site as static HTML. Solid starts only the parts that need browser state or live data.
 
-In the next post, I will break down one specific part of the system instead of trying to explain everything at once.
+The next post will take one of those parts apart and follow the data through it.

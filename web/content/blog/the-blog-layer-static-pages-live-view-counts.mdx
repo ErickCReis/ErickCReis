@@ -1,11 +1,11 @@
 ---
 title: "Static blog compilation with live view counters"
-description: How Astro compiles localized MDX into scheduled routes while a narrow Solid and SQLite boundary adds deduplicated counters with explicit consistency and failure semantics.
+description: How Astro builds localized MDX routes while a Solid island and SQLite count views without blocking the article.
 date: "2026-08-22"
 tags: [astro, solidjs, sqlite, architecture]
 ---
 
-A blog article should be validated and rendered before deployment. Its view count must change afterward. The site compiles content with Astro and gives the counter a narrow Solid, Elysia, and SQLite path:
+Astro validates and renders each article before deployment. The view count changes after deployment, so it needs a small live path through Solid, Elysia, and SQLite:
 
 ```mermaid center
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
   SQLite --> Browser
 ```
 
-Astro owns content identity, locale selection, navigation, and publication. SQLite owns the counters. If the API fails, the article still renders.
+Astro handles content identity, locale selection, navigation, and publication. SQLite handles the counters. If the API fails, the article still renders.
 
 ## Compile the content contract before generating routes
 
@@ -40,7 +40,7 @@ const blog = defineCollection({
 });
 ```
 
-This makes malformed frontmatter a build error rather than a partially rendered production page. The archive can derive tag filters and sort entries from typed data; the detail route can call `render(post)` and emit the MDX body as static HTML.
+Malformed frontmatter now fails the build instead of producing a partial page in production. The archive derives tag filters and sorts entries from typed data. The detail route calls `render(post)` and emits the MDX body as static HTML.
 
 The schema does not require non-empty copy, constrain tag vocabulary, enforce unique dates, or verify locale pairs.
 
@@ -73,7 +73,7 @@ export function getBlogViewKey(entry: BlogEntry) {
 }
 ```
 
-The public slug removes a recognized non-default locale suffix, so both variants map to the same route-shaped identifier. The view key preserves the full source name, so the English and Portuguese articles accumulate independent totals:
+The public slug removes a recognized non-default locale suffix, so both variants use the same route-shaped identifier. The view key keeps the full source name, which gives the English and Portuguese articles separate totals:
 
 | Concern | English | Portuguese |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ The public slug removes a recognized non-default locale suffix, so both variants
 | Public path | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
 | Counter key | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
 
-Keeping the locale in the counter key avoids silently merging audiences. It also means renaming a source file creates a new counter identity; there is no alias or migration mechanism connecting the old key to the new one.
+Keeping the locale in the counter key prevents the two audiences from being merged without warning. Renaming a source file also creates a new counter identity. No alias or migration connects the old key to the new one.
 
 Locale pairing is convention-based. For a requested locale, `getBlogEntry` first looks for `${slug}.${normalizedLocale}` and then falls back to the unsuffixed source:
 
@@ -92,7 +92,7 @@ return (
 );
 ```
 
-That fallback prevents a missing translation from becoming a missing route. The tradeoff is that a Portuguese URL may render English content when its `.pt-BR` file does not exist. The build does not currently report incomplete locale pairs.
+That fallback keeps the route available when a translation is missing. It can also make a Portuguese URL render English content when the `.pt-BR` file does not exist. The build does not report incomplete locale pairs.
 
 ## Generate only routes visible to that build
 
@@ -112,7 +112,7 @@ return locales.flatMap((locale) =>
 );
 ```
 
-The default locale omits the URL prefix; other locales receive one through the optional catch-all route. The archive applies the same publication filter and then selects at most one source per logical slug, preferring an exact localized source over the default fallback. Using the same selection functions for route generation, archive links, article navigation, and counter keys prevents those consumers from inventing slightly different identities.
+The default locale omits the URL prefix. Other locales receive one through the optional catch-all route. The archive applies the same publication filter and selects at most one source per logical slug, preferring an exact localized source over the default fallback. Route generation, archive links, article navigation, and counter keys all use the same selection functions, so they cannot drift into slightly different identities.
 
 Publication is a calendar comparison, not a timestamp comparison. [`web/lib/blog-publication.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog-publication.ts) reads the frontmatter date as a UTC calendar key and compares it with the current date in `America/Sao_Paulo`:
 
@@ -124,13 +124,13 @@ export function isBlogPostPublished(date: Date, now = new Date()) {
 
 Both the archive and detail route pass `includeScheduled: true` only in development. Production builds exclude future entries from the archive and from `getStaticPaths`; development builds expose them for review.
 
-This is scheduled compilation, not runtime scheduling. A build produced on August 21 does not reveal the article when São Paulo reaches August 22. A new build must run on or after the publication date. Conversely, once a route is emitted, changing the server clock does not retract it. The publication date should therefore be understood as a build input.
+This schedule runs at build time. A build produced on August 21 does not reveal the article when São Paulo reaches August 22. A new build must run on or after the publication date. Once a route exists, changing the server clock does not remove it. The publication date is an input to the build.
 
-## Keep the client boundary narrower than the document
+## Hydrate the counters, not the document
 
 The archive and article use different client behaviors.
 
-The archive renders every title, description, date, tag, link, and a `-- views` placeholder into HTML. A `client:only="solid-js"` hydrator returns no DOM of its own; on mount it finds all `[data-post-view-count]` spans and makes one batch request for their keys. It then replaces each placeholder:
+The archive renders every title, description, date, tag, link, and a `-- views` placeholder into HTML. A `client:only="solid-js"` hydrator adds no DOM of its own. On mount, it finds every `[data-post-view-count]` span, sends one batch request for their keys, and replaces each placeholder:
 
 ```ts
 void fetchPostViewCounts(props.slugs)
@@ -150,13 +150,13 @@ void fetchPostViewCounts(props.slugs)
   });
 ```
 
-The article uses `PostViewCounter`, also as a client-only Solid island. It performs the write only after the document is visible. A background tab waits for `visibilitychange`, reducing counts caused by speculative navigation or a tab the reader never foregrounds.
+The article uses `PostViewCounter`, also as a client-only Solid island. It writes only after the document becomes visible. A background tab waits for `visibilitychange`, which cuts down counts from speculative navigation and tabs the reader never brings to the foreground.
 
 Without JavaScript, the article remains readable and the archive keeps its placeholder. Failed archive reads hide the labels, and failed article writes hide the counter. An `isDisposed` guard prevents signal updates after unmount.
 
-The request itself is not aborted on unmount, and visibility is only a coarse reading signal. A foreground tab is counted even if the visitor immediately leaves, while a reader with JavaScript disabled is never counted.
+Unmounting does not abort the request, and visibility is only a rough signal that someone read the article. A foreground tab counts even if the visitor leaves immediately. A reader with JavaScript disabled never counts.
 
-## Validate the transport independently of the UI
+## Validate the API without relying on the UI
 
 The browser and server share Valibot request schemas from [`shared/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/blog/views.ts):
 
@@ -173,11 +173,11 @@ export const blogPostQueryRequestSchema = v.object({
 });
 ```
 
-`GET /blog/views` reads up to 100 keys in one query. `POST /blog/views` accepts one key and registers a view. Both responses set `cache-control: no-store`; the client also requests `cache: "no-store"`. This avoids serving an old counter from the browser or an intermediary cache.
+`GET /blog/views` reads up to 100 keys in one query. `POST /blog/views` accepts one key and registers a view. Both responses set `cache-control: no-store`, and the client requests `cache: "no-store"` too. Neither the browser nor an intermediary cache should serve an old count.
 
 The API validates key shape but does not verify that a key belongs to the built collection. Any caller can create rows for a well-formed invented key. There is also no rate limiter beyond per-cookie deduplication, so clients that discard cookies can inflate totals.
 
-## Make deduplication and aggregation one transaction
+## Count one view in one transaction
 
 The first `POST` assigns an opaque visitor ID matching `ct_[A-Za-z0-9_-]{21}`. Elysia stores it in a strict same-site, HTTP-only cookie with a one-year lifetime and enables `Secure` in production. Client JavaScript sends the cookie but cannot read or select its value.
 
@@ -190,7 +190,7 @@ SQLite stores four projections:
 | `blog_post_daily_views` | `date, slug` | Daily report aggregate |
 | `blog_post_weekly_views` | `week_start, slug` | Sunday-to-Saturday aggregate |
 
-`registerPostView` runs an immediate SQLite transaction. It calculates a 24-hour cutoff, removes stale visitor rows, checks the current visitor-and-key pair, and returns the existing total when that pair is still recent. Otherwise it upserts the dedupe row and increments the total, daily, and weekly projections:
+`registerPostView` runs an immediate SQLite transaction. It calculates a 24-hour cutoff, removes stale visitor rows, and checks the current visitor-and-key pair. If the pair is still recent, it returns the existing total. Otherwise it upserts the dedupe row and increments the total, daily, and weekly projections:
 
 ```ts
 tx.insert(blogPostViewTotals)
@@ -207,9 +207,9 @@ tx.insert(blogPostViewTotals)
 
 The daily date and week start are calculated in the same São Paulo timezone used by reporting. At midnight, a cron job builds either the previous day's report or, on Sunday, the previous Sunday-to-Saturday weekly report. These report tables are denormalized at write time; reports do not scan visitor rows or reconstruct history from the permanent total.
 
-`behavior: "immediate"` acquires SQLite's write reservation before the read-modify-write sequence. Concurrent writers cannot both observe an absent dedupe row and independently increment outside that sequence. The four projections and the dedupe token commit together: an exception before commit rolls the transaction back, while a successful response reflects a committed total selected inside the transaction.
+`behavior: "immediate"` acquires SQLite's write reservation before the read-modify-write sequence. Two writers cannot both observe a missing dedupe row and increment the total independently. The four projections and the dedupe token commit together. An exception before commit rolls everything back, while a successful response contains the total selected inside the committed transaction.
 
-This is atomic within one SQLite database, not a distributed exactly-once protocol. Durability still depends on the database file and its storage configuration. Multiple application instances need to share the same database with compatible locking semantics; independent SQLite files would produce divergent totals. Opportunistic cleanup also means expired visitor rows remain until a later successful write.
+The operation is atomic inside one SQLite database. It is not a distributed exactly-once protocol. Durability still depends on the database file and its storage configuration. Multiple application instances must share the same database with compatible locking. Independent SQLite files would produce different totals. Because cleanup happens during writes, expired visitor rows remain until a later write succeeds.
 
 ## Define what the number means
 

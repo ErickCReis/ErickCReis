@@ -1,21 +1,21 @@
 ---
 title: Reescrevendo meu portfólio para self-hosting
-description: Como um notebook parado mudou o jeito que eu faço deploy deste portfólio.
+description: Como levei as páginas estáticas, a API, as tarefas e os dados deste portfólio para um notebook parado.
 date: "2026-06-23"
 tags: [self-hosting]
 ---
 
-Em algum momento, este portfólio deixou de ser apenas uma página estática. Fui acrescentando telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas “deploy de site estático” já não era uma descrição honesta dele.
+Este portfólio deixou de caber em uma página estática quando acrescentei telemetria, rotas de API, presença de cursor, polling em segundo plano, dados locais e tarefas internas. O projeto continuava pequeno, mas chamá-lo de "site estático" já não fazia sentido.
 
-Fiz a reescrita porque queria que o deploy tivesse uma resposta física: uma máquina. O [Astro](https://astro.build/) continuaria gerando páginas estáticas e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas, mas a aplicação inteira seria empacotada em um único container e executada em um notebook que estava parado.
+Reescrevi o projeto para rodar em uma única máquina física. O [Astro](https://astro.build/) continuaria gerando páginas estáticas, e o [Elysia](https://elysiajs.com/) cuidaria das rotas dinâmicas. A aplicação inteira seria empacotada em um container e executada em um notebook que estava parado.
 
-## Por que self-hosting
+## Por que hospedar por conta própria
 
-Esse notebook já era o meu lugar de baixo risco para testar coisas. Nele, testo LLMs locais, rodo pequenos serviços e consumo mídia; às vezes, também o uso como máquina remota de desenvolvimento. Colocar um site de verdade ali trouxe problemas reais para resolver sem tratar a máquina como se fosse uma infraestrutura de produção.
+Eu já usava o notebook para experimentos de baixo risco. Nele, testo LLMs locais, rodo pequenos serviços, consumo mídia e, às vezes, abro uma sessão remota de desenvolvimento. Colocar um site público ali trouxe problemas reais de infraestrutura sem fingir que a máquina era um ambiente de produção.
 
-A versão anterior do portfólio dependia mais de serviços de plataforma. Ela explorava aplicações separadas para web e servidor, deploy na [Cloudflare](https://www.cloudflare.com/), autenticação, [oRPC](https://orpc.dev/), [Drizzle](https://orm.drizzle.team/), [Durable Objects](https://developers.cloudflare.com/durable-objects/) e [D1](https://developers.cloudflare.com/d1/).
+A versão anterior do portfólio usava mais serviços gerenciados. Ela tinha aplicações separadas para web e servidor, deploy na [Cloudflare](https://www.cloudflare.com/), autenticação, [oRPC](https://orpc.dev/), [Drizzle](https://orm.drizzle.team/), [Durable Objects](https://developers.cloudflare.com/durable-objects/) e [D1](https://developers.cloudflare.com/d1/).
 
-A reescrita mudou onde eu colocava as fronteiras:
+A reescrita redistribuiu essas responsabilidades:
 
 | Antes                                           | Depois                                                         |
 | ----------------------------------------------- | -------------------------------------------------------------- |
@@ -24,11 +24,11 @@ A reescrita mudou onde eu colocava as fronteiras:
 | Várias peças de runtime específicas do provedor | Uma imagem Docker e um diretório de dados                      |
 | Configuração de deploy na plataforma            | Um container entregue pelo [Dokploy](https://dokploy.com/)     |
 
-Ainda gosto da Cloudflare, que continua fazendo parte desta arquitetura. O DNS e a conectividade permanecem na borda; o processamento e os dados persistentes foram para o notebook. Neste caso, self-hosting descreve onde a aplicação roda, enquanto serviços externos continuam cuidando de outras partes.
+Ainda gosto da Cloudflare, que continua fazendo parte do projeto. O DNS e a conectividade permanecem na borda. O notebook agora executa a aplicação e guarda os dados persistentes. Neste caso, self-hosting descreve onde a aplicação roda, não quem cuida de todos os serviços de apoio.
 
 ## Os caminhos de runtime e deploy
 
-O experimento se tornou real quando `erickr.dev` começou a chegar ao notebook por um túnel do [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/). O caminho de uma requisição pública é curto:
+O experimento se tornou real quando as requisições para `erickr.dev` começaram a chegar ao notebook por um túnel do [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/). O caminho de uma requisição pública é curto:
 
 ```mermaid
 flowchart TB
@@ -42,7 +42,7 @@ flowchart TB
   Static ~~~ Live ~~~ Data
 ```
 
-O Dokploy participa de outro caminho. Ele controla o deploy, mas não é uma etapa pela qual cada requisição passa:
+O Dokploy controla o deploy por outro caminho. As requisições públicas nunca passam por ele:
 
 ```mermaid center
 flowchart TB
@@ -52,15 +52,15 @@ flowchart TB
   Image --> Container["Container em execução"]
 ```
 
-Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e deixa o fluxo de deploy fácil de inspecionar. A infraestrutura ainda tem várias peças, mas a aplicação tem menos fronteiras de runtime: um destino de deploy, um container e um processo de servidor.
+Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e me deixa inspecionar cada etapa do deploy. A infraestrutura de apoio ainda tem várias peças. A aplicação agora tem um destino de deploy, um container e um processo de servidor.
 
-Esses caminhos se encontram no container em execução, mas carregam coisas diferentes. Um novo deploy substitui o container, enquanto o diretório `/app/data` montado permanece.
+As requisições públicas e os deploys se encontram no container em execução. Um novo deploy substitui o container. O diretório `/app/data` montado permanece.
 
 ## O artefato de build
 
-Quando o destino é um único container, o artefato passa a importar mais do que a configuração do provedor.
+Com um único container como destino do deploy, os arquivos gerados importam mais do que a configuração do provedor.
 
-O Astro gera o site quase todo estático. O [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas. Em produção, o Elysia serve essa saída gerada junto com a API, o SSE, o WebSocket e as rotas internas. O [Bun](https://bun.sh/) roda os scripts e compila o servidor.
+O Astro gera o site quase todo estático. O [Solid](https://www.solidjs.com/) hidrata apenas as ilhas interativas. Em produção, o Elysia serve os arquivos gerados e atende a API, o SSE, o WebSocket e as rotas internas. O [Bun](https://bun.sh/) roda os scripts e compila o servidor.
 
 O script de build é curto:
 
@@ -74,7 +74,7 @@ O script de build é curto:
 
 O primeiro comando gera a saída do Astro em `dist`. O segundo transforma [`server/index.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/index.ts) em um executável chamado `myserver`.
 
-É esse executável que deixa o estágio de runtime simples:
+O estágio de runtime inicia esse executável:
 
 ```dockerfile
 FROM debian:bookworm-slim AS runtime
@@ -88,22 +88,22 @@ COPY --from=build /app/server/db/migrations ./server/db/migrations
 CMD ["./myserver"]
 ```
 
-O estágio de runtime não precisa do código-fonte, de `node_modules` nem da imagem de build do Bun. Ele recebe os arquivos estáticos, o servidor compilado e as migrações do banco. O [Dockerfile completo](https://github.com/ErickCReis/ErickCReis/blob/main/Dockerfile) mantém o build e a execução separados.
+O estágio de runtime não precisa do código-fonte, de `node_modules` nem da imagem de build do Bun. O build do Docker copia os arquivos estáticos, o servidor compilado e as migrações do banco. O [Dockerfile completo](https://github.com/ErickCReis/ErickCReis/blob/main/Dockerfile) separa o build da imagem usada para executar a aplicação.
 
-## O estado persistente é a fronteira importante
+## O estado precisa sobreviver ao container
 
-Colocar o processo em um container é a parte fácil. Mais importante é decidir o que precisa sobreviver a esse container.
+Iniciar o processo em um container é fácil. A decisão difícil é o que precisa sobreviver quando esse container for substituído.
 
-A aplicação usa `DATA_DIR=/app/data` para o SQLite e os arquivos locais. O Docker Compose monta `./data`, no host, dentro desse diretório. Assim, o container pode ser substituído sem substituir seu estado. O Compose também define uma política de reinicialização e limites explícitos de CPU e memória.
+A aplicação usa `DATA_DIR=/app/data` para o SQLite e os arquivos locais. O Docker Compose monta ali o diretório `./data` do host, então o novo container encontra o mesmo estado. O Compose também define a política de reinicialização e limites explícitos de CPU e memória.
 
-Um diretório de dados explícito facilita localizar e copiar o estado. Ainda preciso automatizar uma cópia para fora do notebook. Falhas de energia, armazenamento e rede também passam a ser problemas meus, não do provedor.
+Com um diretório de dados explícito, sei o que preciso copiar. Ainda preciso automatizar uma cópia para fora do notebook. Também assumi os problemas de energia, armazenamento e rede da máquina que antes ficavam com o provedor.
 
-## Custos operacionais
+## O que agora preciso operar
 
-Arquivos voltam a ser apenas arquivos. Os arquivos estáticos e as rotas de runtime saem do mesmo servidor. Uma tarefa interna não precisa de uma estratégia de plataforma antes de existir. Posso começar uma funcionalidade com um diretório e um processo, sem decidir primeiro qual produto gerenciado vai cuidar dela.
+Os arquivos estáticos e as rotas de runtime agora saem do mesmo servidor Bun. Uma tarefa interna pode começar como um módulo nesse processo. Não preciso escolher um produto gerenciado antes de escrever a funcionalidade.
 
-A camada em tempo real é a parte em que eu menos confio. O Durable Objects oferecia um lugar natural para o estado das conexões WebSocket. Em um servidor único, o ciclo de vida das conexões, a limpeza, o monitoramento e a recuperação ficam comigo. A versão atual funciona, mas ainda preciso de uma abstração melhor para acompanhar as conexões e enxergar o que essa camada está fazendo.
+A camada em tempo real é a parte em que menos confio. O Durable Objects cuidava do estado das conexões WebSocket. Em um servidor único, eu cuido da limpeza das conexões, do monitoramento e da recuperação. A versão atual funciona, mas ainda preciso de uma forma melhor de acompanhar as conexões e inspecionar esse código.
 
-Self-hosting deixou esta aplicação mais simples de entregar e me deu mais responsabilidade pela operação. O formato menor é mais fácil de enxergar; a segurança ainda é minha responsabilidade. Troquei fronteiras gerenciadas por um processo, um diretório de dados, um problema de backup e uma camada em tempo real que ainda preciso fortalecer.
+Self-hosting simplificou o deploy desta aplicação e aumentou meu trabalho operacional. Um processo serve a aplicação, e um diretório montado guarda o estado. Agora preciso cuidar do backup e fortalecer o código que mantém as conexões em tempo real.
 
-Os próximos posts entram nessas partes menores: presença de cursor, telemetria, roteamento de arquivos estáticos, rastreamento de conteúdo, localização e sincronização do uso de tokens.
+Os próximos posts vão tratar dessas partes uma de cada vez. Começo com presença de cursor e telemetria, depois passo para roteamento de arquivos estáticos, rastreamento de conteúdo, localização e sincronização do uso de tokens.

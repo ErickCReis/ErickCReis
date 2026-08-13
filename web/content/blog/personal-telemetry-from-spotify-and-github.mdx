@@ -1,11 +1,11 @@
 ---
 title: "Building source adapters for live telemetry"
-description: How Spotify and GitHub API responses become bounded, typed snapshots with source-specific clocks, privacy boundaries, and rate-limit behavior.
+description: How separate adapters turn Spotify and GitHub responses into small typed snapshots, each with its own polling, privacy, caching, and rate-limit rules.
 date: "2026-07-25"
 tags: [telemetry, architecture]
 ---
 
-A live telemetry panel should not be an API client hidden inside a UI component. It should be a small source adapter with an explicit policy for freshness, normalization, retention, and failure.
+I do not want a live telemetry panel to hide an API client inside a UI component. A small adapter should fetch each source and decide how fresh its data must be, which fields to keep, how long to retain them, and what to publish after a failure.
 
 Spotify and GitHub are useful contrasting examples. Spotify playback can become misleading within seconds and may not exist at all. GitHub contribution data changes slowly, can be derived from one larger response, and is worth caching across a process restart. Both sources still need to reach the same browser-side stats layer.
 
@@ -20,7 +20,7 @@ flowchart TB
   Stream --> Panels["Solid panels"]
 ```
 
-The adapter owns the external system. The panel owns presentation. Keeping those responsibilities separate makes the live layer predictable even when the provider is unavailable.
+The adapter deals with the external system. The panel renders the result. If a provider goes down, its adapter decides what to publish and the panel keeps the same input contract.
 
 ## Start with the output contract
 
@@ -39,11 +39,11 @@ Each module has one job: publish snapshots when its source changes. `getLatest` 
 
 The generic interface does not make the data interchangeable. Each source has its own schema in [`shared/stats`](https://github.com/ErickCReis/ErickCReis/tree/main/shared/stats). Valibot validates persisted GitHub data before it is used, while the shared types keep server code, transport serialization, and Solid stores aligned.
 
-The public snapshot is also a security boundary. It should contain exactly what the panel needs—not provider credentials, raw API responses, device metadata, or control capabilities.
+The public snapshot is also a security boundary. It should contain exactly what the panel needs. Provider credentials, raw API responses, device metadata, and control methods stay on the server.
 
 ## Give every source its own clock
 
-Polling is a product decision as much as a networking decision:
+Polling should match what the visitor sees:
 
 | Source | Useful freshness | Local policy | Persistence |
 | --- | --- | --- | --- |
@@ -91,7 +91,7 @@ type SpotifyNowPlaying = {
 };
 ```
 
-This normalization handles three different “empty” cases without making the UI understand Spotify's response format:
+This normalization handles three different "empty" cases without making the UI understand Spotify's response format:
 
 - HTTP `204` means there is no current playback.
 - A non-track item is reduced to the same empty snapshot.
@@ -107,7 +107,7 @@ function getPollIntervalMs(isPlaying: boolean) {
 
 When Spotify responds with `429`, the adapter reads `Retry-After` and falls back to 30 seconds. A rejected access token invalidates the in-memory token cache so the next attempt can refresh it. Other request failures publish an empty configured snapshot and continue at the slower interval.
 
-Playback history is deliberately ephemeral. The module keeps at most 84 snapshots in process memory, enough for the panel to show a previous track without turning listening activity into a durable database record. A restart clears that history by design.
+Playback history stays in memory. The module keeps at most 84 snapshots, enough for the panel to show a previous track without writing listening activity to a database. A restart clears the history.
 
 ## Adapter 2: derive GitHub metrics once
 
@@ -141,7 +141,7 @@ type GitHubCommitStats = {
 };
 ```
 
-The name “commits” in the panel is shorthand for GitHub's contribution calendar. It is not a local `git log` and should not be presented as an audit of every commit.
+The panel uses "commits" as shorthand for GitHub's contribution calendar. It is not a local `git log` or an audit of every commit.
 
 ## Cache only the normalized state
 
@@ -152,15 +152,15 @@ GitHub data is slow enough to survive a restart. After a successful fetch, the a
 3. Uses it only while it is younger than the 30-minute polling interval.
 4. Schedules the next request for the remaining freshness window.
 
-Caching the normalized object avoids storing a provider response that the rest of the application would have to interpret again. Validation means an old schema or malformed file becomes a cache miss instead of silently entering the stream.
+The cache stores the normalized object, so the rest of the application never has to interpret the provider response again. Valibot turns an old schema or malformed file into a cache miss instead of letting it enter the stream.
 
-The error policy distinguishes “try later” from “show a new state.” A rate-limited response reads `X-RateLimit-Reset` and preserves the latest valid snapshot until that time, with a 15-minute fallback. Other failures publish an empty configured snapshot and retry on the slower interval. The panel therefore does not present a stale value as if it were fresh, but a temporary rate limit does not unnecessarily erase known-good data.
+The error policy separates "try later" from "show a new state." After a rate limit, the adapter reads `X-RateLimit-Reset` and preserves the latest valid snapshot until then. If the header is missing, it waits 15 minutes. Other failures publish an empty configured snapshot and retry on the slower interval. The panel does not present stale data as fresh, and a temporary rate limit does not erase the last valid value.
 
 ## Keep the panel unaware of the provider
 
 The Solid panels consume the normalized snapshots through the stats transport. They do not refresh credentials, parse `Retry-After`, read a cache file, or know how often a provider should be polled.
 
-That separation leaves the source-specific decisions in one place:
+Each adapter now contains all decisions specific to its source:
 
 | Concern | Spotify adapter | GitHub adapter |
 | --- | --- | --- |
@@ -171,6 +171,6 @@ That separation leaves the source-specific decisions in one place:
 | Retention | 84 in-memory snapshots | 84 in-memory snapshots plus one fresh disk snapshot |
 | Browser payload | Track metadata and public URL | Aggregated contribution values |
 
-The result is one UI contract over two very different external systems. The useful abstraction is not “every source polls the same way”; it is “every source publishes a typed, bounded, display-ready snapshot.”
+The two providers follow different clocks and failure rules, but both publish a small typed snapshot that the UI can render directly.
 
-That boundary is what lets the rest of the live layer stay simple: the history endpoint can load both modules, the SSE route can emit only changed versions, and the panels can render state without reenacting an external API.
+The history endpoint can load both modules through that contract. The SSE route emits only changed versions, and the panels render state without repeating either provider's API logic.

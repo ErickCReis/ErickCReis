@@ -1,11 +1,11 @@
 ---
 title: "Compilando as rotas estáticas do Astro em um servidor Bun"
-description: Um manifesto gerado no build permite que um único processo Elysia sirva a saída do Astro com URLs limpas, fallbacks explícitos, classes de cache e headers de segurança.
+description: Como um manifesto de rotas gerado no build permite que um processo Elysia sirva arquivos do Astro com URLs limpas, respostas 404 exatas, cache por arquivo e headers de segurança.
 date: "2026-08-08"
 tags: [astro, bun, elysia, deployment, caching]
 ---
 
-Um build estático do Astro produz arquivos, o Elysia produz handlers HTTP e `bun build --compile` produz um executável. Este deploy coloca os três atrás da mesma porta com um manifesto de rotas criado no build. O Astro grava os bytes das respostas em `dist`; uma macro do Bun transforma os arquivos em rotas exatas do Elysia durante a compilação do servidor; a imagem de runtime inclui `dist` e o executável.
+O Astro produz arquivos estáticos. O Elysia atende requisições. `bun build --compile` produz um executável. Este deploy junta os três atrás da mesma porta com um manifesto de rotas criado no build. O Astro grava os bytes das respostas em `dist`. Uma macro do Bun transforma esses arquivos em rotas exatas do Elysia enquanto compila o servidor. A imagem de runtime inclui `dist` e o executável.
 
 ```mermaid center
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
 
 Cada caminho de requisição aponta para um arquivo produzido pelo mesmo build. Não há renderização no servidor nem fallback genérico de diretório durante a requisição.
 
-## A propriedade dos artefatos vem antes do roteamento
+## Execute o build do Astro antes de compilar o servidor
 
 O script de build estabelece a ordem de dependência:
 
@@ -40,7 +40,7 @@ O release tem dois artefatos responsáveis pelo conteúdo estático:
 | `dist/` | HTML, JavaScript, CSS, fontes, imagens e outros bytes gerados | Roteamento das requisições |
 | `myserver` | Handlers do Elysia, tabela de rotas gerada e política das respostas | Conteúdo dos arquivos estáticos |
 
-A tabela de rotas contém caminhos de arquivos, não o conteúdo incorporado desses arquivos. Por isso, substituir apenas `dist` é inseguro: o binário pode não ter uma rota para um arquivo novo, manter uma rota para um arquivo removido ou apontar um alias para o release errado. Substituir apenas o binário cria o problema inverso. O executável e o diretório formam uma unidade atômica de deploy, apesar de continuarem como artefatos separados.
+A tabela de rotas contém caminhos de arquivos, não o conteúdo incorporado desses arquivos. Substituir apenas `dist` é inseguro. O binário pode não ter uma rota para um arquivo novo, manter uma rota para um arquivo removido ou apontar um alias para o release errado. Substituir apenas o binário cria o problema inverso. O executável e o diretório formam uma unidade de deploy, apesar de continuarem como arquivos separados.
 
 A imagem Docker preserva `/app/dist` porque a macro resolve cada arquivo para um caminho absoluto durante o build em `/app`. O estágio de runtime usa o mesmo diretório de trabalho.
 
@@ -88,7 +88,7 @@ import {
 const distAssetRoutes = loadDistAssetRoutes() as DistAssetRoute[];
 ```
 
-O Bun avalia `loadDistAssetRoutes()` enquanto processa o build do servidor e substitui seu resultado. A inicialização em produção não percorre `dist` recursivamente; ela percorre os metadados de rota já compilados em `myserver`.
+O Bun avalia `loadDistAssetRoutes()` enquanto processa o build do servidor e substitui seu resultado. A inicialização em produção não percorre `dist` recursivamente. Ela percorre os metadados de rota já compilados em `myserver`.
 
 O loader também considera a ausência de `dist` um erro quando o Bun está compilando ou `NODE_ENV` é `production`. Assim, uma ordem de build invertida interrompe o release em vez de iniciar um servidor que retorna 404 para todas as páginas.
 
@@ -115,11 +115,11 @@ if (existingRoute) {
 routes.set(routePath, { routePath, filePath });
 ```
 
-O percurso ordenado torna o diagnóstico determinístico. A propriedade da rota é decidida durante o build, sem depender da ordem do sistema de arquivos ou de qual handler foi registrado por último.
+O percurso ordenado torna o diagnóstico determinístico. O compilador decide quem controla a rota durante o build. O resultado não depende da ordem do sistema de arquivos nem do último handler registrado.
 
-Essa verificação cobre colisões dentro de `dist`. Ela **não** compara os caminhos estáticos gerados com rotas de API declaradas separadamente. `server/index.ts` instala os plugins de API antes do subroteador estático de produção, portanto evitar sobreposição entre caminhos de API e arquivos continua sendo uma regra de nomenclatura da aplicação.
+Essa verificação cobre colisões dentro de `dist`. Ela não compara os caminhos estáticos gerados com rotas de API declaradas separadamente. `server/index.ts` instala os plugins de API antes do subroteador estático de produção, então a aplicação ainda precisa impedir sobreposições entre caminhos da API e dos arquivos estáticos.
 
-## Torne o comportamento de fallback explícito
+## Retorne 404 para caminhos desconhecidos
 
 O servidor não registra `/*`, não envia `index.html` para requisições desconhecidas e não tenta extensões em runtime. Ele registra apenas os candidatos produzidos acima:
 
@@ -138,7 +138,7 @@ export function createDistAssetsSubrouter() {
 }
 ```
 
-Isso dá ao deploy uma árvore de decisão pequena e previsível:
+Toda requisição GET segue esta árvore de decisão:
 
 ```mermaid center
 flowchart TD
@@ -151,9 +151,9 @@ flowchart TD
 
 Um erro como `/blgo` continua sendo 404. Um roteador no cliente que dependesse do fallback da History API precisaria de uma rota catch-all separada.
 
-O subroteador estático só é conectado quando `NODE_ENV === "production"`. No desenvolvimento, o Astro serve sua própria saída na porta 4321, enquanto o Bun observa a API em outra porta. A convergência em produção não prejudica o ciclo rápido de desenvolvimento.
+O servidor conecta o subroteador estático apenas quando `NODE_ENV === "production"`. No desenvolvimento, o Astro serve sua saída na porta 4321, enquanto o Bun observa a API em outra porta. Os dois processos ficam separados durante o desenvolvimento e compartilham uma porta em produção.
 
-## Derive a política de cache da semântica do artefato
+## Escolha o header de cache pelo tipo de arquivo
 
 Nem todo arquivo gerado tem o mesmo modelo de invalidação. O handler estático escolhe uma de três políticas:
 
@@ -175,11 +175,11 @@ function getCacheControl(asset: DistAssetRoute) {
 - HTML recebe `no-cache`. Um cache pode armazená-lo, mas precisa revalidar antes de usar a resposta armazenada.
 - Outros arquivos públicos recebem uma hora de validade em cache. Isso cobre assets cujos nomes podem ser estáveis e que, portanto, não devem ser tratados como imutáveis.
 
-A decisão sobre HTML usa `filePath`, não `routePath`. `/about`, `/about/` quando gerada a partir de um arquivo `index` e a rota literal com `.html` recebem a mesma política porque retornam o mesmo tipo de artefato. O helper `file()` do Elysia é responsável por transmitir o arquivo e definir seu tipo de mídia; o subroteador acrescenta o header de cache específico do deploy.
+A verificação de HTML usa `filePath`, não `routePath`. `/about`, `/about/` quando gerada a partir de um arquivo `index` e a rota literal com `.html` recebem a mesma política porque retornam o mesmo tipo de arquivo. O helper `file()` do Elysia transmite o arquivo e define seu tipo de mídia. O subroteador acrescenta o header de cache deste deploy.
 
-Há uma limitação sutil: todo caminho em `/_astro/` é considerado fingerprintado. Isso é verdadeiro para o diretório de bundles gerado pelo Astro, mas colocar manualmente arquivos com nomes estáveis ali quebraria a invariante de cache. A propriedade do diretório faz parte da política.
+A regra confia que todo caminho em `/_astro/` contém um arquivo com fingerprint. O diretório de bundles gerado pelo Astro cumpre essa condição. Um arquivo estável adicionado manualmente não cumpriria, e os navegadores poderiam mantê-lo em cache por um ano.
 
-## Aplique headers de segurança sem apagar políticas das rotas
+## Adicione headers de segurança sem substituir headers das rotas
 
 Arquivos estáticos e respostas da API passam pelo mesmo hook `onAfterHandle` da aplicação:
 
@@ -205,11 +205,11 @@ if (Bun.env.NODE_ENV === "production") {
 }
 ```
 
-O uso de `??=` importa: a linha de base global não sobrescreve uma resposta mais específica. O header `cache-control` do subroteador estático e os headers de segurança são camadas independentes.
+O uso de `??=` impede que os valores globais sobrescrevam um header definido pela rota. O subroteador estático define `cache-control`, enquanto o hook da aplicação acrescenta os headers de segurança.
 
 O CORS é configurado separadamente. Em produção, requisições de navegador com credenciais são permitidas apenas quando originadas de `https://erickr.dev` ou `https://www.erickr.dev`; no desenvolvimento, `http://localhost:4321` é permitido. Essa política controla o acesso cross-origin do navegador à API. Ela não substitui o endurecimento das respostas, a autenticação nem o controle de cache.
 
-## Preserve o contrato na imagem de runtime
+## Distribua o binário e dist a partir do mesmo build
 
 O build Docker de múltiplos estágios compila com Bun e executa o resultado sem instalar Bun ou `node_modules` no estágio final:
 
@@ -236,10 +236,10 @@ EXPOSE 3000
 CMD ["./myserver"]
 ```
 
-O conteúdo do runtime reflete diretamente a arquitetura:
+A imagem final contém três artefatos da aplicação:
 
 - `myserver` é responsável pelas rotas dinâmicas, pelo manifesto estático, pela seleção de cache, pelo CORS e pelos headers de segurança;
 - `dist` é responsável pelos bytes retornados pelas rotas estáticas;
 - `server/db/migrations` contém dados de runtime da aplicação e não participa do serviço estático.
 
-`dist` e o manifesto de rotas compilado precisam vir do mesmo build e ser distribuídos como uma unidade. Essa restrição mantém URLs limpas, respostas 404 e políticas de cache explícitas no código da aplicação.
+`dist` e o manifesto de rotas compilado precisam vir do mesmo build e ser distribuídos juntos. Caso contrário, o servidor pode registrar rotas para arquivos ausentes ou deixar de registrar arquivos existentes. Gerar ambos na mesma imagem mantém as URLs limpas, as respostas 404 e os headers de cache ligados aos arquivos servidos.

@@ -1,13 +1,13 @@
 ---
 title: "Compiling a typed i18n catalog for Astro"
-description: How an Astro integration extracts static translation calls, generates typed catalogs, and serves locale-aware lookups across static rendering and hydrated Solid islands.
+description: How an Astro integration finds static translation calls, writes typed catalogs, and resolves the same strings during static rendering and inside hydrated Solid islands.
 date: "2026-08-29"
 tags: [astro, vite, i18n, typescript]
 ---
 
-An Astro application that renders both static HTML and hydrated islands has two distinct translation contexts. During the build, each route already has an explicit locale. In the browser, an island must recover that locale from the rendered document. Both contexts need the same catalog and fallback rules, but only statically identifiable source strings can be generated into that catalog.
+This Astro application translates text in two places. During the build, every route already has an explicit locale. In the browser, a hydrated island has to recover that locale from the rendered document. Both places use the same catalogs and fallback rules. The generator, however, can collect only source strings that it can identify statically.
 
-An Astro integration collects static `t()` calls, generates TypeScript catalogs keyed by hashes of the English source, and exposes them through a virtual module. Long-form posts remain separate locale-specific MDX files; the catalog covers interface copy such as labels, empty states, and panel headings.
+An Astro integration collects static `t()` calls, writes TypeScript catalogs keyed by hashes of the English source, and exposes them through a virtual module. Long posts remain in separate MDX files for each locale. The catalog holds interface copy such as labels, empty states, and panel headings.
 
 ```mermaid center
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
 
 The build consumes existing catalogs and regenerates them after rendering. A newly discovered translation reaches the output on the following build.
 
-## The public contract
+## The API used by application code
 
 The integration is registered with a closed locale set and one default:
 
@@ -58,9 +58,9 @@ const { locale } = Astro.props;
 
 Browser-owned components can use `t("Nothing playing")`; the runtime then reads the locale from the document. Components that receive a typed locale can keep using `t(locale, value)` on both sides of hydration.
 
-## Compile-time analysis only collects calls
+## Collect static calls without rewriting them
 
-The Vite plugin uses its `transform` hook as an analysis pass. It parses matching modules, records source strings, and returns `null`, so the original `t()` call remains in the emitted program. Translation itself is a runtime hash lookup.
+The Vite plugin inspects code through its `transform` hook. It parses matching modules, records source strings, and returns `null`, so the emitted program keeps the original `t()` call. A hash lookup performs the translation at runtime.
 
 Collection runs only for production builds and only when the module source contains `virtual:translate`. The analyzer first discovers the local binding imported from that exact module. It supports direct imports, renamed direct imports, and namespace imports:
 
@@ -90,9 +90,9 @@ function resolveCallTranslationValue(node: ESTree.CallExpression): string | null
 }
 ```
 
-A call such as `t(statusLabel)` is intentionally invisible to the catalog generator. AST analysis avoids false positives from comments, unrelated functions named `t`, and arbitrary strings, but it cannot infer runtime values. It also does not report an error for a dynamic key; the call falls back to its source value at runtime.
+A call such as `t(statusLabel)` is invisible to the catalog generator by design. AST analysis avoids false positives from comments, unrelated functions named `t`, and arbitrary strings, but it cannot infer runtime values. The analyzer does not report a dynamic key as an error. At runtime, the call falls back to its source value.
 
-## Catalog identity, shape, and typing
+## Derive catalog keys and types from the source
 
 Every collected source string is hashed with a compact FNV-1a-style 32-bit function:
 
@@ -137,7 +137,7 @@ const translations = {
 
 `Partial` permits an incomplete locale, `null` marks an untranslated entry, and `satisfies` rejects unknown hashes. At load time, `normalizeLocaleCatalog()` discards invalid shapes and values.
 
-Source text is also the message identity. Changing capitalization or punctuation creates a new hash, removes the old entry on the next generation pass, and inserts a new `null` override. This forces changed copy through translation again, but it also makes catalog keys opaque and makes copy edits noisier than stable semantic IDs would.
+The source text also identifies the message. Changing capitalization or punctuation creates a new hash. The next generation pass removes the old entry and inserts a new `null` override. This sends changed copy through translation again. It also leaves the catalog with opaque keys and creates more diff noise than stable message IDs would.
 
 ## Catalog generation is a two-build protocol
 
@@ -150,7 +150,7 @@ The collector is cleared at `astro:build:start`. As Vite transforms modules, dis
 - inserts `null` for untranslated hashes;
 - rewrites `web/i18n/en-US.ts` and `web/i18n/pt-BR.ts`.
 
-The virtual module was loaded earlier in that same build, before these files were rewritten. Therefore, adding a source string follows this sequence:
+The same build loaded the virtual module before rewriting these files. Adding a source string therefore follows this sequence:
 
 ```text
 build N     discover source → render with source fallback → write null override
@@ -160,7 +160,7 @@ build N + 1 load completed override → render and bundle the translation
 
 Development mode does not collect or regenerate catalogs because the transform gate checks `config.command === "build"`. A new `t()` call can appear to work in dev through English fallback while still having no generated override.
 
-## The virtual module separates server and browser payloads
+## Send different catalogs to server and browser code
 
 Vite resolves `virtual:translate` to an internal `\0virtual:translate` ID and resolves `virtual:translate/runtime` to the physical runtime file. Its `load` hook imports the generated locale modules and emits code equivalent to:
 
@@ -187,9 +187,9 @@ The values substituted for those last two fields depend on Vite's SSR flag:
 - server/static-render modules receive `buildCatalogs`, including `null` values;
 - browser modules receive an empty `buildCatalogs` object and `clientCatalogs` containing only completed string translations.
 
-All configured client catalogs are embedded, not just the current page locale. That is simple for two small catalogs, but bundle cost grows with `locales × translated strings`. Locale-specific dynamic imports would be a better boundary for a larger translation surface.
+Browser code receives every configured catalog. It does not limit the payload to the current page locale. Two small catalogs cost little, but the bundle grows with `locales × translated strings`. A larger catalog should load each locale through a separate dynamic import.
 
-## Runtime lookup and fallback behavior
+## Resolve translations and fall back to the source
 
 The runtime keeps server and browser resolution in the same overloaded function:
 
@@ -217,7 +217,7 @@ resolveLocale(
 );
 ```
 
-`<html lang>` is the primary hydration contract. The URL's first segment is consulted only when `lang` is empty; an invalid but non-empty `lang` normalizes directly to the default locale. The base Astro layout calls `resolveLocale(lang)` before writing the attribute, so pages generated through that layout provide a valid value.
+`<html lang>` tells hydrated code which locale to use. The runtime checks the URL's first segment only when `lang` is empty. An invalid but non-empty `lang` resolves directly to the default locale. The base Astro layout calls `resolveLocale(lang)` before writing the attribute, so pages generated through that layout provide a valid value.
 
 At hydration boundaries, `client:load` components pass `locale` and use `t(locale, value)` on both sides. Browser-only components can use `t(value)` after reading `<html lang>`. A server-rendered island that uses the one-argument overload would emit English during SSR and could switch language when hydrated.
 
@@ -243,9 +243,9 @@ return normalizedPath
   : `/${normalizedLocale}`;
 ```
 
-The base layout normalizes the route locale into `<html lang>`, canonical URLs, `hreflang` alternates, and Open Graph locale metadata. Blog selection independently prefers `slug.pt-BR.mdx` and falls back to `slug.mdx`. Catalog fallback and article fallback are therefore separate mechanisms: the former operates per UI string, while the latter selects an entire content entry.
+The base layout uses the normalized route locale for `<html lang>`, canonical URLs, `hreflang` alternates, and Open Graph locale metadata. Separately, blog selection prefers `slug.pt-BR.mdx` and falls back to `slug.mdx`. Catalog fallback handles one UI string at a time. Article fallback chooses a complete content entry.
 
-## Failure modes and tradeoffs
+## Where this design breaks down
 
 The main failure modes are:
 
@@ -258,4 +258,4 @@ The main failure modes are:
 - every browser consumer receives every locale's completed catalog;
 - the runtime has no interpolation, plural rules, or rich-text messages.
 
-A larger catalog would need collision checks, diagnostics for dynamic calls, locale-split client catalogs, and an explicit generation command. Stable message IDs and an ICU-capable system make more sense beyond that point.
+If the catalog grows, I would add collision checks, errors for dynamic calls, client catalogs split by locale, and a separate generation command. Past that size, stable message IDs and an ICU-capable library would remove more problems than this custom runtime solves.

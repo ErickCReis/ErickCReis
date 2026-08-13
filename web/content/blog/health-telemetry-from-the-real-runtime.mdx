@@ -1,11 +1,11 @@
 ---
-title: "Designing runtime telemetry across system boundaries"
-description: A technical analysis of process CPU, cgroup memory, host battery, external uptime, presence sampling, bounded history, and the SSE transport that connects them to the UI.
+title: "What this site's telemetry actually measures"
+description: How this site measures process CPU, cgroup memory, host battery, public uptime, and browser presence, then sends short histories to the UI over SSE.
 date: "2026-08-15"
 tags: [telemetry, observability, self-hosting]
 ---
 
-A runtime metric is incomplete until it identifies where it was observed and what its denominator means. In this deployment, the Bun process runs inside a container on a laptop and is reached through a public network path. Those layers produce measurements with different scopes:
+A percentage means little until you know where it was measured and what sits in the denominator. Here, a Bun process runs inside a container on a laptop. Visitors reach it through a public network path. Each layer measures a different part of the system:
 
 ```mermaid center
 flowchart LR
@@ -23,7 +23,7 @@ flowchart LR
 
 ## One module contract, different sampling policies
 
-The runtime collectors implement the same deliberately small interface:
+Every runtime collector implements the same small interface:
 
 ```ts
 export type StatModule<T> = {
@@ -50,7 +50,7 @@ const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
 ```
 
-The numerator is process work, not total cgroup CPU usage and not host CPU usage. A second process in the same container would not appear in this value.
+The numerator measures work done by the Bun process. It does not include total cgroup or host CPU usage. A second process in the same container would not appear in this value.
 
 `CPU_COUNT` is resolved once when the module loads. For cgroup v2, the code reads `cpu.max`; for v1 it reads `cpu.cfs_quota_us` and `cpu.cfs_period_us`. A finite quota is converted to a CPU count with:
 
@@ -60,7 +60,7 @@ Math.max(1, Math.round(Number(quota) / Number(period)));
 
 Without a finite cgroup quota, the fallback is `os.cpus().length`. The current Compose deployment sets `cpus: "1"`, so 100% means the Bun process consumed approximately one assigned CPU during the sample interval.
 
-Fractional quotas are rounded to an integer, the result is clamped to 100%, and the allowance is read only when the module loads. The module keeps 84 samples, about 126 seconds of history, and loses them on restart.
+The code rounds fractional quotas to an integer and clamps the result to 100%. It reads the allowance only when the module loads. The module keeps 84 samples, about 126 seconds of history, and loses them on restart.
 
 ## Cgroup memory is a budget metric, not a heap metric
 
@@ -84,9 +84,9 @@ This avoids dividing container usage by host capacity. If either cgroup value is
 
 For cgroup v2, `memory.max === "max"` means no finite limit. Cgroup v1 represents an unlimited boundary with a very large number, so the collector accepts a v1 limit only when it is below twice host memory. In the Compose deployment, `memory: 1G` gives the panel a container-sized denominator.
 
-`memory.current` is not `process.memoryUsage().heapUsed`. It can include Bun's heap, native allocations, other processes in the cgroup, and accounted page cache. It answers “how close is this container to its enforced memory limit?”, not “which JavaScript allocation is growing?”. If the cgroup is unlimited, the host fallback changes the question again to host-wide memory pressure. The schema and panel do not currently expose which boundary was selected, so deployment knowledge is required to interpret the percentage correctly.
+`memory.current` is not `process.memoryUsage().heapUsed`. It can include Bun's heap, native allocations, other processes in the cgroup, and accounted page cache. It answers "how close is this container to its enforced memory limit?" It does not answer "which JavaScript allocation is growing?" If the cgroup is unlimited, the host fallback instead measures host-wide memory pressure. The schema and panel do not expose which boundary the collector chose, so you need to know the deployment limits to interpret the percentage.
 
-## Host battery is an optional, cached capability
+## Cache the optional host battery reading
 
 The container cannot normally see laptop power state. Compose exposes only the required host subtree as a read-only mount:
 
@@ -107,7 +107,7 @@ if (!forceRefresh && now - cachedBatteryAt < BATTERY_CACHE_MS) {
 }
 ```
 
-Consequently, the 1.5-second system sampler can emit repeated battery values without repeatedly reading sysfs. Missing mounts, absent batteries, unreadable files, and invalid capacity values become nullable fields; the panel renders a missing percentage as `n/a`.
+The 1.5-second system sampler can then reuse a battery value instead of reading sysfs on every cycle. Missing mounts, absent batteries, unreadable files, and invalid capacity values become nullable fields. The panel renders a missing percentage as `n/a`.
 
 The reader cannot distinguish every failure cause, and the first `BAT*` entry is insufficient for a host with several batteries. The five-second alert cron bypasses the cache with `forceRefresh: true`.
 
@@ -130,19 +130,19 @@ return Number((total / availableDays.length).toFixed(2));
 
 That fallback gives today's partial day the same weight as a complete day, so it is an approximation rather than a duration-weighted availability calculation.
 
-The current reachable streak is also derived rather than directly supplied. If the monitor is not up, it is zero. Otherwise, the collector sorts the returned logs newest first and counts from the latest recovery event. If there are no logs, monitor creation time is the fallback. Because only 50 logs are requested, an unusually transition-heavy period can prevent the collector from finding an older recovery point.
+The collector also calculates the current reachable streak. If the monitor is not up, the streak is zero. Otherwise, it sorts the returned logs newest first and counts from the latest recovery event. If there are no logs, it uses the monitor creation time. The request asks for only 50 logs, so a period with many transitions can hide an older recovery point.
 
 The browser does not wait five minutes to repaint the streak. `ServerPanel` adds elapsed client time to the snapshot once per second while `currentStreakSeconds > 0`. This is a display extrapolation: it assumes the route remains up until the next server snapshot says otherwise.
 
 ## Retry and stale-data behavior are part of the metric
 
-Uptime requests have a 15-second timeout. Network errors, invalid JSON, HTTP `429`, and `5xx` responses are retryable; delays are one and two seconds, for at most three attempts. Permanent API failures are not retried inside that request cycle.
+Uptime requests time out after 15 seconds. The client retries network errors, invalid JSON, HTTP `429`, and `5xx` responses. It waits one second before the second attempt and two seconds before the third. It does not retry permanent API failures during that request cycle.
 
 After an error, the collector schedules its next cycle in one minute instead of five. Before the first success it publishes an empty snapshot; after a success it keeps the last valid snapshot and does not increment the version for a failed refresh.
 
-Keeping the last good value prevents a monitoring-provider failure from looking like a site outage. However, the data model has no `stale`, `configured`, or `fetchError` field. A visitor cannot distinguish missing credentials, startup failure, or a genuine zero value from the numeric fields alone. Once a successful snapshot becomes stale, its original timestamp is the only freshness signal, and the current panel does not display it.
+Keeping the last good value stops a monitoring-provider failure from looking like a site outage. The data model, however, has no `stale`, `configured`, or `fetchError` field. The numeric fields alone cannot tell a visitor whether credentials are missing, startup failed, or zero is the real value. The original timestamp is the only sign that a successful snapshot has gone stale, and the panel does not display it.
 
-## The “WebSocket” stat measures heartbeat presence
+## The "WebSocket" stat measures heartbeat presence
 
 The module and panel retain the name `websocket`, but the current presence mechanism is HTTP-based. An inline browser script assigns each tab an ID and sends `POST /presence/ping` every 15 seconds. `pagehide` attempts `POST /presence/leave`; both operations prefer `navigator.sendBeacon` and fall back to `fetch(..., { keepalive: true })`.
 
@@ -159,11 +159,11 @@ for (const [tabId, lastSeenAt] of activeViewerTabs) {
 
 Presence changes update `latest` and `version` immediately. Independently, a five-second tick appends a sample to an 84-point history, giving the chart about seven minutes of in-memory data. The maximum observed concurrency and compact `{ ts, count }` history records are written to `presence-stats-v1.json` at most every 30 seconds. Corrupt persisted JSON is ignored, writes are not wrapped in local error handling, and active tab identities are intentionally never persisted.
 
-`connectionStartedAt` records when the presence collector started. The panel labels it “Connected”, although it measures server collector lifetime rather than a browser session.
+`connectionStartedAt` records when the presence collector started. The panel labels it "Connected", although it measures the server collector's lifetime rather than a browser session.
 
-## Bootstrap once, then coalesce updates over SSE
+## Load history once, then combine updates over SSE
 
-When `TelemetryBackdrop` mounts, it starts the history request and stream subscription concurrently. `GET /stats/history` returns projected histories plus full latest snapshots. Historical system points include only timestamp, CPU, and memory percentages; presence history includes only timestamp and connected count. Fields needed only for labels stay in `latest`.
+When `TelemetryBackdrop` mounts, it starts the history request and stream subscription at the same time. `GET /stats/history` returns projected histories plus full latest snapshots. Historical system points contain only the timestamp, CPU percentage, and memory percentage. Presence history contains only the timestamp and connected count. Fields used only for labels stay in `latest`.
 
 The wire format uses positional tuples and short event names such as `sy`, `sr`, and `ws`. The SSE route checks module versions every 500 milliseconds and sends only the latest snapshot. Several changes inside one scan can collapse into one event.
 

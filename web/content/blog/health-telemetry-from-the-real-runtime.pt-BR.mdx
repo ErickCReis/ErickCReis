@@ -1,11 +1,11 @@
 ---
-title: "Projetando telemetria de runtime entre fronteiras do sistema"
-description: Uma análise técnica de CPU do processo, memória do cgroup, bateria do host, uptime externo, amostragem de presença, histórico limitado e transporte SSE até a interface.
+title: "O que a telemetria deste site realmente mede"
+description: Como este site mede CPU do processo, memória do cgroup, bateria do host, uptime público e presença no navegador e envia históricos curtos à interface por SSE.
 date: "2026-08-15"
 tags: [telemetry, observability, self-hosting]
 ---
 
-Uma métrica de runtime está incompleta enquanto não identifica onde foi observada e o que seu denominador significa. Neste deploy, o processo Bun roda em um container hospedado em um notebook e é acessado por um caminho público de rede. Essas camadas produzem medidas com escopos diferentes:
+Um percentual diz pouco sem o local da medição e o significado do denominador. Aqui, um processo Bun roda dentro de um container em um notebook. Os visitantes chegam até ele por um caminho público de rede. Cada camada mede uma parte diferente do sistema:
 
 ```mermaid center
 flowchart LR
@@ -23,7 +23,7 @@ flowchart LR
 
 ## Um contrato de módulo, várias políticas de amostragem
 
-Os coletores do runtime implementam a mesma interface, deliberadamente pequena:
+Todos os coletores do runtime implementam a mesma interface pequena:
 
 ```ts
 export type StatModule<T> = {
@@ -50,7 +50,7 @@ const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
 ```
 
-O numerador representa o trabalho do processo, não o uso total de CPU do cgroup nem o uso do host. Um segundo processo no mesmo container não apareceria nesse valor.
+O numerador mede o trabalho feito pelo processo Bun. Ele não inclui o uso total de CPU do cgroup nem do host. Um segundo processo no mesmo container não apareceria nesse valor.
 
 `CPU_COUNT` é resolvido uma vez durante o carregamento do módulo. No cgroup v2, o código lê `cpu.max`; no v1, lê `cpu.cfs_quota_us` e `cpu.cfs_period_us`. Uma cota finita é convertida em quantidade de CPUs com:
 
@@ -60,7 +60,7 @@ Math.max(1, Math.round(Number(quota) / Number(period)));
 
 Sem uma cota finita do cgroup, o fallback é `os.cpus().length`. O Compose atual define `cpus: "1"`, então 100% significa que o processo Bun consumiu aproximadamente uma CPU atribuída durante o intervalo da amostra.
 
-Cotas fracionárias são arredondadas para um inteiro, o resultado é limitado a 100%, e a cota é lida somente durante o carregamento do módulo. O módulo mantém 84 amostras, cerca de 126 segundos de histórico, e perde esse histórico ao reiniciar.
+O código arredonda cotas fracionárias para um inteiro e limita o resultado a 100%. Ele lê a cota somente durante o carregamento do módulo. O módulo mantém 84 amostras, cerca de 126 segundos de histórico, e perde esse histórico ao reiniciar.
 
 ## Memória do cgroup é uma métrica de orçamento, não de heap
 
@@ -84,9 +84,9 @@ Isso evita dividir o uso do container pela capacidade do host. Se um dos valores
 
 No cgroup v2, `memory.max === "max"` indica a ausência de limite finito. O cgroup v1 representa uma fronteira ilimitada com um número muito grande; por isso, o coletor só aceita o limite do v1 quando ele é inferior ao dobro da memória do host. No deploy do Compose, `memory: 1G` fornece ao painel um denominador do tamanho do container.
 
-`memory.current` não é `process.memoryUsage().heapUsed`. Ele pode incluir o heap do Bun, alocações nativas, outros processos no cgroup e cache de páginas contabilizado. Ele responde “quão perto este container está do limite de memória imposto?”, não “qual alocação JavaScript está crescendo?”. Se o cgroup for ilimitado, o fallback para o host muda novamente a pergunta para a pressão de memória do host inteiro. O schema e o painel não expõem hoje qual fronteira foi escolhida, então interpretar o percentual exige conhecer o deploy.
+`memory.current` não é `process.memoryUsage().heapUsed`. Ele pode incluir o heap do Bun, alocações nativas, outros processos no cgroup e cache de páginas contabilizado. Ele responde "quão perto este container está do limite de memória imposto?" Não responde "qual alocação JavaScript está crescendo?" Se o cgroup for ilimitado, o fallback mede a pressão de memória do host inteiro. O esquema e o painel não mostram qual fronteira o coletor escolheu, então interpretar o percentual exige conhecer os limites do deploy.
 
-## A bateria do host é uma capacidade opcional com cache
+## Mantenha em cache a leitura opcional da bateria do host
 
 Normalmente, o container não enxerga o estado de energia do notebook. O Compose expõe somente a subárvore necessária do host, em modo somente leitura:
 
@@ -107,7 +107,7 @@ if (!forceRefresh && now - cachedBatteryAt < BATTERY_CACHE_MS) {
 }
 ```
 
-Assim, o amostrador de sistema que roda a cada 1,5 segundos pode emitir valores repetidos da bateria sem reler o sysfs em cada ciclo. Montagem ausente, bateria inexistente, arquivos ilegíveis e capacidade inválida se tornam campos anuláveis; o painel exibe `n/a` quando o percentual está ausente.
+O amostrador de sistema, que roda a cada 1,5 segundos, pode então reutilizar o valor da bateria em vez de reler o sysfs em cada ciclo. Montagem ausente, bateria inexistente, arquivos ilegíveis e capacidade inválida se tornam campos anuláveis. O painel exibe `n/a` quando o percentual está ausente.
 
 O leitor não distingue todas as causas de falha, e a primeira entrada `BAT*` não é suficiente para um host com várias baterias. O cron de alerta, executado a cada cinco segundos, ignora o cache com `forceRefresh: true`.
 
@@ -130,19 +130,19 @@ return Number((total / availableDays.length).toFixed(2));
 
 Esse fallback dá ao dia parcial de hoje o mesmo peso de um dia completo. Portanto, é uma aproximação, não um cálculo de disponibilidade ponderado por duração.
 
-O período contínuo de acessibilidade também é derivado. Se o monitor não estiver ativo, o valor é zero. Caso contrário, o coletor ordena os logs do mais novo para o mais antigo e conta a partir do evento mais recente de recuperação. Se não houver logs, usa a data de criação do monitor. Como a requisição limita a resposta a 50 logs, um período com muitas transições pode impedir que o coletor encontre um ponto de recuperação mais antigo.
+O coletor também calcula o período contínuo de acessibilidade. Se o monitor não estiver ativo, o valor é zero. Caso contrário, ele ordena os logs do mais novo para o mais antigo e conta a partir do evento mais recente de recuperação. Se não houver logs, usa a data de criação do monitor. A requisição pede apenas 50 logs, então um período com muitas transições pode esconder um ponto de recuperação mais antigo.
 
 O navegador não espera cinco minutos para redesenhar esse contador. `ServerPanel` adiciona ao retrato o tempo transcorrido no cliente, uma vez por segundo, enquanto `currentStreakSeconds > 0`. Essa é uma extrapolação de apresentação: ela presume que a rota continua acessível até que o próximo retrato do servidor informe o contrário.
 
 ## Retentativas e dados antigos fazem parte da métrica
 
-As requisições de uptime têm timeout de 15 segundos. Requisições que resultam em erros de rede, JSON inválido ou respostas HTTP `429` e `5xx` são repetidas; os atrasos são de um e dois segundos, com no máximo três tentativas. Requisições que resultam em falhas permanentes da API não são repetidas dentro do mesmo ciclo.
+As requisições de uptime expiram após 15 segundos. O cliente repete erros de rede, JSON inválido e respostas HTTP `429` e `5xx`. Ele espera um segundo antes da segunda tentativa e dois antes da terceira. Falhas permanentes da API não são repetidas no mesmo ciclo.
 
 Depois de um erro, o coletor agenda o próximo ciclo para um minuto, em vez de cinco. Antes do primeiro sucesso, publica um retrato vazio; depois de um sucesso, mantém o último retrato válido e não incrementa a versão quando uma atualização falha.
 
-Preservar o último valor válido evita transformar uma falha do provedor de monitoramento em uma indisponibilidade do site. Porém, o modelo não possui campos `stale`, `configured` ou `fetchError`. Somente pelos valores numéricos, o visitante não consegue distinguir credenciais ausentes, falha na inicialização ou um zero real. Quando um retrato válido fica antigo, seu timestamp original é o único sinal de atualidade, e o painel atual não o exibe.
+Preservar o último valor válido impede que uma falha do provedor de monitoramento pareça uma indisponibilidade do site. O modelo, porém, não possui campos `stale`, `configured` ou `fetchError`. Os valores numéricos não dizem ao visitante se faltam credenciais, se a inicialização falhou ou se zero é o valor real. O timestamp original é o único sinal de que um retrato válido ficou antigo, e o painel não o exibe.
 
-## A estatística “WebSocket” mede presença por heartbeat
+## A estatística "WebSocket" mede presença por heartbeat
 
 O módulo e o painel ainda preservam o nome `websocket`, mas o mecanismo atual de presença usa HTTP. Um script inline atribui um ID a cada aba e envia `POST /presence/ping` a cada 15 segundos. Em `pagehide`, tenta enviar `POST /presence/leave`; as duas operações preferem `navigator.sendBeacon` e usam `fetch(..., { keepalive: true })` como fallback.
 
@@ -159,11 +159,11 @@ for (const [tabId, lastSeenAt] of activeViewerTabs) {
 
 Mudanças de presença atualizam `latest` e `version` imediatamente. Em paralelo, um ciclo de cinco segundos acrescenta uma amostra a um histórico de 84 pontos, dando ao gráfico cerca de sete minutos de dados em memória. O pico de concorrência observado e registros compactos `{ ts, count }` são gravados em `presence-stats-v1.json` no máximo a cada 30 segundos. JSON persistido corrompido é ignorado, as escritas não têm tratamento local de erro, e as identidades das abas ativas nunca são persistidas.
 
-`connectionStartedAt` registra quando o coletor de presença iniciou. O painel rotula o valor como “Connected”, embora ele meça a duração do coletor no servidor, não uma sessão do navegador.
+`connectionStartedAt` registra quando o coletor de presença iniciou. O painel rotula o valor como "Connected", embora ele meça o tempo de vida do coletor no servidor, não uma sessão do navegador.
 
-## Bootstrap inicial e atualizações combinadas por SSE
+## Carregue o histórico uma vez e combine atualizações por SSE
 
-Quando `TelemetryBackdrop` é montado, ele inicia simultaneamente a requisição de histórico e a assinatura do stream. `GET /stats/history` retorna históricos projetados e os retratos completos mais recentes. Os pontos históricos do sistema contêm apenas timestamp, CPU e percentuais de memória; os de presença contêm somente timestamp e quantidade de abas conectadas. Os campos usados apenas nos rótulos permanecem em `latest`.
+Quando `TelemetryBackdrop` é montado, ele inicia a requisição de histórico e a assinatura do stream ao mesmo tempo. `GET /stats/history` retorna históricos projetados e os retratos completos mais recentes. Os pontos históricos do sistema contêm apenas o timestamp e os percentuais de CPU e memória. Os de presença contêm somente o timestamp e a quantidade de abas conectadas. Os campos usados apenas nos rótulos permanecem em `latest`.
 
 O transporte usa tuplas posicionais e nomes curtos de evento, como `sy`, `sr` e `ws`. A rota SSE verifica as versões dos módulos a cada 500 milissegundos e envia apenas o retrato mais recente. Várias mudanças dentro de uma varredura podem virar um único evento.
 

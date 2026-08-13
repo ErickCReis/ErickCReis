@@ -1,11 +1,11 @@
 ---
-title: "Normalizando o uso de tokens de agentes em uma estatística versionada"
-description: Um projeto técnico para processar registros heterogêneos do Codex, Pi e Claude, substituir janelas por origem de forma idempotente e transportar um agregado móvel.
+title: "Contando tokens do Codex, Pi e Claude em uma estatística de telemetria"
+description: Como coletores locais processam três formatos de sessão, substituem com segurança as janelas de 30 dias e publicam um total móvel de tokens.
 date: "2026-09-05"
 tags: [telemetry]
 ---
 
-O uso de tokens chega em formatos incompatíveis. O Codex emite valores cumulativos e por turno, o Pi associa o uso às mensagens do assistente, e o Claude separa a entrada entre campos sem cache, leitura de cache e criação de cache. Além disso, esses registros estão em arquivos de sessão JSONL privados, que não devem se tornar entradas diretas do servidor.
+O uso de tokens chega em formatos incompatíveis. O Codex emite valores cumulativos e por turno. O Pi associa o uso às mensagens do assistente. O Claude separa a entrada entre campos sem cache, leitura de cache e criação de cache. Esses registros ficam em arquivos de sessão JSONL privados, que não devem virar entradas diretas do servidor.
 
 Adaptadores de provedor transformam registros locais em deltas por evento. Um coletor os agrupa por dia, o servidor armazena uma janela substituível por origem e o navegador recebe uma projeção móvel de 30 dias.
 
@@ -21,7 +21,7 @@ flowchart LR
 
 ## Normalizar eventos antes de agregá-los por data
 
-O arquivo [`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) concentra o acesso ao sistema de arquivos e o parsing específico de cada provedor. Por padrão, ele percorre `~/.codex/sessions`, `~/.pi/agent/sessions` e `~/.claude/projects`; variáveis de ambiente podem substituir diretórios, seleção de provedores, IDs de origem, tamanho da janela e fuso horário.
+O arquivo [`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) cuida do acesso ao sistema de arquivos e do parsing específico de cada provedor. Por padrão, ele percorre `~/.codex/sessions`, `~/.pi/agent/sessions` e `~/.claude/projects`. Variáveis de ambiente podem substituir diretórios, seleção de provedores, IDs de origem, tamanho da janela e fuso horário.
 
 Todos os adaptadores produzem o mesmo delta interno:
 
@@ -35,7 +35,7 @@ type TokenUsageDelta = {
 };
 ```
 
-O normalizador geral aceita nomes de campos comuns em snake case e camel case. Valores ausentes ou não finitos tornam-se zero. Quando um registro não fornece um total positivo, o coletor usa `input + output`; a entrada em cache é limitada para não ultrapassar a entrada normalizada:
+O normalizador geral aceita nomes de campos comuns em snake case e camel case. Ele transforma valores ausentes ou não finitos em zero. Quando um registro não fornece um total positivo, o coletor usa `input + output`. Também limita a entrada em cache para que ela não ultrapasse a entrada normalizada:
 
 ```ts
 function toDelta(raw: RawUsage): TokenUsageDelta {
@@ -58,13 +58,13 @@ Assim, o coletor local mantém duas invariantes:
 - todos os campos emitidos são finitos e não negativos;
 - `cachedInputTokens <= inputTokens`.
 
-Ele propositalmente **não** exige que `totalTokens` seja igual à soma de todas as categorias visíveis. Um total informado pelo provedor tem precedência, e os campos de raciocínio ou cache podem ser subconjuntos, não dimensões aditivas.
+O coletor **não** exige que `totalTokens` seja igual à soma de todas as categorias visíveis. O total informado pelo provedor tem precedência porque os campos de raciocínio e cache podem ser subconjuntos, não valores que devem ser somados.
 
 ## Os adaptadores codificam modelos contábeis diferentes
 
-No Codex, o adaptador lê registros `event_msg` com payload `token_count`. `total_token_usage` é cumulativo dentro da sessão, então cada campo vira `Math.max(atual - anterior, 0)`. Se houver apenas `last_token_usage`, o adaptador o considera uma amostra por turno e descarta uma repetição imediatamente consecutiva da mesma assinatura. Registros repetidos em outras posições do arquivo não são deduplicados.
+No Codex, o adaptador lê registros `event_msg` com payload `token_count`. `total_token_usage` é cumulativo dentro da sessão, então cada campo vira `Math.max(atual - anterior, 0)`. Se houver apenas `last_token_usage`, o adaptador o considera uma amostra por turno e descarta a repetição imediata da mesma assinatura. O mesmo registro não é deduplicado quando aparece em outra parte do arquivo.
 
-Os registros do Pi são mais simples: somente entradas `message` cuja mensagem tem o papel `assistant` são aceitas, e o uso de cada mensagem é tratado como amostra independente.
+Os registros do Pi são mais simples. O adaptador aceita somente entradas `message` cuja mensagem tem o papel `assistant` e trata o uso de cada mensagem como uma amostra independente.
 
 O Claude também emite uso em mensagens do assistente, mas `input_tokens` não inclui a atividade do cache de prompts. O adaptador define a entrada inclusiva como:
 
@@ -76,7 +76,7 @@ const totalTokens = inputTokens + outputTokens;
 
 `cachedInputTokens` contém apenas leituras do cache; a criação de cache contribui para a entrada inclusiva, mas não possui um campo público separado. Sessões retomadas do Claude podem repetir uma resposta da API em vários arquivos. Por isso, uma execução do coletor mantém um `Set` de IDs de mensagem e conta cada ID conhecido uma vez. Registros sem ID não recebem essa proteção.
 
-JSON malformado, tipos de evento não relacionados, timestamps inválidos e diretórios de sessão ausentes são ignorados. Isso impede que uma linha danificada encerre a leitura, mas produz um comportamento operacional importante: um diretório ausente ou um formato externo incompatível pode gerar um payload vazio, mas válido. Como a sincronização substitui a janela da origem, enviar esse payload com sucesso apaga a janela ativa anterior daquela origem no servidor.
+O coletor ignora JSON malformado, tipos de evento não relacionados, timestamps inválidos e diretórios de sessão ausentes. Uma linha danificada não encerra a leitura. Há um risco nessa escolha. Um diretório ausente ou um formato externo incompatível pode gerar um payload vazio, mas válido. Como cada sincronização substitui a janela da origem, enviar esse payload apaga a janela ativa anterior daquela origem no servidor.
 
 ## A agregação por calendário depende do fuso horário
 
@@ -93,7 +93,7 @@ dailyUsage.set(dateKey, day);
 
 A agregação diária soma cada componente separadamente. O vetor enviado é ordenado por data, tornando o payload determinístico com exceção de `generatedAt`.
 
-Existe um caso-limite: o coletor calcula `since` e `until` pelo calendário local do host, enquanto as chaves dos eventos usam `TOKEN_USAGE_TIMEZONE`. Quando o fuso do host difere do fuso configurado para a agregação, os dois cálculos podem divergir perto da meia-noite. Uma implementação mais estrita derivaria o intervalo e as chaves dos eventos da mesma abstração de calendário.
+Um limite de data usa dois relógios. O coletor calcula `since` e `until` pelo calendário local do host, enquanto as chaves dos eventos usam `TOKEN_USAGE_TIMEZONE`. Quando o fuso do host difere do fuso configurado para a agregação, os cálculos podem divergir perto da meia-noite. Uma implementação mais estrita derivaria o intervalo e as chaves dos eventos do mesmo código de calendário.
 
 ## O payload de sincronização é um retrato substituível por origem
 
@@ -117,13 +117,13 @@ A identidade usada na combinação é o par ordenado:
 (providerId, sourceId)
 ```
 
-A cada sincronização aceita, o servidor remove o membro anterior com esse par e insere a nova janela. Assim, tentativas repetidas pelo agendador são idempotentes na granularidade da janela de uma origem. Uma segunda máquina precisa usar outro `sourceId`; caso contrário, seu retrato substituirá o retrato da primeira. No Linux, a impressão digital padrão é o rótulo fixo `vps-prod`, então várias máquinas Linux que reportam o mesmo provedor precisam de IDs explícitos.
+A cada sincronização aceita, o servidor remove o membro anterior com esse par e insere a nova janela. Repetir a mesma janela de origem é, portanto, idempotente. Uma segunda máquina precisa usar outro `sourceId`; caso contrário, seu retrato substituirá o retrato da primeira. No Linux, a impressão digital padrão é o rótulo fixo `vps-prod`, então várias máquinas Linux que reportam o mesmo provedor precisam de IDs explícitos.
 
 O schema garante formatos, sintaxe das datas e números não negativos. Ele não impõe equações como `cachedInputTokens <= inputTokens`; outro produtor autorizado poderia violar as premissas do coletor.
 
 ## A persistência usa um arquivo versionado e serialização local ao processo
 
-O servidor armazena a entrada normalizada completa em `token-usage.json`, dentro de `DATA_DIR`. O formato persistido é intencionalmente pequeno:
+O servidor armazena a entrada normalizada completa em `token-usage.json`, dentro de `DATA_DIR`. O arquivo persistido contém apenas a versão e uma lista de origens:
 
 ```ts
 const persistedStoreSchema = v.object({
@@ -132,7 +132,7 @@ const persistedStoreSchema = v.object({
 });
 ```
 
-Antes de gravar, o módulo relê o arquivo atual, remove datas fora da janela ativa de 30 dias e reduz datas duplicadas dentro de uma origem com a regra “a última entrada vence”. Em seguida, substitui a origem correspondente e ordena as origens por provedor e ID.
+Antes de gravar, o módulo relê o arquivo atual, remove datas fora da janela ativa de 30 dias e reduz datas duplicadas dentro de uma origem com a regra "a última entrada vence". Em seguida, substitui a origem correspondente e ordena as origens por provedor e ID.
 
 As gravações passam por uma fila de `Promise`s dentro do processo. Cada atualização é escrita em um arquivo temporário com nome único, que depois é renomeado para o caminho de destino, substituindo o arquivo anterior:
 
@@ -145,7 +145,7 @@ writeQueue = writeQueue.catch(() => {}).then(async () => {
 });
 ```
 
-A renomeação impede leituras parciais, e a fila serializa gravações dentro de um processo. Dois processos que compartilhem o arquivo ainda podem disputar a gravação. Dados persistidos inválidos são registrados e ignorados; somente a versão `2` é aceita.
+A renomeação impede leituras parciais, e a fila serializa gravações dentro de um processo. Dois processos que compartilham o arquivo ainda podem disputar a gravação. O módulo registra e ignora dados persistidos inválidos. Ele aceita somente a versão `2`.
 
 ## A projeção pública usa vetores de provedores alinhados por índice
 
@@ -187,19 +187,19 @@ type TokenUsageSnapshotTuple = [
 ];
 ```
 
-Isso reduz nomes de propriedades repetidos em payloads do histórico e do SSE, mas transforma a ordem da tupla em protocolo. Adicionar ou reordenar um campo exige atualizar serializadores e desserializadores em conjunto; o desserializador do navegador não valida a tupla de forma independente.
+Isso remove nomes de propriedades repetidos dos payloads do histórico e do SSE, mas torna a ordem da tupla parte do protocolo. Adicionar ou reordenar um campo exige mudar serializadores e desserializadores em conjunto. O desserializador do navegador não valida a tupla por conta própria.
 
 ## Polling e versões eliminam eventos SSE redundantes
 
-O módulo verifica o arquivo a cada 30 segundos. Quando a data de modificação não mudou, ele evita processar o JSON novamente, mas ainda reconstrói o estado derivado para que a mudança de dia e a transição para o estado desatualizado ocorram sem uma nova gravação.
+O módulo verifica o arquivo a cada 30 segundos. Quando a data de modificação não mudou, ele pula um novo parsing do JSON. O servidor ainda reconstrói o estado derivado para que a janela de 30 dias avance à meia-noite e o retrato possa ficar desatualizado sem uma nova gravação.
 
 `areSnapshotsEqual` compara todos os campos semânticos públicos, exceto o `timestamp` da observação. Somente quando o retrato muda, o módulo chama `markDirty`, adiciona uma amostra ao histórico e incrementa sua versão. O loop compartilhado de SSE consulta as versões a cada 500 ms e emite uso de tokens apenas depois que essa versão é incrementada.
 
-O navegador carrega primeiro `/stats/history` e depois recebe eventos `tu` pelo stream. O store do Solid combina pontos de histórico pelo `timestamp`, ordena-os e mantém as 30 mudanças de estado mais recentes. Esse histórico não corresponde aos 30 dias do gráfico: o painel renderiza `latest.daily`, enquanto o histórico do store registra retratos sucessivos do servidor.
+O navegador carrega primeiro `/stats/history` e depois recebe eventos `tu` pelo stream. O store do Solid combina pontos de histórico pelo `timestamp`, ordena-os e mantém as 30 mudanças de estado mais recentes. Essa não é a mesma série de 30 dias exibida no gráfico. O painel renderiza `latest.daily`, enquanto o histórico do store registra retratos sucessivos do servidor.
 
 O painel depende da invariante dos vetores de provedores para criar segmentos empilhados. Provedores conhecidos têm cores fixas; IDs desconhecidos recebem cores alternativas determinísticas pelo índice. A interface mostra o total de hoje, o total de 30 dias e o horário de geração mais recente.
 
-## Erros e atualidade definem o significado da métrica
+## A atualidade pode esconder uma origem quebrada
 
 A atualidade é determinada pelo `generatedAt` mais recente entre todas as origens e, por padrão, o retrato se torna desatualizado após 180 minutos. A redução começa em `null` para que um store vazio continue diferente de um timestamp:
 
@@ -213,7 +213,7 @@ const isStale =
   generatedAt === null || Date.now() - generatedAt > staleAfterMs;
 ```
 
-Esse indicador mede a atualidade do agregado. Uma origem saudável pode manter o retrato atualizado enquanto outra deixou de reportar. O valor `isStale` chega ao cliente, mas o painel atual mostra apenas o horário de geração, sem um aviso específico. Diagnosticar cada origem exigiria preservar a atualidade de cada uma em uma projeção privada ou expor um resumo público cuidadosamente definido.
+A atualidade vale para o agregado. Uma origem saudável pode manter o retrato atualizado enquanto outra deixou de reportar. O valor `isStale` chega ao cliente, mas o painel atual mostra apenas o horário de geração, sem um aviso separado. Para diagnosticar cada origem, seria preciso manter o timestamp de cada uma em uma visão privada ou criar um resumo público com esse propósito.
 
 Outros limites pertencem à própria métrica:
 

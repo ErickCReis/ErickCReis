@@ -1,20 +1,20 @@
 ---
-title: Por que este site está no ar?
-description: Uma nota curta sobre por que este portfólio é mais do que uma página estática.
+title: Por que este site usa dados em tempo real
+description: Por que este portfólio mostra telemetria e presença de cursores junto às páginas estáticas.
 date: "2026-03-22"
 tags: [architecture]
 ---
 
-Em geral, sites de portfólio são estáticos. Mostram projetos, habilidades e links.
+Em geral, sites de portfólio são estáticos. Mostram projetos, habilidades e links. Na maioria dos casos, isso basta.
 
-Eu queria que este mostrasse um pouco mais de como eu construo software.
+Eu queria mostrar como construo software. Uma lista de projetos exibe o resultado, mas deixa de fora as decisões por trás dele.
 
-Transformei o site em um pequeno sistema dinâmico. Ele continua funcionando como portfólio e expõe sinais em tempo real da própria aplicação.
+Por isso, acrescentei telemetria e presença de cursores à página inicial. O site continua funcionando como portfólio enquanto mostra o que a própria aplicação está fazendo naquele momento.
 
-A página inicial inclui telemetria em tempo real, presença e dados vindos de serviços por trás da interface. O projeto fica mais próximo do tipo de software que eu gosto de construir: aplicações frontend conectadas a dados em tempo real, pequenos serviços backend e contratos compartilhados entre cliente e servidor.
+A implementação também segue o tipo de software que gosto de construir. O frontend reage aos dados dos serviços do backend, e o cliente e o servidor usam os mesmos contratos.
 
 A stack é simples: Astro no frontend, Solid para ilhas interativas e Bun com Elysia no backend.
 
-Quase todo o site continua estático. Apenas as partes que precisam de comportamento em tempo real se tornam dinâmicas.
+O Astro ainda gera quase todo o site como HTML estático. O Solid inicia apenas as partes que dependem do estado do navegador ou de dados em tempo real.
 
-No próximo post, eu vou detalhar uma parte específica do sistema em vez de tentar explicar tudo de uma vez.
+No próximo post, vou desmontar uma dessas partes e acompanhar o caminho dos dados.
