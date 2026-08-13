@@ -1,11 +1,11 @@
 ---
-title: "Normalizing agent token usage into a versioned telemetry stat"
-description: A technical design for parsing heterogeneous Codex, Pi, and Claude records, replacing source windows idempotently, and transporting a rolling aggregate.
+title: "Counting Codex, Pi, and Claude tokens in one telemetry stat"
+description: How local collectors parse three session formats, replace 30-day source windows safely, and publish one rolling token total.
 date: "2026-09-05"
 tags: [telemetry]
 ---
 
-Token usage arrives in incompatible record shapes. Codex emits cumulative and per-turn values, Pi attaches usage to assistant messages, and Claude splits input into uncached, cache-read, and cache-creation fields. Those records also live in private JSONL session files that should never become server inputs directly.
+Token usage arrives in incompatible shapes. Codex emits cumulative and per-turn values. Pi attaches usage to assistant messages. Claude splits input into uncached, cache-read, and cache-creation fields. Their records live in private JSONL session files, which should not become direct server inputs.
 
 Provider adapters turn local records into event deltas. A collector groups them by calendar day, the server stores one replaceable window per source, and the browser receives a rolling 30-day projection.
 
@@ -21,7 +21,7 @@ flowchart LR
 
 ## Normalize events before aggregating time
 
-[`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) owns filesystem access and provider-specific parsing. It scans `~/.codex/sessions`, `~/.pi/agent/sessions`, and `~/.claude/projects` by default; environment variables can override homes, session directories, provider selection, source IDs, window length, and timezone.
+[`scripts/token-usage-sync.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/token-usage-sync.ts) handles filesystem access and provider-specific parsing. By default, it scans `~/.codex/sessions`, `~/.pi/agent/sessions`, and `~/.claude/projects`. Environment variables can override homes, session directories, provider selection, source IDs, window length, and timezone.
 
 All adapters produce the same internal delta:
 
@@ -35,7 +35,7 @@ type TokenUsageDelta = {
 };
 ```
 
-The general normalizer accepts common snake-case and camel-case field names. Missing or non-finite values become zero. If a record does not provide a positive total, the collector uses `input + output`; cached input is clamped so that it cannot exceed normalized input:
+The general normalizer accepts common snake-case and camel-case field names. It turns missing or non-finite values into zero. If a record has no positive total, the collector uses `input + output`. It also clamps cached input so that it cannot exceed normalized input:
 
 ```ts
 function toDelta(raw: RawUsage): TokenUsageDelta {
@@ -58,13 +58,13 @@ That gives the local collector two invariants:
 - every emitted field is finite and non-negative;
 - `cachedInputTokens <= inputTokens`.
 
-It deliberately does **not** assert that `totalTokens` equals the sum of all visible categories. A provider-supplied total wins, and reasoning or cache fields may be subsets rather than additive dimensions.
+The collector does **not** require `totalTokens` to equal the sum of all visible categories. A provider-supplied total wins because reasoning and cache fields may be subsets rather than values that should be added.
 
 ## Provider adapters encode different accounting models
 
-For Codex, the adapter reads `event_msg` records with a `token_count` payload. `total_token_usage` is cumulative within a session, so each field becomes `Math.max(current - previous, 0)`. If only `last_token_usage` exists, the adapter treats it as a per-turn sample and suppresses an immediately repeated fingerprint. It does not deduplicate repeated records elsewhere in the file.
+For Codex, the adapter reads `event_msg` records with a `token_count` payload. `total_token_usage` is cumulative within a session, so each field becomes `Math.max(current - previous, 0)`. If only `last_token_usage` exists, the adapter treats it as a per-turn sample and drops an immediately repeated fingerprint. It does not deduplicate the same record when it appears elsewhere in the file.
 
-Pi records are simpler: only `message` entries whose message role is `assistant` are accepted, and each message's usage is treated as an independent sample.
+Pi records are simpler. The adapter accepts only `message` entries whose message role is `assistant` and treats each message's usage as an independent sample.
 
 Claude also emits assistant-message usage, but `input_tokens` excludes prompt-cache activity. The adapter defines inclusive input as:
 
@@ -76,7 +76,7 @@ const totalTokens = inputTokens + outputTokens;
 
 `cachedInputTokens` contains cache reads only; cache creation contributes to inclusive input but has no separate public field. Resumed Claude sessions can repeat an API response across files, so one collector run keeps a `Set` of message IDs and counts each known ID once. Records without an ID cannot receive that protection.
 
-Malformed JSON, unrelated event types, invalid timestamps, and missing session directories are skipped. This keeps one damaged line from aborting a scan, but it creates a critical operational behavior: a missing directory or an incompatible upstream format can produce a valid empty payload. Because source sync is replacement-based, successfully sending that payload clears the server's previous active window for that source.
+The collector skips malformed JSON, unrelated event types, invalid timestamps, and missing session directories. One damaged line cannot abort a scan. There is a sharp edge, though. A missing directory or an incompatible upstream format can produce a valid empty payload. Because each sync replaces the source window, sending that payload clears the server's previous active window for the source.
 
 ## Calendar aggregation is timezone-sensitive
 
@@ -93,7 +93,7 @@ dailyUsage.set(dateKey, day);
 
 Daily aggregation is component-wise addition. The outgoing array is sorted by date, making payloads deterministic apart from `generatedAt`.
 
-There is one boundary condition to understand: the collector computes `since` and `until` with the host's local calendar, while event keys use `TOKEN_USAGE_TIMEZONE`. Deployments whose host timezone differs from the configured aggregation timezone can disagree around midnight. A stricter implementation would derive both the range and event keys from the same calendar abstraction.
+One date boundary uses two clocks. The collector computes `since` and `until` with the host's local calendar, while event keys use `TOKEN_USAGE_TIMEZONE`. If the host timezone differs from the aggregation timezone, the calculations can disagree around midnight. A stricter implementation would derive the range and event keys from the same calendar code.
 
 ## The sync payload is a replaceable source snapshot
 
@@ -117,13 +117,13 @@ The merge identity is the ordered pair:
 (providerId, sourceId)
 ```
 
-On every accepted sync, the server removes the existing member with that pair and inserts the new window. This makes scheduler retries idempotent at source-window granularity. A second machine must use a different `sourceId`, or its snapshot will overwrite the first machine's snapshot. The Linux default fingerprint is the fixed label `vps-prod`, so explicit source IDs are required when multiple Linux machines report the same provider.
+On every accepted sync, the server removes the existing member with that pair and inserts the new window. Retrying the same source window is therefore idempotent. A second machine must use a different `sourceId`, or its snapshot will overwrite the first machine's snapshot. The Linux default fingerprint is the fixed label `vps-prod`, so multiple Linux machines reporting the same provider need explicit source IDs.
 
 The schema guarantees shapes, date syntax, and non-negative numbers. It does not enforce equations such as `cachedInputTokens <= inputTokens`; another authorized producer could violate the collector's assumptions.
 
 ## Persistence is a versioned file with process-local serialization
 
-The server stores the complete normalized input in `token-usage.json` under `DATA_DIR`. Its persisted shape is deliberately small:
+The server stores the complete normalized input in `token-usage.json` under `DATA_DIR`. The persisted file has only a version and a list of sources:
 
 ```ts
 const persistedStoreSchema = v.object({
@@ -145,7 +145,7 @@ writeQueue = writeQueue.catch(() => {}).then(async () => {
 });
 ```
 
-The rename prevents partial reads, and the queue serializes writes inside one process. Two processes sharing the file could still race. Invalid persisted data is logged and ignored; only version `2` is accepted.
+The rename prevents partial reads, and the queue serializes writes inside one process. Two processes that share the file can still race. The module logs and ignores invalid persisted data. It accepts only version `2`.
 
 ## The public projection has index-aligned provider vectors
 
@@ -187,19 +187,19 @@ type TokenUsageSnapshotTuple = [
 ];
 ```
 
-That reduces repeated property names in history and SSE payloads, but tuple order becomes a protocol. Adding or reordering a field requires coordinated serializers and deserializers; the browser deserializer does not independently validate the tuple.
+That removes repeated property names from history and SSE payloads, but it makes tuple order part of the protocol. Adding or reordering a field requires coordinated changes to serializers and deserializers. The browser deserializer does not validate the tuple on its own.
 
 ## Polling and versions suppress redundant SSE events
 
-The token module checks the file every 30 seconds. An unchanged modification time avoids reparsing the file, but the server still rebuilds derived state so midnight window shifts and stale-state transitions can occur without a write.
+The token module checks the file every 30 seconds. When the modification time has not changed, it skips parsing the file again. The server still rebuilds derived state so the 30-day window can shift at midnight and the snapshot can become stale without a new write.
 
 `areSnapshotsEqual` compares all public semantic fields except the observation `timestamp`. Only a changed snapshot calls `markDirty`, appends a history sample, and increments the module version. The shared SSE loop polls module versions every 500 ms and emits token usage only after its version advances.
 
-The browser first loads `/stats/history`, then receives `tu` stream events. Its Solid store merges history points by `timestamp`, sorts them, and keeps the latest 30 state changes. That history is not the chart's 30 daily buckets: the panel renders `latest.daily`, while store history tracks successive server snapshots.
+The browser first loads `/stats/history`, then receives `tu` stream events. Its Solid store merges history points by `timestamp`, sorts them, and keeps the latest 30 state changes. This is not the same 30-day series shown in the chart. The panel renders `latest.daily`, while store history tracks successive server snapshots.
 
 The panel assumes the provider-vector invariant to build stacked segments. Known providers have fixed colors; unknown IDs receive deterministic fallback colors by index. It shows today's total, the 30-day total, and the newest generation time.
 
-## Error and freshness semantics define what the metric means
+## Freshness can hide a broken source
 
 Freshness is calculated from the newest `generatedAt` across all sources and defaults to stale after 180 minutes. The reduction starts at `null` so an empty store remains distinguishable from a timestamp:
 
@@ -213,7 +213,7 @@ const isStale =
   generatedAt === null || Date.now() - generatedAt > staleAfterMs;
 ```
 
-This is aggregate freshness. One healthy source can keep the snapshot fresh while another source has stopped reporting. The `isStale` value reaches the client, but the current panel only renders the generation time, not a distinct warning. Per-source health would require preserving source freshness in a private diagnostic projection or exposing a carefully designed public summary.
+Freshness applies to the aggregate. One healthy source can keep the snapshot fresh while another has stopped reporting. The client receives `isStale`, but the current panel shows only the generation time, without a separate warning. Per-source health would require a private diagnostic view that keeps each source's timestamp, or a public summary designed for that purpose.
 
 Other limits are intrinsic to the metric:
 

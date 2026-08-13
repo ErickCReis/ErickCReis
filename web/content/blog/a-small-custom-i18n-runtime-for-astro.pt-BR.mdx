@@ -1,13 +1,13 @@
 ---
 title: "Compilando um catálogo de i18n tipado para Astro"
-description: Como uma integração do Astro extrai chamadas estáticas de tradução, gera catálogos tipados e resolve idiomas na renderização estática e em ilhas Solid hidratadas.
+description: Como uma integração do Astro encontra chamadas estáticas de tradução, grava catálogos tipados e resolve os mesmos textos na renderização estática e em ilhas Solid hidratadas.
 date: "2026-08-29"
 tags: [astro, vite, i18n, typescript]
 ---
 
-Uma aplicação Astro que renderiza HTML estático e ilhas hidratadas tem dois contextos de tradução distintos. Durante o build, cada rota já possui um idioma explícito. No navegador, uma ilha precisa recuperar esse idioma do documento renderizado. Os dois contextos precisam do mesmo catálogo e das mesmas regras de fallback, mas apenas strings identificáveis estaticamente podem ser incluídas nesse catálogo.
+Esta aplicação Astro traduz textos em dois lugares. Durante o build, cada rota já possui um idioma explícito. No navegador, uma ilha hidratada precisa recuperar esse idioma do documento renderizado. Os dois lugares usam os mesmos catálogos e regras de fallback. O gerador, porém, só consegue coletar strings que identifica estaticamente no código.
 
-Uma integração do Astro coleta chamadas estáticas de `t()`, gera catálogos TypeScript indexados por hashes do texto em inglês e os expõe por um módulo virtual. Posts completos continuam em arquivos MDX separados por idioma; o catálogo cobre textos de interface, como rótulos, estados vazios e títulos de painéis.
+Uma integração do Astro coleta chamadas estáticas de `t()`, grava catálogos TypeScript indexados por hashes do texto em inglês e os expõe por um módulo virtual. Posts completos continuam em arquivos MDX separados por idioma. O catálogo guarda textos de interface, como rótulos, estados vazios e títulos de painéis.
 
 ```mermaid center
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
 
 O build consome os catálogos existentes e os regenera depois da renderização. Uma tradução recém-descoberta chega à saída no build seguinte.
 
-## O contrato público
+## A API usada pelo código da aplicação
 
 A integração é registrada com um conjunto fechado de idiomas e um idioma padrão:
 
@@ -58,9 +58,9 @@ const { locale } = Astro.props;
 
 Componentes controlados pelo navegador podem usar `t("Nothing playing")`; nesse caso, o runtime lê o idioma do documento. Componentes que recebem um idioma tipado podem continuar usando `t(locale, value)` nos dois lados da hidratação.
 
-## A análise em tempo de compilação apenas coleta chamadas
+## Colete chamadas estáticas sem reescrevê-las
 
-O plugin do Vite usa o hook `transform` como uma etapa de análise. Ele faz o parse dos módulos relevantes, registra as strings de origem e retorna `null`; portanto, a chamada original de `t()` permanece no programa emitido. A tradução em si é uma consulta por hash executada em runtime.
+O plugin do Vite inspeciona o código pelo hook `transform`. Ele faz o parse dos módulos relevantes, registra as strings de origem e retorna `null`, então o programa emitido mantém a chamada original de `t()`. Uma consulta por hash faz a tradução em runtime.
 
 A coleta roda apenas em builds de produção e somente quando o código-fonte do módulo contém `virtual:translate`. Primeiro, o analisador descobre o binding local importado exatamente desse módulo. Ele aceita imports diretos, imports diretos renomeados e imports por namespace:
 
@@ -90,9 +90,9 @@ function resolveCallTranslationValue(node: ESTree.CallExpression): string | null
 }
 ```
 
-Uma chamada como `t(statusLabel)` é intencionalmente invisível para o gerador. A análise da AST evita falsos positivos em comentários, funções não relacionadas chamadas `t` e strings arbitrárias, mas não consegue inferir valores de runtime. Ela também não reporta erros ao encontrar uma chave dinâmica; a chamada usa o texto de origem como fallback durante a execução.
+Uma chamada como `t(statusLabel)` fica invisível para o gerador de propósito. A análise da AST evita falsos positivos em comentários, funções não relacionadas chamadas `t` e strings arbitrárias, mas não consegue inferir valores de runtime. O analisador não reporta uma chave dinâmica como erro. Durante a execução, a chamada usa o texto de origem como fallback.
 
-## Identidade, formato e tipagem do catálogo
+## Derive as chaves e os tipos do catálogo a partir da origem
 
 Cada string coletada passa por uma função compacta de 32 bits no estilo FNV-1a:
 
@@ -137,7 +137,7 @@ const translations = {
 
 `Partial` permite um idioma incompleto, `null` marca uma entrada sem tradução e `satisfies` rejeita hashes desconhecidos. Durante o carregamento, `normalizeLocaleCatalog()` descarta formatos e valores inválidos.
 
-O texto de origem também é a identidade da mensagem. Alterar capitalização ou pontuação cria outro hash, remove a entrada antiga na geração seguinte e insere um novo override com `null`. Isso obriga textos alterados a passar novamente pela tradução, mas também torna as chaves opacas e produz mais mudanças no catálogo do que IDs semânticos estáveis produziriam.
+O texto de origem também identifica a mensagem. Alterar capitalização ou pontuação cria outro hash. A geração seguinte remove a entrada antiga e insere um novo override com `null`. Assim, todo texto alterado passa novamente pela tradução. Em troca, o catálogo fica com chaves opacas e gera mais ruído no diff do que IDs estáveis gerariam.
 
 ## A geração dos catálogos é um protocolo de dois builds
 
@@ -150,7 +150,7 @@ O coletor é limpo em `astro:build:start`. Conforme o Vite transforma os módulo
 - insere `null` em hashes ainda sem tradução;
 - reescreve `web/i18n/en-US.ts` e `web/i18n/pt-BR.ts`.
 
-O módulo virtual foi carregado antes, no mesmo build, antes da reescrita desses arquivos. Por isso, adicionar uma string segue esta sequência:
+O mesmo build carregou o módulo virtual antes de reescrever esses arquivos. Por isso, adicionar uma string segue esta sequência:
 
 ```text
 build N     descobre texto → renderiza com fallback → grava override null
@@ -160,7 +160,7 @@ build N + 1 carrega o override completo → renderiza e empacota a tradução
 
 O modo de desenvolvimento não coleta nem regenera catálogos porque o transform verifica `config.command === "build"`. Uma nova chamada de `t()` pode parecer correta em desenvolvimento por causa do fallback em inglês, mesmo sem ter um override gerado.
 
-## O módulo virtual separa os payloads de servidor e navegador
+## Envie catálogos diferentes ao servidor e ao navegador
 
 O Vite resolve `virtual:translate` para o ID interno `\0virtual:translate` e `virtual:translate/runtime` para o arquivo físico do runtime. O hook `load` importa os módulos de idioma gerados e emite código equivalente a:
 
@@ -187,9 +187,9 @@ Os valores substituídos nos dois últimos campos dependem do sinalizador SSR do
 - módulos de servidor e de renderização estática recebem `buildCatalogs`, inclusive valores `null`;
 - módulos de navegador recebem um `buildCatalogs` vazio e `clientCatalogs` apenas com traduções completas.
 
-Todos os catálogos do cliente configurados são incluídos, e não apenas o idioma da página atual. Isso é simples para dois catálogos pequenos, mas o custo do bundle cresce com `idiomas × strings traduzidas`. Imports dinâmicos por idioma seriam uma estratégia melhor para uma superfície de tradução maior.
+O código do navegador recebe todos os catálogos configurados. Ele não limita o payload ao idioma da página atual. Dois catálogos pequenos custam pouco, mas o bundle cresce com `idiomas × strings traduzidas`. Um catálogo maior deveria carregar cada idioma por um import dinâmico separado.
 
-## Consulta em runtime e comportamento de fallback
+## Resolva traduções e use o texto de origem como fallback
 
 O runtime mantém a resolução no servidor e no navegador na mesma função com overload:
 
@@ -217,7 +217,7 @@ resolveLocale(
 );
 ```
 
-`<html lang>` é o contrato principal de hidratação. O primeiro segmento da URL só é consultado quando `lang` está vazio; um `lang` inválido, mas não vazio, é normalizado diretamente para o idioma padrão. O layout base do Astro chama `resolveLocale(lang)` antes de escrever o atributo, portanto as páginas geradas por esse layout fornecem um valor válido.
+`<html lang>` informa ao código hidratado qual idioma usar. O runtime consulta o primeiro segmento da URL apenas quando `lang` está vazio. Um `lang` inválido, mas não vazio, resolve diretamente para o idioma padrão. O layout base do Astro chama `resolveLocale(lang)` antes de escrever o atributo, então as páginas geradas por esse layout fornecem um valor válido.
 
 Nas fronteiras de hidratação, componentes com `client:load` passam `locale` e usam `t(locale, value)` nos dois lados. Componentes exclusivos do navegador podem usar `t(value)` depois de ler `<html lang>`. Uma ilha renderizada no servidor que use o overload de um argumento emitiria inglês no SSR e poderia trocar de idioma durante a hidratação.
 
@@ -243,9 +243,9 @@ return normalizedPath
   : `/${normalizedLocale}`;
 ```
 
-O layout base normaliza o idioma da rota em `<html lang>`, URLs canônicas, alternativas `hreflang` e metadados de idioma do Open Graph. A seleção do blog, de forma independente, prefere `slug.pt-BR.mdx` e usa `slug.mdx` como fallback. O fallback do catálogo e o fallback do artigo são, portanto, mecanismos separados: o primeiro opera por string da interface; o segundo seleciona uma entrada de conteúdo inteira.
+O layout base usa o idioma normalizado da rota em `<html lang>`, URLs canônicas, alternativas `hreflang` e metadados de idioma do Open Graph. Separadamente, a seleção do blog prefere `slug.pt-BR.mdx` e usa `slug.mdx` como fallback. O fallback do catálogo trata uma string da interface por vez. O fallback do artigo escolhe uma entrada de conteúdo completa.
 
-## Modos de falha e trade-offs
+## Quando este projeto deixa de bastar
 
 Os principais modos de falha são:
 
@@ -258,4 +258,4 @@ Os principais modos de falha são:
 - todo consumidor no navegador recebe o catálogo completo de todos os idiomas;
 - o runtime não oferece interpolação, regras de pluralização nem mensagens em rich text.
 
-Um catálogo maior exigiria detecção de colisões, diagnósticos para chamadas dinâmicas, catálogos separados por idioma e um comando explícito de geração. IDs estáveis e um sistema com suporte a ICU fazem mais sentido a partir desse ponto.
+Se o catálogo crescer, eu adicionaria detecção de colisões, erros para chamadas dinâmicas, catálogos do cliente separados por idioma e um comando próprio de geração. Depois desse ponto, IDs estáveis e uma biblioteca com suporte a ICU eliminariam mais problemas do que este runtime customizado resolve.

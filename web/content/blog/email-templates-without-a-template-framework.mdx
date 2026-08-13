@@ -1,11 +1,11 @@
 ---
 title: "Type-safe email markup with a 45-line JSX renderer"
-description: A code-level look at typed message contracts, escaped JSX rendering, table-based layout, multipart output, delivery boundaries, and client compatibility.
+description: How typed inputs, a 45-line JSX renderer, table layouts, plain-text alternatives, and Resend produce this server's two operational emails.
 date: "2026-09-12"
 tags: [typescript, architecture, email]
 ---
 
-Email templates in this server are TypeScript functions. They accept domain data, compose a small set of TSX primitives, and return a provider-independent message:
+This server treats email templates as TypeScript functions. Each function accepts domain data, composes a small set of TSX primitives, and returns a message that does not depend on the delivery provider:
 
 ```ts
 type RenderedMessage = {
@@ -15,7 +15,7 @@ type RenderedMessage = {
 };
 ```
 
-Solid's server renderer turns the TSX tree into HTML. A local JSX factory handles the integration; no reactivity or hydration is involved.
+Solid's server renderer turns the TSX tree into HTML. A local JSX factory connects the two. There is no reactivity or hydration.
 
 ```mermaid center
 flowchart LR
@@ -30,7 +30,7 @@ flowchart LR
 
 ## Put the type boundary before the markup
 
-The templates do not query SQLite, read the battery, inspect environment variables, or know when a cron task runs. Their inputs describe only what is required to render a message.
+The templates do not query SQLite, read the battery, inspect environment variables, or know when a cron task runs. Their inputs contain only the data needed to render a message.
 
 The battery alert accepts three scalar values:
 
@@ -67,9 +67,9 @@ export type BlogReport =
     });
 ```
 
-Checking `report.kind === "weekly"` narrows the value before the template accesses `previousDayViews`. A daily report cannot accidentally require that field, and a weekly report cannot be constructed without it. The report builder also depends on the narrow `BlogViewsReader` interface rather than the concrete SQLite store, so aggregation can be tested with an in-memory object.
+Checking `report.kind === "weekly"` narrows the value before the template accesses `previousDayViews`. A daily report cannot require that field by mistake, and TypeScript rejects a weekly report constructed without it. The report builder depends on the narrow `BlogViewsReader` interface instead of the concrete SQLite store, so tests can aggregate views with an in-memory object.
 
-Domain data is complete before rendering, component props are checked at TSX call sites, and delivery always receives `{ subject, text, html }`. Current inputs are constructed inside the server; network data would still need runtime validation.
+The server completes the domain data before rendering, TypeScript checks component props at each TSX call site, and the delivery function always receives `{ subject, text, html }`. The current inputs originate inside the server. Data from the network would still need runtime validation.
 
 ## A JSX factory only needs two branches
 
@@ -109,7 +109,7 @@ export function renderEmail(template: () => JSX.Element) {
 }
 ```
 
-The callback matters because `renderToString` establishes the server-rendering context while evaluating the tree. The output is a complete HTML document, not a fragment to be assembled later by the delivery adapter.
+The callback matters because `renderToString` establishes the server-rendering context while it evaluates the tree. The output is a complete HTML document. The delivery adapter does not have to assemble fragments later.
 
 The factory's `Record<string, unknown>` signature is permissive. A larger component set would need tighter props and return types.
 
@@ -126,13 +126,13 @@ function resolveIntrinsicChild(child: unknown): unknown {
 }
 ```
 
-This placement keeps component composition intact: a component may forward its children through several function calls, but strings are escaped when they cross into an intrinsic tag. Numeric children remain numeric and are serialized by Solid.
+This placement keeps component composition intact. A component may forward its children through several function calls, but the renderer escapes strings when they enter an intrinsic tag. Numeric children stay numeric, and Solid serializes them.
 
-The report test uses the slug `typescript-<patterns>` as a concrete injection boundary. The plain-text body retains that readable value, while the HTML must contain `typescript-&lt;patterns>` and must not contain the raw tag-shaped string.
+The report test uses the slug `typescript-<patterns>` to check the injection boundary. The plain-text body keeps the readable value. The HTML must contain `typescript-&lt;patterns>` and must not contain the raw tag-shaped string.
 
 This protects text children used by the current templates. The renderer does not offer an API for trusted raw HTML, and the templates do not interpolate user-controlled style declarations, attribute names, or markup. Adding any of those features would require a separate review of the escaping model.
 
-## Build primitives for email layout, not browser layout
+## Build for email clients, not browser layout engines
 
 The shared component layer contains four visual primitives:
 
@@ -162,9 +162,9 @@ The layout uses tables with `role="presentation"`, HTML alignment attributes, co
 </table>
 ```
 
-These choices reduce dependence on stylesheet support and modern layout engines. They do not guarantee identical rendering in every inbox. For example, the card uses `max-width` and `border-radius` without Outlook-specific conditional markup, and there are no dark-mode overrides.
+These choices rely less on stylesheet support and modern layout engines. They still cannot guarantee identical rendering in every inbox. The card, for example, uses `max-width` and `border-radius` without Outlook-specific conditional markup. There are no dark-mode overrides either.
 
-The report's two-column data table remains inside `BlogReportEmail`. It is message-specific structure, not a shared primitive. Reuse here follows an actual common layout requirement; it does not wrap every HTML tag in a component.
+The report's two-column data table stays inside `BlogReportEmail` because no other message needs it. The shared layer contains only the layout that both emails use, not a component wrapper for every HTML tag.
 
 ## Generate the two MIME alternatives explicitly
 
@@ -190,9 +190,9 @@ return {
 };
 ```
 
-An explicit text renderer controls hierarchy, whitespace, empty states, and table flattening. It also makes divergence visible in the same function: changing the report label or adding a field requires reviewing both representations together.
+An explicit text renderer controls hierarchy, whitespace, empty states, and how the table becomes lines of text. It also keeps both versions next to each other. Changing the report label or adding a field means reviewing the text and HTML in the same function.
 
-There is still duplication between the text and HTML branches. The current messages are short enough that the duplicated presentation logic is easier to audit than a shared intermediate document AST. A larger template set could justify such an AST, but the current code does not need one.
+The text and HTML branches do duplicate some presentation logic. For two short messages, that duplication is easier to audit than a shared intermediate document AST. More templates might make the AST worthwhile. The current code does not.
 
 ## Keep scheduling, rendering, and delivery separate
 
@@ -207,13 +207,13 @@ return sendEmail({
 });
 ```
 
-`createBlogReport` owns calendar and aggregation rules. `renderBlogReport` owns presentation. The cron task owns timing and recipient selection. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) owns the provider call and sender address.
+`createBlogReport` handles calendar and aggregation rules. `renderBlogReport` handles presentation. The cron task selects the time and recipient. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) calls the provider and adds the sender address.
 
 The delivery adapter accepts `to`, `subject`, `text`, and `html`, adds the fixed sender, and calls `resend.emails.send`. If `RESEND_API_KEY` is missing it returns `false`. It also returns `false` for a provider error or thrown exception after logging the error, and `true` only when the API call succeeds.
 
-That boolean is operationally significant in the battery cron. The in-memory `batteryAlertSent` latch is assigned from `sendEmail`, so a failed attempt does not suppress the next five-second check. A successful attempt suppresses repeats until the battery status changes. The blog report cron returns the result; the current code has no retry queue or persisted delivery record.
+The battery cron uses that boolean as its in-memory `batteryAlertSent` latch. A failed attempt does not suppress the next check five seconds later. A successful attempt suppresses repeats until the battery status changes. The blog report cron returns the result, but the code has no retry queue or persisted delivery record.
 
-## Test the seams that can break independently
+## Test each boundary on its own
 
 The tests exercise three different boundaries:
 
@@ -221,9 +221,9 @@ The tests exercise three different boundaries:
 - `renderBlogReport` verifies the subject, plain-text row, and escaped HTML output.
 - `renderBatteryAlert` verifies the shared message shape, doctype, threshold text, and rendered percentage.
 
-These are deterministic unit tests: they do not need SQLite for report construction and do not call Resend. There is currently no snapshot suite across email clients, delivery-adapter mock test, or automated visual regression test. Running the HTML through real inboxes remains a manual compatibility check.
+These deterministic unit tests do not need SQLite to construct a report and never call Resend. There is no snapshot suite across email clients, mock test for the delivery adapter, or automated visual regression test. Checking the HTML in real inboxes remains manual.
 
-## Where this design stops
+## Know when to replace the small renderer
 
 This renderer is appropriate for the two operational emails currently in the server. Its limits are explicit:
 
@@ -235,4 +235,4 @@ This renderer is appropriate for the two operational emails currently in the ser
 - no persisted retries, idempotency key, or delivery audit;
 - no automated rendering matrix across clients.
 
-More templates, stricter Outlook support, or automated client previews would justify moving to a dedicated email framework.
+If the server adds more templates, stricter Outlook support, or automated client previews, a dedicated email framework will earn its keep.

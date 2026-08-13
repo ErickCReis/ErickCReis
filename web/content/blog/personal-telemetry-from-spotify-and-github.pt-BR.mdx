@@ -1,11 +1,11 @@
 ---
-title: "Construindo adaptadores de origem para telemetria dinâmica"
-description: Como respostas das APIs do Spotify e do GitHub viram retratos tipados e limitados, com relógios específicos, fronteiras de privacidade e tratamento de limites.
+title: "Criando adaptadores de fonte para telemetria"
+description: Como adaptadores separados transformam respostas do Spotify e do GitHub em retratos compactos e tipados, cada um com suas regras de polling, privacidade, cache e limites de uso da API.
 date: "2026-07-25"
 tags: [telemetry, architecture]
 ---
 
-Um painel de telemetria dinâmica não deve ser um cliente de API escondido dentro de um componente de interface. Ele deve ser um pequeno adaptador de origem, com políticas explícitas de atualidade, normalização, retenção e falhas.
+Não quero esconder um cliente de API dentro de um componente do painel. Um adaptador pequeno deve consultar cada fonte e decidir quanto tempo o dado continua atual, quais campos guardar, por quanto tempo mantê-los e o que publicar após uma falha.
 
 Spotify e GitHub são exemplos contrastantes. A reprodução do Spotify pode se tornar enganosa em poucos segundos e pode nem existir. Os dados de contribuições do GitHub mudam devagar, podem ser derivados de uma resposta maior e valem um cache entre reinicializações do processo. Ainda assim, as duas fontes precisam chegar à mesma camada de estatísticas do navegador.
 
@@ -20,7 +20,7 @@ flowchart TB
   Stream --> Panels["Painéis Solid"]
 ```
 
-O adaptador é responsável pelo sistema externo. O painel é responsável pela apresentação. Separar essas responsabilidades mantém a camada dinâmica previsível mesmo quando o provedor está indisponível.
+O adaptador conversa com o sistema externo. O painel renderiza o resultado. Se um provedor cair, seu adaptador decide o que publicar e o painel continua recebendo o mesmo contrato.
 
 ## Comece pelo contrato de saída
 
@@ -39,11 +39,11 @@ Cada módulo tem uma tarefa: publicar retratos quando sua fonte mudar. `getLates
 
 A interface genérica não torna os dados intercambiáveis. Cada fonte tem seu próprio schema em [`shared/stats`](https://github.com/ErickCReis/ErickCReis/tree/main/shared/stats). O Valibot valida os dados persistidos do GitHub antes do uso, enquanto os tipos compartilhados mantêm o código do servidor, a serialização do transporte e os stores do Solid alinhados.
 
-O retrato público também é uma fronteira de segurança. Ele deve conter exatamente o que o painel precisa—não credenciais do provedor, respostas brutas, metadados do dispositivo ou capacidades de controle.
+O retrato público também é uma fronteira de segurança. Ele deve conter exatamente o que o painel precisa. Credenciais do provedor, respostas brutas, metadados do dispositivo e métodos de controle ficam no servidor.
 
 ## Dê a cada fonte o seu próprio relógio
 
-Polling é uma decisão de produto tanto quanto uma decisão de rede:
+O intervalo de polling deve acompanhar o que o visitante vê:
 
 | Fonte | Atualidade útil | Política local | Persistência |
 | --- | --- | --- | --- |
@@ -91,7 +91,7 @@ type SpotifyNowPlaying = {
 };
 ```
 
-Essa normalização trata três casos diferentes de “vazio” sem obrigar a interface a conhecer o formato da resposta do Spotify:
+Essa normalização trata três casos diferentes de "vazio" sem obrigar a interface a conhecer o formato da resposta do Spotify:
 
 - HTTP `204` significa que não há reprodução atual.
 - Um item que não é uma faixa vira o mesmo retrato vazio.
@@ -107,7 +107,7 @@ function getPollIntervalMs(isPlaying: boolean) {
 
 Quando o Spotify responde com `429`, o adaptador lê `Retry-After` e usa 30 segundos como fallback. Se o access token for rejeitado, o cache em memória é invalidado para que a próxima tentativa possa renová-lo. Outras falhas de requisição publicam um retrato configurado vazio e continuam no intervalo mais lento.
 
-O histórico da reprodução é deliberadamente efêmero. O módulo mantém no máximo 84 retratos na memória do processo, o suficiente para o painel mostrar uma faixa anterior sem transformar a atividade de escuta em um registro durável. Uma reinicialização limpa esse histórico por decisão de projeto.
+O histórico da reprodução fica na memória. O módulo mantém no máximo 84 retratos, o suficiente para o painel mostrar uma faixa anterior sem gravar a atividade de escuta em um banco de dados. Uma reinicialização apaga o histórico.
 
 ## Adaptador 2: derive as métricas do GitHub uma vez
 
@@ -141,7 +141,7 @@ type GitHubCommitStats = {
 };
 ```
 
-O nome “commits” no painel é um atalho para o calendário de contribuições do GitHub. Ele não é um `git log` local e não deve ser apresentado como uma auditoria de todos os commits.
+O painel usa "commits" como atalho para o calendário de contribuições do GitHub. Não é um `git log` local nem uma auditoria de todos os commits.
 
 ## Armazene apenas o estado normalizado
 
@@ -152,15 +152,15 @@ Os dados do GitHub são lentos o suficiente para sobreviver a uma reinicializaç
 3. Usa o arquivo somente enquanto ele tiver menos de 30 minutos.
 4. Agenda a próxima requisição para o fim da janela de validade restante.
 
-Armazenar o objeto normalizado evita persistir uma resposta do provedor que o restante da aplicação precisaria interpretar novamente. A validação faz com que um schema antigo ou um arquivo malformado vire um cache miss, em vez de entrar silenciosamente no fluxo.
+O cache guarda o objeto normalizado, então o restante da aplicação não precisa interpretar novamente a resposta do provedor. O Valibot transforma um esquema antigo ou um arquivo malformado em cache miss, em vez de deixá-lo entrar no fluxo.
 
-A política de erro distingue “tentar mais tarde” de “mostrar um novo estado”. Uma resposta limitada lê `X-RateLimit-Reset` e preserva o último retrato válido até aquele horário, usando 15 minutos como fallback. Outras falhas publicam um retrato configurado vazio e repetem a tentativa no intervalo mais longo. Assim, o painel não apresenta um valor antigo como se fosse atual, mas um limite temporário também não apaga sem necessidade um dado válido conhecido.
+A política de erro separa "tentar mais tarde" de "mostrar um novo estado". Quando recebe um limite, o adaptador lê `X-RateLimit-Reset` e preserva o último retrato válido até aquele horário. Se o header estiver ausente, espera 15 minutos. Outras falhas publicam um retrato configurado vazio e repetem a tentativa no intervalo mais longo. O painel não apresenta dados antigos como atuais, e um limite temporário não apaga o último valor válido.
 
 ## Mantenha o painel alheio ao provedor
 
 Os painéis do Solid consomem os retratos normalizados através do transporte de estatísticas. Eles não renovam credenciais, interpretam `Retry-After`, leem arquivos de cache nem sabem com que frequência um provedor deve ser consultado.
 
-Isso deixa as decisões específicas de cada fonte em um único lugar:
+Cada adaptador passa a concentrar as decisões específicas de sua fonte:
 
 | Preocupação | Adaptador do Spotify | Adaptador do GitHub |
 | --- | --- | --- |
@@ -171,6 +171,6 @@ Isso deixa as decisões específicas de cada fonte em um único lugar:
 | Retenção | 84 retratos em memória | 84 retratos em memória e um retrato fresco em disco |
 | Payload do navegador | Metadados da faixa e URL pública | Valores agregados de contribuição |
 
-O resultado é um contrato de interface sobre dois sistemas externos muito diferentes. A abstração útil não é “toda fonte faz polling do mesmo jeito”; é “toda fonte publica um retrato tipado, limitado e pronto para exibição”.
+Os dois provedores seguem relógios e regras de falha diferentes, mas publicam retratos tipados e pequenos que a interface consegue renderizar diretamente.
 
-Essa fronteira mantém simples o restante da camada dinâmica: o endpoint de histórico pode carregar os dois módulos, a rota SSE pode emitir apenas versões alteradas e os painéis podem renderizar estado sem reencenar uma API externa.
+O endpoint de histórico carrega os dois módulos por esse contrato. A rota SSE emite apenas as versões alteradas, e os painéis renderizam o estado sem repetir a lógica das APIs dos provedores.

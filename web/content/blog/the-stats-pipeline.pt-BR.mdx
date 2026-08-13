@@ -1,11 +1,11 @@
 ---
-title: "Projetando um pipeline de telemetria do estado atual"
-description: Uma análise técnica dos contratos dos coletores, históricos compactos, SSE filtrado por versão, stores do Solid e suas garantias de entrega.
+title: "Enviando seis fontes de telemetria por um fluxo SSE"
+description: Como coletores com ritmos diferentes enviam históricos curtos e valores atuais ao Solid por um único fluxo SSE versionado.
 date: "2026-08-01"
 tags: [telemetry, architecture, sse, typescript]
 ---
 
-Um painel de telemetria precisa conciliar fontes com modelos de atualização incompatíveis. A CPU é amostrada a cada 1,5 segundos, o Spotify alterna entre polling ativo e ocioso, o GitHub tem limites de requisição e outro processo grava o uso de tokens. Cada coletor mantém sua própria política de polling, retentativa, cache e retenção. A camada de entrega lê esses retratos por meio de um único contrato voltado ao navegador.
+Um painel de telemetria reúne fontes que atualizam em ritmos bem diferentes. A CPU é amostrada a cada 1,5 segundos. O Spotify alterna entre polling ativo e ocioso, o GitHub tem limites de requisição e outro processo grava o uso de tokens. Cada coletor cuida do próprio polling, das retentativas, do cache e da retenção. O navegador lê todos esses retratos por um único contrato.
 
 ```mermaid center
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
   Stores --> Panels["Painéis de telemetria"]
 ```
 
-## A fronteira do coletor é um modelo de leitura
+## Trate cada coletor como um modelo de leitura
 
 Cada fonte implementa o mesmo contrato de [`StatModule`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/types.ts):
 
@@ -32,7 +32,7 @@ type StatModule<T> = {
 };
 ```
 
-Intervalos de polling, erros, persistência e assinaturas ficam dentro de cada coletor:
+Cada coletor concentra seus próprios intervalos de polling, estado de erro, persistência e assinaturas:
 
 | Módulo | Política de aquisição | Retenção no servidor |
 | --- | --- | ---: |
@@ -43,7 +43,7 @@ Intervalos de polling, erros, persistência e assinaturas ficam dentro de cada c
 | uptime do servidor | consulta a cada 5 min ou tenta de novo após 1 min se o ciclo falhar | 10 retratos |
 | uso de tokens | inspeciona o agregado persistido a cada 30 s | 30 retratos |
 
-`startStatsServices()` inicia todos os módulos depois que o Elysia começa a escutar. Eles rodam independentemente das conexões dos navegadores; abrir a página lê um estado já coletado pelo processo em vez de disparar seis operações externas.
+`startStatsServices()` inicia todos os módulos depois que o Elysia começa a escutar. Eles continuam rodando mesmo sem navegadores conectados. Abrir a página lê dados que já estão no processo, em vez de disparar seis operações externas.
 
 `getVersion()` retorna um contador de alterações em memória. Cada módulo o incrementa ao publicar um retrato; somente a rota SSE o consulta.
 
@@ -58,11 +58,11 @@ const tick = () => {
 };
 ```
 
-Essa ordem define a fronteira de publicação do módulo. A execução síncrona do JavaScript garante que a rota não observe o incremento no meio da atualização.
+Essa ordem define quando a amostra se torna pública. O JavaScript termina a atualização síncrona antes que a rota possa observar o incremento.
 
-## Projete o histórico inicial para os gráficos
+## Mantenha o histórico inicial focado no gráfico
 
-Um painel recém-montado precisa de contexto para o gráfico e de um valor atual completo para rótulos e detalhes. São formatos de dados diferentes.
+Um painel recém-montado precisa de histórico suficiente para desenhar o gráfico. Também precisa do valor atual completo para mostrar rótulos e detalhes. Esses dois usos pedem formatos de dados diferentes.
 
 [`buildStatsHistoryResponse()`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/history.ts) retorna `{ latest, history }` para cada módulo, mas reduz cada amostra histórica aos campos usados pelo gráfico:
 
@@ -77,9 +77,9 @@ system: {
 },
 ```
 
-O retrato completo do sistema também contém memória usada e total, quantidade de CPUs e dados da bateria. Repetir esses campos em 84 pontos não ajudaria o gráfico de duas séries. A mesma regra vale para o Spotify: os pontos históricos preservam a identidade da faixa para que a interface derive a faixa anterior, enquanto apenas `latest` contém progresso, duração, álbum e URL.
+O retrato completo do sistema também contém memória usada e total, quantidade de CPUs e dados da bateria. Repetir esses campos em 84 pontos não acrescenta nada a um gráfico de duas séries. O Spotify segue a mesma regra. Os pontos históricos preservam a identidade da faixa para que a interface encontre a faixa anterior, enquanto apenas `latest` contém progresso, duração, álbum e URL.
 
-`GET /stats/history` usa `Cache-Control: no-store`. Esse endpoint representa estado mutável dentro do processo; um cache intermediário criaria uma segunda política de atualização sem controle da aplicação.
+`GET /stats/history` usa `Cache-Control: no-store`. O endpoint lê estado mutável dentro do processo. Um cache intermediário acrescentaria outra política de atualização, fora do controle da aplicação.
 
 A maioria dos arrays de histórico vive em memória, tem limite fixo e volta ao estado inicial com o processo. A presença recupera uma série persistida e limitada, e o GitHub pode recuperar um cache válido. Nenhum dos dois transforma o pipeline em um log de eventos.
 
@@ -103,7 +103,7 @@ while (true) {
 }
 ```
 
-Os 500 ms são o intervalo de verificação da entrega, não o intervalo de coleta. O coletor do GitHub continua esperando 30 minutos; a rota detecta sua próxima publicação após, no máximo, uma varredura adicional.
+Os 500 ms servem apenas para verificar novas entregas. Eles não mudam a frequência de coleta. O coletor do GitHub continua esperando 30 minutos, e a rota detecta sua próxima publicação em até uma varredura.
 
 O filtro por versão agrega mudanças intencionalmente. Se o Spotify publicar as versões 41, 42 e 43 antes da verificação da rota, a resposta emite um único evento com o retrato da versão 43. O pipeline oferece **semântica de estado mais recente**:
 
@@ -112,7 +112,7 @@ transições do coletor: v41 → v42 → v43
 observação do fluxo:                  v43
 ```
 
-Isso é adequado para indicadores e “tocando agora”, mas não para faturamento, auditoria ou qualquer domínio em que toda transição seja relevante. Esses sistemas precisam de um log durável, identificadores de sequência e consumidores capazes de retomar a leitura.
+Isso funciona para indicadores e "tocando agora". Não funciona para faturamento, auditoria ou qualquer sistema que precise registrar todas as transições. Esses sistemas precisam de um log durável, identificadores de sequência e consumidores capazes de retomar a leitura.
 
 Como `lastSeen` pertence a uma resposta, uma nova conexão começa sem versões observadas. Todo módulo inicializado cuja versão seja maior do que zero emite seu retrato atual. Um módulo que ainda esteja na versão zero aparece em `/stats/history` e entra no fluxo após sua primeira publicação.
 
@@ -144,11 +144,11 @@ ponto histórico: [timestamp, connectedUsers]
 código do evento: "ws"
 ```
 
-Os serializadores rodam no servidor, e os desserializadores restauram objetos de domínio no navegador. Manter ambos em `shared/stats/*.transport.ts` transforma a ordem da tupla em um contrato explícito e fácil de revisar.
+O servidor executa os serializadores, e o navegador usa os desserializadores para restaurar os objetos de domínio. Manter ambos em `shared/stats/*.transport.ts` concentra a ordem da tupla em um lugar que pode ser revisado.
 
-Tuplas são compactas, mas não descrevem os próprios campos. Reordenar um item quebra o protocolo, e o decoder converte posições sem validar um schema. Ele captura erros de conversão, mas valores inválidos com estrutura plausível ainda podem passar.
+Tuplas são compactas, mas os campos chegam sem nomes no transporte. Reordenar um item quebra o protocolo. O decoder captura erros de conversão, mas valores inválidos com uma estrutura plausível ainda podem passar porque não há validação de schema.
 
-## Os stores do navegador conciliam bootstrap e amostras ao vivo
+## Combine o bootstrap e as amostras ao vivo no navegador
 
 A ilha do Solid inicia os dois caminhos ao ser montada:
 
@@ -169,13 +169,13 @@ return [...merged.values()]
   .slice(-MAX_POINTS);
 ```
 
-Isso resolve pontos duplicados quando o bootstrap e o SSE se sobrepõem. Porém, não cria uma transação de inicialização totalmente ordenada: `loadHistory()` também define seu valor `latest` sem comparar os timestamps. Se um evento mais novo chegar antes de uma resposta de histórico mais lenta, essa resposta pode substituir temporariamente `latest` por um retrato antigo. Os próximos dados do fluxo corrigem o valor, e o histórico mesclado continua ordenado, mas uma implementação estrita deveria comparar os timestamps antes de substituir `latest` ou abrir o fluxo primeiro e guardar seus eventos até o fim do bootstrap.
+Isso remove pontos duplicados quando o bootstrap e o SSE se sobrepõem. A inicialização, porém, não é totalmente ordenada. `loadHistory()` sempre define o valor de `latest`. Se um evento mais novo chegar antes de uma resposta de histórico mais lenta, essa resposta pode trocar `latest` por um retrato antigo por alguns instantes. O próximo evento corrige o valor, e o histórico combinado continua ordenado. Uma implementação mais estrita deveria comparar os timestamps antes de substituir `latest` ou abrir o fluxo primeiro e guardar os eventos até o fim do bootstrap.
 
-## Semântica de falhas e reconexão
+## Reconecte enviando o estado atual outra vez
 
-O cliente consome o iterável assíncrono do Elysia. Um evento malformado é registrado e ignorado sem encerrar a assinatura. Se a requisição falhar ou o iterável terminar, o cliente espera um segundo e conecta novamente; um `AbortController` interrompe tanto a requisição quanto o timer de retentativa quando a ilha do Solid é desmontada.
+O cliente consome o iterável assíncrono do Elysia. Ele registra e ignora um evento malformado sem encerrar a assinatura. Se a requisição falhar ou o iterável terminar, o cliente espera um segundo e conecta novamente. Um `AbortController` interrompe tanto a requisição quanto o timer de retentativa quando a ilha do Solid é desmontada.
 
-Não há `id` nos eventos SSE, suporte a `Last-Event-ID`, backoff exponencial nem buffer de replay no servidor. A recuperação funciona porque o protocolo transporta retratos, não eventos: uma nova resposta possui um mapa `lastSeen` vazio e envia o valor atual de todos os módulos já inicializados.
+Não há `id` nos eventos SSE, suporte a `Last-Event-ID`, backoff exponencial nem buffer de replay no servidor. A recuperação funciona porque o protocolo transporta retratos em vez de eventos. Uma nova resposta começa com um mapa `lastSeen` vazio e envia o valor atual de todos os módulos já inicializados.
 
 As garantias resultantes são intencionalmente estreitas:
 
@@ -186,4 +186,4 @@ As garantias resultantes são intencionalmente estreitas:
 - nenhum replay durável depois que o processo reinicia;
 - um loop de retentativa com atraso fixo por ilha de telemetria montada.
 
-Auditabilidade, múltiplas réplicas do servidor ou clientes versionados de forma independente exigiriam substituir o filtro de versões em memória e o protocolo de tuplas acoplado ao repositório.
+Para oferecer logs de auditoria, múltiplas réplicas do servidor ou clientes versionados de forma independente, seria preciso mudar o design. O filtro de versões em memória e o protocolo de tuplas acoplado ao repositório não entregam essas garantias.

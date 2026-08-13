@@ -1,11 +1,11 @@
 ---
-title: "Marcação de e-mail type-safe com um renderizador JSX de 45 linhas"
-description: Uma análise técnica de contratos tipados, renderização JSX com escape, layouts em tabela, saída multipart, entrega e compatibilidade entre clientes.
+title: "HTML de e-mail com tipagem segura e um renderizador JSX de 45 linhas"
+description: Como entradas tipadas, um renderizador JSX de 45 linhas, layouts em tabela, alternativas em texto puro e o Resend produzem os dois e-mails operacionais deste servidor.
 date: "2026-09-12"
 tags: [typescript, architecture, email]
 ---
 
-Os templates de e-mail deste servidor são funções TypeScript. Eles recebem dados de domínio, compõem um conjunto pequeno de primitivas TSX e devolvem uma mensagem independente do provedor:
+Este servidor trata os templates de e-mail como funções TypeScript. Cada função recebe dados de domínio, compõe um conjunto pequeno de primitivas TSX e devolve uma mensagem que não depende do provedor de entrega:
 
 ```ts
 type RenderedMessage = {
@@ -15,7 +15,7 @@ type RenderedMessage = {
 };
 ```
 
-O renderizador de servidor do Solid transforma a árvore TSX em HTML. Uma função JSX local faz a integração; não há reatividade nem hidratação.
+O renderizador de servidor do Solid transforma a árvore TSX em HTML. Uma função JSX local conecta os dois. Não há reatividade nem hidratação.
 
 ```mermaid center
 flowchart LR
@@ -30,7 +30,7 @@ flowchart LR
 
 ## Coloque o limite de tipos antes da marcação
 
-Os templates não consultam o SQLite, não leem a bateria, não inspecionam variáveis de ambiente e não sabem quando uma tarefa agendada é executada. Suas entradas descrevem apenas o necessário para renderizar uma mensagem.
+Os templates não consultam o SQLite, não leem a bateria, não inspecionam variáveis de ambiente e não sabem quando uma tarefa agendada é executada. Suas entradas contêm apenas os dados necessários para renderizar uma mensagem.
 
 O alerta de bateria recebe três valores escalares:
 
@@ -67,9 +67,9 @@ export type BlogReport =
     });
 ```
 
-A condição `report.kind === "weekly"` estreita o tipo antes de o template acessar `previousDayViews`. Um relatório diário não pode depender desse campo por engano, e um relatório semanal não pode ser construído sem ele. O gerador do relatório também depende da interface estreita `BlogViewsReader`, em vez do armazenamento SQLite concreto, por isso a agregação pode ser testada com um objeto em memória.
+A condição `report.kind === "weekly"` estreita o tipo antes de o template acessar `previousDayViews`. Um relatório diário não pode exigir esse campo por engano, e o TypeScript rejeita um relatório semanal construído sem ele. O gerador depende da interface estreita `BlogViewsReader`, em vez do armazenamento SQLite concreto, por isso os testes podem agregar visualizações com um objeto em memória.
 
-Os dados de domínio estão completos antes da renderização, as props são verificadas nos pontos de chamada TSX e a entrega sempre recebe `{ subject, text, html }`. As entradas atuais são construídas dentro do servidor; dados de rede ainda exigiriam validação em runtime.
+O servidor completa os dados de domínio antes da renderização, o TypeScript verifica as props em cada chamada TSX e a função de entrega sempre recebe `{ subject, text, html }`. As entradas atuais surgem dentro do servidor. Dados vindos da rede ainda exigiriam validação em runtime.
 
 ## Uma função JSX precisa de apenas dois caminhos
 
@@ -109,7 +109,7 @@ export function renderEmail(template: () => JSX.Element) {
 }
 ```
 
-O callback é importante porque `renderToString` estabelece o contexto de renderização no servidor enquanto avalia a árvore. O resultado é um documento HTML completo, não um fragmento que o adaptador de entrega precisa montar depois.
+O callback é importante porque `renderToString` estabelece o contexto de renderização no servidor enquanto avalia a árvore. O resultado é um documento HTML completo. O adaptador de entrega não precisa montar fragmentos depois.
 
 A assinatura interna com `Record<string, unknown>` é permissiva. Um conjunto maior de componentes exigiria props e tipos de retorno mais restritos.
 
@@ -126,13 +126,13 @@ function resolveIntrinsicChild(child: unknown): unknown {
 }
 ```
 
-Essa posição mantém a composição de componentes intacta: um componente pode encaminhar seus filhos por várias chamadas de função, mas as strings são escapadas quando atravessam a fronteira para uma tag nativa. Filhos numéricos continuam como números e são serializados pelo Solid.
+Essa posição mantém a composição de componentes intacta. Um componente pode encaminhar seus filhos por várias chamadas de função, mas o renderizador escapa as strings quando elas entram em uma tag nativa. Filhos numéricos continuam como números, e o Solid os serializa.
 
-O teste do relatório usa o slug `typescript-<patterns>` como um caso concreto contra injeção. O corpo em texto preserva o valor legível, enquanto o HTML deve conter `typescript-&lt;patterns>` e não pode conter a string original com formato de tag.
+O teste do relatório usa o slug `typescript-<patterns>` para verificar o limite contra injeção. O corpo em texto mantém o valor legível. O HTML deve conter `typescript-&lt;patterns>` e não pode conter a string original com formato de tag.
 
 Isso protege os filhos de texto usados pelos templates atuais. O renderizador não oferece uma API para HTML bruto confiável, e os templates não interpolam estilos, nomes de atributos ou marcação controlados pelo usuário. Adicionar qualquer um desses recursos exigiria uma nova revisão do modelo de escape.
 
-## Crie primitivas para o layout de e-mail
+## Construa para clientes de e-mail, não para o navegador
 
 A camada de componentes compartilhados contém quatro primitivas visuais:
 
@@ -162,9 +162,9 @@ O layout usa tabelas com `role="presentation"`, atributos HTML de alinhamento, f
 </table>
 ```
 
-Essas escolhas reduzem a dependência de folhas de estilo e mecanismos modernos de layout. Elas não garantem renderização idêntica em todas as caixas de entrada. Por exemplo, o cartão usa `max-width` e `border-radius` sem marcação condicional específica para Outlook, e não existem ajustes para modo escuro.
+Essas escolhas dependem menos de folhas de estilo e mecanismos modernos de layout. Ainda assim, não garantem uma renderização idêntica em todas as caixas de entrada. O cartão, por exemplo, usa `max-width` e `border-radius` sem marcação condicional específica para Outlook. Também não há ajustes para modo escuro.
 
-A tabela de duas colunas do relatório continua dentro de `BlogReportEmail`. Ela é uma estrutura específica daquela mensagem, não uma primitiva compartilhada. A reutilização segue uma necessidade real de layout; ela não transforma cada tag HTML em componente.
+A tabela de duas colunas continua dentro de `BlogReportEmail` porque nenhuma outra mensagem precisa dela. A camada compartilhada contém apenas o layout usado pelos dois e-mails, não um componente para envolver cada tag HTML.
 
 ## Gere explicitamente as duas alternativas MIME
 
@@ -190,9 +190,9 @@ return {
 };
 ```
 
-Um renderizador de texto explícito controla hierarquia, espaços, estados vazios e a transformação da tabela em linhas. Ele também deixa divergências visíveis na mesma função: mudar o rótulo do relatório ou adicionar um campo exigem revisar as duas representações juntas.
+Um renderizador de texto explícito controla hierarquia, espaços, estados vazios e a transformação da tabela em linhas de texto. Ele também mantém as duas versões lado a lado. Mudar o rótulo do relatório ou adicionar um campo exige revisar o texto e o HTML na mesma função.
 
-Ainda existe duplicação entre os caminhos de texto e HTML. As mensagens atuais são curtas o suficiente para que a lógica de apresentação duplicada seja mais fácil de auditar do que uma AST intermediária de documento. Um conjunto maior de templates poderia justificar essa AST, mas o código atual não precisa dela.
+Os caminhos de texto e HTML ainda duplicam parte da lógica de apresentação. Para duas mensagens curtas, essa duplicação é mais fácil de auditar do que uma AST intermediária de documento. Mais templates poderiam tornar a AST útil. O código atual não precisa dela.
 
 ## Separe agendamento, renderização e entrega
 
@@ -207,13 +207,13 @@ return sendEmail({
 });
 ```
 
-`createBlogReport` controla as regras de calendário e agregação. `renderBlogReport` controla a apresentação. A tarefa agendada controla o horário e o destinatário. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) controla a chamada ao provedor e o remetente.
+`createBlogReport` cuida das regras de calendário e agregação. `renderBlogReport` cuida da apresentação. A tarefa agendada escolhe o horário e o destinatário. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) chama o provedor e adiciona o remetente.
 
 O adaptador de entrega recebe `to`, `subject`, `text` e `html`, adiciona o remetente fixo e chama `resend.emails.send`. Se `RESEND_API_KEY` não existir, ele retorna `false`. Também retorna `false` para um erro do provedor ou uma exceção, depois de registrar o erro, e retorna `true` apenas quando a chamada à API termina sem erro.
 
-Esse booleano tem importância operacional no cron da bateria. O latch em memória `batteryAlertSent` recebe o resultado de `sendEmail`, portanto uma tentativa malsucedida não bloqueia a próxima verificação, feita cinco segundos depois. Um envio bem-sucedido evita repetições até que o status da bateria mude. O cron do relatório apenas devolve o resultado; o código atual não tem fila de tentativas nem registro persistente de entrega.
+O cron da bateria usa esse booleano como seu latch em memória `batteryAlertSent`. Uma tentativa malsucedida não bloqueia a próxima verificação, feita cinco segundos depois. Um envio bem-sucedido evita repetições até que o status da bateria mude. O cron do relatório apenas devolve o resultado, mas o código não tem fila de tentativas nem registro persistente de entrega.
 
-## Teste as fronteiras que podem falhar separadamente
+## Teste cada ponto de falha separadamente
 
 Os testes cobrem três fronteiras diferentes:
 
@@ -221,9 +221,9 @@ Os testes cobrem três fronteiras diferentes:
 - `renderBlogReport` verifica o assunto, a linha em texto puro e o HTML escapado.
 - `renderBatteryAlert` verifica a estrutura compartilhada da mensagem, o doctype, o texto do limite e o percentual renderizado.
 
-São testes unitários determinísticos: eles não precisam do SQLite para construir relatórios e não chamam o Resend. Hoje não existe uma suíte de snapshots em diferentes clientes de e-mail, teste com mock do adaptador de entrega nem regressão visual automatizada. Validar o HTML em caixas de entrada reais continua sendo uma etapa manual.
+Esses testes unitários determinísticos não precisam do SQLite para construir relatórios e nunca chamam o Resend. Não existe uma suíte de snapshots em diferentes clientes de e-mail, teste com mock do adaptador de entrega nem regressão visual automatizada. Validar o HTML em caixas de entrada reais continua sendo uma etapa manual.
 
-## Onde este design termina
+## Saiba quando trocar o pequeno renderizador
 
 Este renderizador atende aos dois e-mails operacionais presentes no servidor. Seus limites são explícitos:
 
@@ -235,4 +235,4 @@ Este renderizador atende aos dois e-mails operacionais presentes no servidor. Se
 - não há tentativas persistidas, chave de idempotência ou auditoria de entrega;
 - não há matriz automatizada de renderização entre clientes.
 
-Mais templates, suporte rigoroso ao Outlook ou prévias automatizadas justificariam a adoção de um framework de e-mail dedicado.
+Se o servidor ganhar mais templates, suporte rigoroso ao Outlook ou prévias automatizadas, um framework de e-mail dedicado passará a valer o custo.

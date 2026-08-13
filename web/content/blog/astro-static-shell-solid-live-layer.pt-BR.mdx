@@ -1,21 +1,21 @@
 ---
-title: "Por dentro da reescrita: Astro no documento, Solid na camada interativa"
-description: Como uma única ilha executada no cliente adiciona telemetria e presença de cursores sem entregar ao Solid o controle do portfólio inteiro.
+title: "Astro cuida do documento, Solid da camada interativa"
+description: Como uma única ilha Solid executada no cliente adiciona telemetria e cursores enquanto o Astro mantém o portfólio em HTML estático.
 date: "2026-07-15"
 tags: [architecture, astro]
 ---
 
-No [post anterior](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting), resumi a arquitetura do frontend em uma frase: o [Astro](https://astro.build/) transforma a maior parte do site em HTML, e o [Solid](https://www.solidjs.com/) inicia apenas as ilhas interativas no navegador.
+No [post anterior](/pt-BR/blog/rewriting-my-portfolio-for-self-hosting), resumi o frontend em uma frase: o [Astro](https://astro.build/) transforma a maior parte do site em HTML, e o [Solid](https://www.solidjs.com/) inicia apenas as ilhas interativas no navegador.
 
-Essa frase esconde uma das fronteiras mais úteis da reescrita.
+A separação mantém o portfólio legível quando o código em tempo real falha.
 
-O conteúdo do portfólio já faz parte do documento gerado. O Solid entra depois, quando o navegador precisa de telemetria, presença de cursores e estado compartilhado entre essas partes da interface. A reescrita eliminou fronteiras no deploy, mas preservou as separações que continuam sendo úteis dentro da aplicação.
+O documento gerado já contém o portfólio. O Solid entra depois que a página chega ao navegador, quando a telemetria e a presença de cursores dependem do estado do navegador. A reescrita reuniu o deploy em um processo, mas manteve esses dois trabalhos de renderização separados.
 
 ## Do container à página
 
-O post anterior terminou com dois artefatos dentro de uma única imagem de runtime: a saída do Astro em `dist` e o executável compilado do servidor. Este post começa no primeiro deles.
+O post anterior terminou com dois artefatos dentro de uma única imagem de runtime: a saída do Astro em `dist` e o executável compilado do servidor. Este post começa nos arquivos de `dist`.
 
-A página inicial é uma página do Astro. Durante o build, ela resolve o idioma, cria a lista de projetos e renderiza o título, a descrição, a navegação e os links. O layout compartilhado do Astro cuida dos metadados do documento, das URLs canônicas, das versões em outros idiomas, das fontes e das transições entre páginas.
+A página inicial é uma página do Astro. Durante o build, ela resolve o idioma, cria a lista de projetos e renderiza o título, a descrição, a navegação e os links. O layout compartilhado do Astro escreve os metadados do documento, as URLs canônicas, as versões em outros idiomas, as fontes e as transições entre páginas.
 
 A camada interativa entra por uma única linha em [`index.astro`](https://github.com/ErickCReis/ErickCReis/blob/main/web/pages/%5B...locale%5D/index.astro):
 
@@ -29,7 +29,7 @@ A camada interativa entra por uma única linha em [`index.astro`](https://github
 </BaseLayout>
 ```
 
-Essa posição foi intencional. O componente do Solid fica ao lado do conteúdo principal, em vez de envolvê-lo. O Astro não precisa do Solid para renderizar o portfólio, e o Solid não precisa controlar a página inteira para adicionar comportamento em tempo real.
+O componente do Solid fica ao lado do conteúdo principal, em vez de envolvê-lo. O Astro renderiza o portfólio sozinho. O Solid acrescenta o comportamento em tempo real sem assumir o controle da página.
 
 ```mermaid center
 flowchart TB
@@ -47,15 +47,15 @@ flowchart TB
 
 ## Por que esta ilha usa client:only
 
-A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) do Astro pula a renderização do HTML do componente durante o build e deixa essa tarefa para o navegador. Sem uma marcação renderizada no servidor para retomar, o navegador faz uma renderização no cliente. A diretiva define onde a renderização acontece e não traz um ganho automático de desempenho.
+A diretiva [`client:only`](https://docs.astro.build/en/reference/directives-reference/#clientonly) instrui o Astro a ignorar o componente durante a geração do HTML. O navegador o renderiza do zero. A diretiva escolhe onde a renderização acontece. Sozinha, ela não torna esse trabalho mais rápido.
 
-Para esta camada, deixar de renderizar o componente durante o build é a escolha correta. Ele depende de informações do navegador, como as dimensões da janela e a posição do ponteiro. Os dados de telemetria e dos cursores também não têm valor durante o build. Um painel de estatísticas gerado nesse momento já chegaria desatualizado ao navegador.
+Para esta camada, o HTML gerado no build não teria utilidade. O componente depende das dimensões da janela e da posição do ponteiro. Os dados de telemetria e dos cursores também não existem durante o build. Um painel de estatísticas gerado nesse momento chegaria desatualizado ao navegador.
 
-O estado vazio é válido. Enquanto a ilha não inicia, não há painéis de telemetria flutuando pela tela nem cursores remotos. O título, os links dos projetos, a navegação e os metadados não precisam de um estado de carregamento porque nunca estiveram dentro da ilha.
+A ilha não precisa de placeholder. Enquanto ela não inicia, a página não mostra painéis de telemetria nem cursores remotos. O título, os links dos projetos, a navegação e os metadados dispensam um estado de carregamento porque o Astro já os renderizou fora da ilha.
 
-Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Esse modo de falha faz parte do design.
+Se o JavaScript não carregar, a página continua sendo um portfólio. Se o fluxo de estatísticas ou a conexão WebSocket cair, o documento não desaparece junto. Quero que as falhas terminem ali.
 
-As duas falhas removem partes diferentes. Bloquear o JavaScript impede que a ilha interativa inicie; derrubar o fluxo mantém a ilha em execução, mas sem dados novos. Nos dois casos, o documento gerado pelo Astro continua disponível porque nenhuma dessas dependências o controla.
+Bloquear o JavaScript impede que a ilha interativa inicie. Derrubar o fluxo mantém a ilha em execução, mas sem dados novos. Nos dois casos, o documento gerado pelo Astro continua disponível porque nenhuma dessas dependências o controla.
 
 ## Uma ilha em vez de duas
 
@@ -81,20 +81,20 @@ export function HomeLiveOverlay() {
 }
 ```
 
-Um [sinal reativo do Solid](https://docs.solidjs.com/concepts/signals) é suficiente para conectá-las. Manter as duas camadas dentro da mesma ilha faz com que essa relação continue local. Separá-las em ilhas independentes exigiria outro mecanismo de comunicação para um estado que já pertence à mesma camada visual.
+Um [sinal reativo do Solid](https://docs.solidjs.com/concepts/signals) conecta as duas funcionalidades. Mantê-las na mesma ilha preserva `isStatsHovered` como um estado local. Em ilhas independentes, eu precisaria de outro mecanismo para passar esse único valor entre elas.
 
-Neste projeto, uma ilha útil traça uma fronteira em torno dos comportamentos que precisam reagir em conjunto. A quantidade de componentes e a árvore completa da página não definem essa fronteira.
+Neste projeto, coloco na mesma ilha os comportamentos que reagem ao mesmo estado. A quantidade de componentes não decide onde a ilha começa ou termina.
 
 ## O JavaScript também existe fora do Solid
 
-O layout base ainda usa o roteador no cliente do Astro, e pequenos comportamentos da página podem continuar em scripts comuns. A fronteira descreve a responsabilidade de cada parte; o JavaScript pode existir dos dois lados.
+O layout base ainda usa o roteador no cliente do Astro, e pequenos comportamentos da página podem continuar em scripts comuns. Essa divisão atribui responsabilidades. Ela não proíbe o JavaScript em nenhum dos lados.
 
-O Astro cuida do documento e do conteúdo que precisa existir antes que o estado do navegador esteja disponível. O Solid cuida da árvore de componentes cujo resultado muda conforme sinais, fluxos de dados, posições do ponteiro e conexões são atualizados.
+O Astro cuida do documento e do conteúdo que precisa existir antes que o estado do navegador esteja disponível. O Solid cuida da árvore de componentes que reage a sinais, fluxos de dados, posições do ponteiro e conexões.
 
-Essa escolha ainda tem um custo. `client:only` carrega a camada interativa imediatamente, e os painéis de telemetria concentram mais código executado no cliente do que o restante da página inicial. Aceito esse custo porque essa camada é a principal superfície dinâmica da página inicial. Se ela crescer muito além desse papel, o próximo passo será dividir ou adiar partes da camada interativa enquanto o conteúdo do portfólio permanece no Astro.
+`client:only` carrega a camada interativa imediatamente, e os painéis de telemetria concentram mais código executado no cliente do que o restante da página inicial. Aceito esse custo porque essa é a principal funcionalidade interativa da página. Se ela crescer além desse trabalho, vou dividir ou adiar algumas partes enquanto o conteúdo do portfólio permanece no Astro.
 
-## A próxima fronteira
+## Seguindo uma funcionalidade em tempo real
 
-Agora o deploy tem um container e um processo de servidor. Dentro do navegador, a página continua dividida com clareza: o Astro fornece o documento, e o Solid adiciona as partes que só fazem sentido enquanto a página está em execução.
+Agora o deploy tem um container e um processo de servidor. O navegador ainda divide o trabalho. O Astro fornece o documento. O Solid acrescenta o que só faz sentido enquanto a página está em execução.
 
-O próximo post acompanhará uma dessas partes ao atravessar a fronteira: o movimento do ponteiro no navegador, uma mensagem WebSocket tipada, uma identidade baseada em cookie e a camada do Solid que renderiza o cursor de outro visitante.
+O próximo post acompanha o ponteiro desde o movimento no navegador, passando por uma mensagem WebSocket tipada e uma identidade baseada em cookie, até o componente do Solid que renderiza o cursor de outro visitante.

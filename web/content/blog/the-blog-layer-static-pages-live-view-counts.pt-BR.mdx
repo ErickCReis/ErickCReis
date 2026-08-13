@@ -1,11 +1,11 @@
 ---
 title: "Compilação estática do blog com contadores dinâmicos"
-description: Como o Astro compila MDX localizado em rotas agendadas enquanto uma fronteira estreita de Solid e SQLite adiciona contadores deduplicados com uma semântica explícita de consistência e falha.
+description: Como o Astro gera rotas a partir de MDX localizado enquanto uma ilha Solid e o SQLite contam visualizações sem bloquear o artigo.
 date: "2026-08-22"
 tags: [astro, solidjs, sqlite, architecture]
 ---
 
-Um artigo precisa ser validado e renderizado antes do deploy. Sua contagem de visualizações precisa mudar depois. O site compila o conteúdo com Astro e dá ao contador um caminho estreito por Solid, Elysia e SQLite:
+O Astro valida e renderiza cada artigo antes do deploy. A contagem de visualizações muda depois, por isso precisa de um pequeno caminho dinâmico por Solid, Elysia e SQLite:
 
 ```mermaid center
 flowchart LR
@@ -19,7 +19,7 @@ flowchart LR
   SQLite --> Browser
 ```
 
-O Astro controla identidade, idioma, navegação e publicação. O SQLite controla os contadores. Se a API falhar, o artigo ainda renderiza.
+O Astro cuida da identidade do conteúdo, do idioma, da navegação e da publicação. O SQLite cuida dos contadores. Se a API falhar, o artigo ainda renderiza.
 
 ## Compile o contrato de conteúdo antes de gerar rotas
 
@@ -40,7 +40,7 @@ const blog = defineCollection({
 });
 ```
 
-Assim, um frontmatter malformado causa um erro de build, não uma página parcialmente renderizada em produção. A listagem pode derivar filtros de tags e ordenar entradas a partir de dados tipados; a rota de detalhes pode executar `render(post)` e emitir o corpo em MDX como HTML estático.
+Um frontmatter malformado agora interrompe o build, em vez de produzir uma página parcial em produção. A listagem deriva filtros de tags e ordena entradas a partir de dados tipados. A rota de detalhes executa `render(post)` e emite o corpo em MDX como HTML estático.
 
 O schema não exige textos não vazios, não limita o vocabulário de tags, não impõe datas únicas e não verifica pares de idiomas.
 
@@ -73,7 +73,7 @@ export function getBlogViewKey(entry: BlogEntry) {
 }
 ```
 
-O slug público remove o sufixo reconhecido de um idioma não padrão, portanto as duas variantes apontam para o mesmo identificador de rota. A chave de visualização mantém o nome completo da fonte, fazendo os artigos em inglês e português acumularem totais independentes:
+O slug público remove o sufixo reconhecido de um idioma não padrão, portanto as duas variantes usam o mesmo identificador de rota. A chave de visualização mantém o nome completo da fonte, o que dá totais separados aos artigos em inglês e português:
 
 | Responsabilidade | Inglês | Português |
 | --- | --- | --- |
@@ -81,7 +81,7 @@ O slug público remove o sufixo reconhecido de um idioma não padrão, portanto 
 | Caminho público | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
 | Chave do contador | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
 
-Manter o idioma na chave do contador evita combinar públicos silenciosamente. Isso também significa que renomear um arquivo cria uma nova identidade de contador; não existe mecanismo de alias ou migração ligando a chave antiga à nova.
+Manter o idioma na chave do contador impede que os dois públicos sejam combinados sem aviso. Renomear um arquivo também cria uma nova identidade de contador. Nenhum alias ou migração liga a chave antiga à nova.
 
 O pareamento de idiomas depende de convenção. Para o idioma solicitado, `getBlogEntry` procura primeiro `${slug}.${normalizedLocale}` e depois usa a fonte sem sufixo como fallback:
 
@@ -92,7 +92,7 @@ return (
 );
 ```
 
-Esse fallback impede que uma tradução ausente vire uma rota ausente. Em troca, uma URL em português pode renderizar conteúdo em inglês quando o arquivo `.pt-BR` não existe. O build atualmente não sinaliza pares de idiomas incompletos.
+Esse fallback mantém a rota disponível quando falta uma tradução. Também pode fazer uma URL em português renderizar conteúdo em inglês quando o arquivo `.pt-BR` não existe. O build não sinaliza pares de idiomas incompletos.
 
 ## Gere apenas as rotas visíveis para aquele build
 
@@ -112,7 +112,7 @@ return locales.flatMap((locale) =>
 );
 ```
 
-O idioma padrão não recebe prefixo na URL; os demais recebem um prefixo por meio da rota catch-all opcional. A listagem aplica o mesmo filtro de publicação e seleciona no máximo uma fonte por slug lógico, preferindo a fonte correspondente ao idioma em vez do fallback padrão. Usar as mesmas funções de seleção para geração de rotas, links da listagem, navegação entre artigos e chaves dos contadores impede que esses consumidores inventem identidades ligeiramente diferentes.
+O idioma padrão não recebe prefixo na URL. Os demais recebem um prefixo pela rota catch-all opcional. A listagem aplica o mesmo filtro de publicação e seleciona no máximo uma fonte por slug lógico, preferindo a fonte correspondente ao idioma em vez do fallback padrão. Geração de rotas, links da listagem, navegação entre artigos e chaves dos contadores usam as mesmas funções de seleção, então não acabam com identidades ligeiramente diferentes.
 
 A publicação é uma comparação de datas de calendário, não de instantes. O arquivo [`web/lib/blog-publication.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/web/lib/blog-publication.ts) lê a data do frontmatter como uma chave de calendário em UTC e a compara com a data atual em `America/Sao_Paulo`:
 
@@ -124,13 +124,13 @@ export function isBlogPostPublished(date: Date, now = new Date()) {
 
 A listagem e a rota de detalhes passam `includeScheduled: true` apenas em desenvolvimento. Builds de produção excluem entradas futuras da listagem e de `getStaticPaths`; builds de desenvolvimento as expõem para revisão.
 
-Isso é compilação agendada, não agendamento em runtime. Um build produzido em 21 de agosto não revela o artigo quando São Paulo chega a 22 de agosto. É necessário executar um novo build na data de publicação ou depois dela. De forma simétrica, depois que uma rota é emitida, mudar o relógio do servidor não a remove. A data de publicação deve ser entendida como uma entrada do build.
+Esse agendamento acontece no build. Um build produzido em 21 de agosto não revela o artigo quando São Paulo chega a 22 de agosto. É necessário executar outro build na data de publicação ou depois dela. Depois que a rota existe, mudar o relógio do servidor não a remove. A data de publicação é uma entrada do build.
 
-## Mantenha a fronteira de cliente menor que o documento
+## Hidrate os contadores, não o documento
 
 A listagem e o artigo usam comportamentos de cliente diferentes.
 
-A listagem renderiza no HTML todos os títulos, descrições, datas, tags, links e um placeholder `-- views`. Um hidratador com `client:only="solid-js"` não retorna DOM próprio; ao montar, ele encontra todos os elementos `[data-post-view-count]` e faz uma única requisição em lote para suas chaves. Em seguida, substitui cada placeholder:
+A listagem renderiza no HTML todos os títulos, descrições, datas, tags, links e um placeholder `-- views`. Um hidratador com `client:only="solid-js"` não acrescenta DOM próprio. Ao montar, ele encontra todos os elementos `[data-post-view-count]`, faz uma única requisição em lote para suas chaves e substitui cada placeholder:
 
 ```ts
 void fetchPostViewCounts(props.slugs)
@@ -150,13 +150,13 @@ void fetchPostViewCounts(props.slugs)
   });
 ```
 
-O artigo usa `PostViewCounter`, também como uma ilha Solid executada apenas no cliente. Ele faz a gravação somente depois que o documento fica visível. Uma aba em segundo plano espera pelo evento `visibilitychange`, reduzindo contagens causadas por navegação especulativa ou por uma aba que o leitor nunca trouxe para o primeiro plano.
+O artigo usa `PostViewCounter`, também como uma ilha Solid executada apenas no cliente. Ele grava somente depois que o documento fica visível. Uma aba em segundo plano espera pelo evento `visibilitychange`, o que reduz contagens por navegação especulativa e por abas que o leitor nunca traz para o primeiro plano.
 
 Sem JavaScript, o artigo continua legível e a listagem mantém seu placeholder. Falhas na leitura da listagem ocultam os rótulos, e falhas na gravação do artigo ocultam o contador. Um controle `isDisposed` impede atualizações depois da desmontagem.
 
-A requisição em si não é cancelada ao desmontar, e a visibilidade é apenas um sinal aproximado de leitura. Uma aba em primeiro plano é contada mesmo se o visitante sair imediatamente, enquanto um leitor sem JavaScript nunca é contado.
+A desmontagem não cancela a requisição, e a visibilidade é apenas um sinal aproximado de leitura. Uma aba em primeiro plano conta mesmo se o visitante sair imediatamente. Um leitor sem JavaScript nunca conta.
 
-## Valide o transporte independentemente da interface
+## Valide a API sem depender da interface
 
 Navegador e servidor compartilham schemas Valibot de [`shared/blog/views.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/blog/views.ts):
 
@@ -173,11 +173,11 @@ export const blogPostQueryRequestSchema = v.object({
 });
 ```
 
-`GET /blog/views` lê até 100 chaves em uma consulta. `POST /blog/views` recebe uma chave e registra uma visualização. As duas respostas definem `cache-control: no-store`; o cliente também solicita `cache: "no-store"`. Isso evita que um contador antigo seja servido pelo navegador ou por um cache intermediário.
+`GET /blog/views` lê até 100 chaves em uma consulta. `POST /blog/views` recebe uma chave e registra uma visualização. As duas respostas definem `cache-control: no-store`, e o cliente também solicita `cache: "no-store"`. Nem o navegador nem um cache intermediário devem servir uma contagem antiga.
 
 A API valida o formato da chave, mas não verifica se ela pertence à coleção compilada. Qualquer cliente pode criar linhas para uma chave inventada e bem-formada. Também não há rate limiter além da deduplicação por cookie, então clientes que descartam cookies podem inflar os totais.
 
-## Faça deduplicação e agregação na mesma transação
+## Conte uma visualização em uma única transação
 
 O primeiro `POST` atribui um ID opaco de visitante compatível com `ct_[A-Za-z0-9_-]{21}`. O Elysia o armazena por um ano em um cookie `HttpOnly` com `SameSite=Strict` e ativa `Secure` em produção. O JavaScript do cliente envia o cookie, mas não pode ler nem escolher seu valor.
 
@@ -190,7 +190,7 @@ O SQLite mantém quatro projeções:
 | `blog_post_daily_views` | `date, slug` | Agregado para relatório diário |
 | `blog_post_weekly_views` | `week_start, slug` | Agregado de domingo a sábado |
 
-`registerPostView` executa uma transação imediata do SQLite. Ele calcula o limite de 24 horas, remove registros de visitantes vencidos, consulta o par atual de visitante e chave e retorna o total existente quando o par ainda é recente. Caso contrário, atualiza o registro de deduplicação e incrementa as projeções total, diária e semanal:
+`registerPostView` executa uma transação imediata do SQLite. Ele calcula o limite de 24 horas, remove registros de visitantes vencidos e consulta o par atual de visitante e chave. Se o par ainda for recente, devolve o total existente. Caso contrário, atualiza o registro de deduplicação e incrementa as projeções total, diária e semanal:
 
 ```ts
 tx.insert(blogPostViewTotals)
@@ -207,9 +207,9 @@ tx.insert(blogPostViewTotals)
 
 A data diária e o início da semana são calculados no mesmo fuso de São Paulo usado pelos relatórios. À meia-noite, um cron cria o relatório do dia anterior ou, aos domingos, o relatório da semana anterior de domingo a sábado. Essas tabelas de relatório são desnormalizadas no momento da escrita; os relatórios não percorrem registros de visitantes nem reconstroem o histórico a partir do total permanente.
 
-`behavior: "immediate"` adquire o bloqueio reservado de escrita do SQLite antes da sequência de leitura, modificação e escrita. Escritores concorrentes não conseguem observar ao mesmo tempo a ausência do registro de deduplicação e incrementar de forma independente fora dessa sequência. As quatro projeções e o token de deduplicação são confirmados juntos: uma exceção antes do commit desfaz a transação, enquanto uma resposta bem-sucedida reflete um total confirmado e consultado dentro da transação.
+`behavior: "immediate"` adquire o bloqueio reservado de escrita do SQLite antes da sequência de leitura, modificação e escrita. Dois escritores não conseguem observar ao mesmo tempo a ausência do registro de deduplicação e incrementar o total de forma independente. As quatro projeções e o token de deduplicação recebem commit juntos. Uma exceção antes do commit desfaz tudo, enquanto uma resposta bem-sucedida contém o total consultado dentro da transação confirmada.
 
-Isso é atômico dentro de um banco SQLite, não um protocolo distribuído exactly-once. A durabilidade ainda depende do arquivo do banco e de sua configuração de armazenamento. Múltiplas instâncias da aplicação precisam compartilhar o mesmo banco com uma semântica de bloqueio compatível; arquivos SQLite independentes produziriam totais divergentes. A limpeza oportunista também significa que registros de visitantes vencidos permanecem até uma gravação bem-sucedida posterior.
+A operação é atômica dentro de um banco SQLite. Ela não é um protocolo distribuído exactly-once. A durabilidade ainda depende do arquivo do banco e de sua configuração de armazenamento. Múltiplas instâncias da aplicação precisam compartilhar o mesmo banco com bloqueios compatíveis. Arquivos SQLite independentes produziriam totais diferentes. Como a limpeza acontece durante as gravações, registros de visitantes vencidos permanecem até que uma gravação posterior tenha sucesso.
 
 ## Defina o que o número significa
 
