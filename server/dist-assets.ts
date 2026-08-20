@@ -1,32 +1,10 @@
-import { Elysia, file } from "elysia";
-import {
-  loadDistAssetRoutes,
-  type DistAssetRoute,
-} from "./dist-assets.macro" with { type: "macro" };
+import { resolve } from "node:path";
 
-const distAssetRoutes = loadDistAssetRoutes() as DistAssetRoute[];
+export function createDistAssetsServeOptions() {
+  const routes = {
+    "/*": { dir: resolve("dist") },
+  };
 
-function getCacheControl(asset: DistAssetRoute) {
-  if (asset.routePath.startsWith("/_astro/")) {
-    return "public, max-age=31536000, immutable";
-  }
-
-  if (asset.filePath.endsWith(".html")) {
-    return "no-cache";
-  }
-
-  return "public, max-age=3600";
-}
-
-export function createDistAssetsSubrouter() {
-  const router = new Elysia({ name: "dist-assets" });
-
-  for (const asset of distAssetRoutes) {
-    router.get(asset.routePath, ({ set }) => {
-      set.headers["cache-control"] = getCacheControl(asset);
-      return file(asset.filePath);
-    });
-  }
-
-  return router;
+  // Bun 1.4 directory routes shipped before @types/bun's 1.4 declarations.
+  return { routes: routes as unknown as Bun.Serve.Options<unknown>["routes"] };
 }

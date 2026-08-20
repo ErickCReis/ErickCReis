@@ -1,25 +1,24 @@
 ---
-title: "Compilando as rotas estáticas do Astro em um servidor Bun"
-description: Como um manifesto de rotas gerado no build permite que um processo Elysia sirva arquivos do Astro com URLs limpas, respostas 404 exatas, cache por arquivo e headers de segurança.
+title: "Servindo a saída estática do Astro com Bun 1.4 e Elysia"
+description: As rotas nativas de diretório do Bun 1.4 permitem que um processo Elysia sirva a saída do Astro com URLs limpas, cache condicional, requisições parciais e precedência explícita da API.
 date: "2026-08-08"
 tags: [astro, bun, elysia, deployment, caching]
 ---
 
-O Astro produz arquivos estáticos. O Elysia atende requisições. `bun build --compile` produz um executável. Este deploy junta os três atrás da mesma porta com um manifesto de rotas criado no build. O Astro grava os bytes das respostas em `dist`. Uma macro do Bun transforma esses arquivos em rotas exatas do Elysia enquanto compila o servidor. A imagem de runtime inclui `dist` e o executável.
+Um build estático do Astro produz um diretório, o Elysia produz handlers HTTP e `bun build --compile` produz um executável. As rotas de diretório do Bun 1.4 permitem que o executável sirva toda a saída do Astro sem gerar um handler do Elysia para cada arquivo. O resultado é um processo e dois artefatos de deploy: `myserver` contém a aplicação, enquanto `dist` contém o site estático.
 
 ```mermaid center
 flowchart LR
-  Astro["astro build"] --> Dist["dist: bytes das respostas"]
-  Dist --> Macro["Macro do Bun: manifesto de rotas"]
-  Macro --> Binary["myserver: handlers + metadados de rotas"]
-  Dist --> Image["imagem de runtime"]
-  Binary --> Image
-  Image --> Elysia["um processo Elysia em :3000"]
+  Astro["astro build"] --> Dist["dist: site estático"]
+  Server["servidor Elysia"] --> Binary["myserver"]
+  Dist --> Directory["rota de diretório do Bun.serve"]
+  Binary --> Directory
+  Directory --> Process["um processo em :3000"]
 ```
 
-Cada caminho de requisição aponta para um arquivo produzido pelo mesmo build. Não há renderização no servidor nem fallback genérico de diretório durante a requisição.
+A rota nativa cuida de índices de diretório, redirecionamentos, tipos de mídia, validadores, respostas parciais e acesso seguro ao sistema de arquivos. O Elysia continua responsável pelas rotas dinâmicas da API.
 
-## Execute o build do Astro antes de compilar o servidor
+## Construa os dois artefatos em ordem
 
 O script de build estabelece a ordem de dependência:
 
@@ -31,190 +30,98 @@ O script de build estabelece a ordem de dependência:
 }
 ```
 
-O `&&` faz parte do contrato de deploy. `astro build` precisa terminar antes de o Bun compilar `server/index.ts`, pois a compilação avalia uma macro que percorre `dist`.
+O `&&` faz parte do contrato de deploy. `astro build` precisa terminar antes de o servidor ser compilado e empacotado, evitando que um release inclua um diretório `dist` antigo ou incompleto.
 
-O release tem dois artefatos responsáveis pelo conteúdo estático:
+| Artefato   | É responsável por                                                     |
+| ---------- | --------------------------------------------------------------------- |
+| `dist/`    | HTML, JavaScript, CSS, fontes, imagens e outros bytes gerados         |
+| `myserver` | Handlers do Elysia, configuração das rotas nativas do Bun e respostas |
 
-| Artefato | É responsável por | Não é responsável por |
-| --- | --- | --- |
-| `dist/` | HTML, JavaScript, CSS, fontes, imagens e outros bytes gerados | Roteamento das requisições |
-| `myserver` | Handlers do Elysia, tabela de rotas gerada e política das respostas | Conteúdo dos arquivos estáticos |
+O Bun 1.4 também permite incorporar diretórios com `--asset`, mas esse é outro mecanismo. Uma rota nativa `{ dir }` abre um diretório real do sistema de arquivos, então este deploy coloca `dist` ao lado de `myserver` na imagem de runtime.
 
-A tabela de rotas contém caminhos de arquivos, não o conteúdo incorporado desses arquivos. Substituir apenas `dist` é inseguro. O binário pode não ter uma rota para um arquivo novo, manter uma rota para um arquivo removido ou apontar um alias para o release errado. Substituir apenas o binário cria o problema inverso. O executável e o diretório formam uma unidade de deploy, apesar de continuarem como arquivos separados.
+## Entregue a pasta inteira ao Bun
 
-A imagem Docker preserva `/app/dist` porque a macro resolve cada arquivo para um caminho absoluto durante o build em `/app`. O estágio de runtime usa o mesmo diretório de trabalho.
-
-## Compile arquivos em caminhos exatos de requisição
-
-O compilador de rotas está em `server/dist-assets.macro.ts`. Ele percorre `dist` recursivamente, ordena cada leitura de diretório, normaliza os separadores da plataforma para `/` e deriva rotas candidatas do caminho relativo de cada arquivo:
+A configuração do serviço estático agora cabe em uma função pequena:
 
 ```ts
-function toRouteCandidates(relativePath: string): string[] {
-  const routePath = `/${relativePath.split(sep).join("/")}`;
-  const routes = new Set<string>([routePath]);
+import { resolve } from "node:path";
 
-  if (routePath.endsWith("/index.html")) {
-    const nestedIndexPath = routePath.slice(0, -"/index.html".length) || "/";
-    routes.add(nestedIndexPath);
+export function createDistAssetsServeOptions() {
+  const routes = {
+    "/*": { dir: resolve("dist") },
+  };
 
-    if (nestedIndexPath !== "/") {
-      routes.add(`${nestedIndexPath}/`);
-    }
-  } else if (routePath.endsWith(".html")) {
-    routes.add(routePath.slice(0, -".html".length) || "/");
-  }
-
-  return [...routes];
+  return { routes };
 }
 ```
 
-Todo arquivo mantém sua URL literal. Arquivos HTML recebem aliases limpos adicionais:
+O código-fonte real contém uma asserção de tipo restrita porque o Bun 1.4 foi publicado antes das declarações correspondentes de `@types/bun`. Em runtime, esse objeto é entregue sem alterações a `Bun.serve()`.
 
-| Arquivo em `dist` | Caminhos de requisição registrados |
-| --- | --- |
-| `index.html` | `/index.html`, `/` |
-| `blog/index.html` | `/blog/index.html`, `/blog`, `/blog/` |
-| `about.html` | `/about.html`, `/about` |
-| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js` |
-
-O import da macro é a fronteira de build:
+O Elysia expõe as opções do servidor Bun na configuração raiz:
 
 ```ts
-import {
-  loadDistAssetRoutes,
-  type DistAssetRoute,
-} from "./dist-assets.macro" with { type: "macro" };
-
-const distAssetRoutes = loadDistAssetRoutes() as DistAssetRoute[];
-```
-
-O Bun avalia `loadDistAssetRoutes()` enquanto processa o build do servidor e substitui seu resultado. A inicialização em produção não percorre `dist` recursivamente. Ela percorre os metadados de rota já compilados em `myserver`.
-
-O loader também considera a ausência de `dist` um erro quando o Bun está compilando ou `NODE_ENV` é `production`. Assim, uma ordem de build invertida interrompe o release em vez de iniciar um servidor que retorna 404 para todas as páginas.
-
-## Rejeite URLs limpas ambíguas
-
-Aliases introduzem um problema de correção que o serviço de arquivos por caminhos literais não tem. Estes arquivos são diferentes:
-
-```text
-dist/about.html
-dist/about/index.html
-```
-
-mas ambos tentam ser donos de `/about`. O compilador armazena candidatos em um `Map` e lança um erro quando encontra o segundo dono:
-
-```ts
-const existingRoute = routes.get(routePath);
-if (existingRoute) {
-  throw new Error(
-    `Duplicate dist route "${routePath}" for "${filePath}". ` +
-      `Existing route entry: ${JSON.stringify(existingRoute)}.`,
-  );
-}
-
-routes.set(routePath, { routePath, filePath });
-```
-
-O percurso ordenado torna o diagnóstico determinístico. O compilador decide quem controla a rota durante o build. O resultado não depende da ordem do sistema de arquivos nem do último handler registrado.
-
-Essa verificação cobre colisões dentro de `dist`. Ela não compara os caminhos estáticos gerados com rotas de API declaradas separadamente. `server/index.ts` instala os plugins de API antes do subroteador estático de produção, então a aplicação ainda precisa impedir sobreposições entre caminhos da API e dos arquivos estáticos.
-
-## Retorne 404 para caminhos desconhecidos
-
-O servidor não registra `/*`, não envia `index.html` para requisições desconhecidas e não tenta extensões em runtime. Ele registra apenas os candidatos produzidos acima:
-
-```ts
-export function createDistAssetsSubrouter() {
-  const router = new Elysia({ name: "dist-assets" });
-
-  for (const asset of distAssetRoutes) {
-    router.get(asset.routePath, ({ set }) => {
-      set.headers["cache-control"] = getCacheControl(asset);
-      return file(asset.filePath);
-    });
-  }
-
-  return router;
-}
-```
-
-Toda requisição GET segue esta árvore de decisão:
-
-```mermaid center
-flowchart TD
-  Request["Requisição GET"] --> API{"Rota explícita de API?"}
-  API -- sim --> Handler["Executar handler dinâmico"]
-  API -- não --> Static{"Rota gerada ou alias exato?"}
-  Static -- sim --> File["Retornar arquivo de dist"]
-  Static -- não --> Missing["404 do Elysia"]
-```
-
-Um erro como `/blgo` continua sendo 404. Um roteador no cliente que dependesse do fallback da History API precisaria de uma rota catch-all separada.
-
-O servidor conecta o subroteador estático apenas quando `NODE_ENV === "production"`. No desenvolvimento, o Astro serve sua saída na porta 4321, enquanto o Bun observa a API em outra porta. Os dois processos ficam separados durante o desenvolvimento e compartilham uma porta em produção.
-
-## Escolha o header de cache pelo tipo de arquivo
-
-Nem todo arquivo gerado tem o mesmo modelo de invalidação. O handler estático escolhe uma de três políticas:
-
-```ts
-function getCacheControl(asset: DistAssetRoute) {
-  if (asset.routePath.startsWith("/_astro/")) {
-    return "public, max-age=31536000, immutable";
-  }
-
-  if (asset.filePath.endsWith(".html")) {
-    return "no-cache";
-  }
-
-  return "public, max-age=3600";
-}
-```
-
-- `/_astro/*` recebe um ano e `immutable`. Os assets empacotados pelo Astro têm fingerprint do conteúdo, então uma alteração produz uma URL nova.
-- HTML recebe `no-cache`. Um cache pode armazená-lo, mas precisa revalidar antes de usar a resposta armazenada.
-- Outros arquivos públicos recebem uma hora de validade em cache. Isso cobre assets cujos nomes podem ser estáveis e que, portanto, não devem ser tratados como imutáveis.
-
-A verificação de HTML usa `filePath`, não `routePath`. `/about`, `/about/` quando gerada a partir de um arquivo `index` e a rota literal com `.html` recebem a mesma política porque retornam o mesmo tipo de arquivo. O helper `file()` do Elysia transmite o arquivo e define seu tipo de mídia. O subroteador acrescenta o header de cache deste deploy.
-
-A regra confia que todo caminho em `/_astro/` contém um arquivo com fingerprint. O diretório de bundles gerado pelo Astro cumpre essa condição. Um arquivo estável adicionado manualmente não cumpriria, e os navegadores poderiam mantê-lo em cache por um ano.
-
-## Adicione headers de segurança sem substituir headers das rotas
-
-Arquivos estáticos e respostas da API passam pelo mesmo hook `onAfterHandle` da aplicação:
-
-```ts
-.onAfterHandle(({ set }) => {
-  applySecureHeaders(set.headers);
+const app = new Elysia({
+  serve: Bun.env.NODE_ENV === "production" ? createDistAssetsServeOptions() : undefined,
 })
+  .use(statsRoutes)
+  .use(presenceRoutes)
+  .use(blogRoutes)
+  .use(internalRoutes)
+  .use(liveRoutes);
 ```
 
-`applySecureHeaders` preenche um header somente quando a rota ainda não definiu esse valor:
+O adaptador Bun do Elysia combina as rotas do framework com as rotas nativas fornecidas. O Bun testa caminhos exatos e parametrizados da API antes da rota global de diretório `/*`: uma requisição a `/live/id` chega ao Elysia, enquanto `/favicon.svg` chega à pasta estática.
+
+A rota da pasta existe apenas em produção. Durante o desenvolvimento, o Astro continua servindo sua saída na porta 4321 enquanto o Bun observa a API separadamente.
+
+## Deixe a semântica de diretório definir as URLs limpas
+
+O Bun associa o sufixo da URL depois de `/*` diretamente a `dist`:
+
+| Requisição               | Resultado                                   |
+| ------------------------ | ------------------------------------------- |
+| `/`                      | Serve `dist/index.html`                     |
+| `/blog`                  | Redireciona para `/blog/` com status 301    |
+| `/blog/`                 | Serve `dist/blog/index.html`                |
+| `/favicon.svg`           | Serve `dist/favicon.svg`                    |
+| `/does-not-exist`        | Retorna 404                                 |
+| uma URL explícita da API | Executa o handler mais específico do Elysia |
+
+Esse contrato é menor que o antigo manifesto de rotas gerado. Não há varredura recursiva na inicialização, tabela de aliases, tentativa de extensões nem catch-all que devolve a página raiz. A saída em diretórios do Astro e o comportamento normal de diretórios web fornecem as URLs limpas.
+
+Uma aplicação no cliente que dependesse do fallback da History API precisaria de outra rota. Este site é gerado estaticamente, então uma URL desconhecida deve continuar sendo um 404 real.
+
+## Use o comportamento de arquivos nativo do Bun
+
+As rotas de diretório fornecem a mecânica das respostas que antes era montada pela aplicação:
+
+- `Content-Type` é inferido pela extensão;
+- `Last-Modified` e um `ETag` fraco são enviados;
+- `If-Modified-Since` e `If-None-Match` podem retornar 304;
+- intervalos de bytes retornam 206 com `Accept-Ranges` e `Content-Range`;
+- diretórios redirecionam para uma barra final e então servem `index.html`;
+- arquivos ausentes retornam 404.
+
+No Linux, o Bun faz a busca no diretório sem permitir que o caminho ultrapasse a raiz configurada, impedindo que um caminho ou link simbólico escape de `dist`. Manter arquivos privados fora desse diretório continua sendo a fronteira de segurança correta.
+
+Respostas nativas de diretório não passam pelo hook `onAfterHandle` do Elysia. Portanto, as políticas de headers de segurança e CORS da aplicação continuam valendo para a API, enquanto os headers de arquivos e cache estático vêm diretamente do Bun. Se os arquivos estáticos precisarem de headers adicionais, eles devem ser definidos no proxy reverso/CDN ou em handlers explícitos da aplicação.
+
+## Mantenha o agendamento dentro do Elysia
+
+Os jobs agendados do servidor continuam sendo plugins do Elysia:
 
 ```ts
-headers["x-content-type-options"] ??= "nosniff";
-headers["x-frame-options"] ??= "DENY";
-headers["referrer-policy"] ??= "strict-origin-when-cross-origin";
-headers["permissions-policy"] ??=
-  "camera=(), geolocation=(), microphone=(), payment=()";
-headers["cross-origin-opener-policy"] ??= "same-origin";
-
-if (Bun.env.NODE_ENV === "production") {
-  headers["strict-transport-security"] ??=
-    "max-age=31536000; includeSubDomains; preload";
-}
+const app = new Elysia({ serve }).use(batteryAlertCron).use(blogReportCron);
 ```
 
-O uso de `??=` impede que os valores globais sobrescrevam um header definido pela rota. O subroteador estático define `cache-control`, enquanto o hook da aplicação acrescenta os headers de segurança.
+O monitor de bateria mantém sua expressão de cinco segundos, e o relatório diário do blog mantém o fuso `America/Sao_Paulo`. O serviço estático e o agendamento usam camadas diferentes para trabalhos diferentes: o Bun é responsável pela entrega dos arquivos, enquanto o Elysia controla os plugins do ciclo de vida da aplicação.
 
-O CORS é configurado separadamente. Em produção, requisições de navegador com credenciais são permitidas apenas quando originadas de `https://erickr.dev` ou `https://www.erickr.dev`; no desenvolvimento, `http://localhost:4321` é permitido. Essa política controla o acesso cross-origin do navegador à API. Ela não substitui o endurecimento das respostas, a autenticação nem o controle de cache.
+## Preserve o contrato na imagem de runtime
 
-## Distribua o binário e dist a partir do mesmo build
-
-O build Docker de múltiplos estágios compila com Bun e executa o resultado sem instalar Bun ou `node_modules` no estágio final:
+O build Docker de múltiplos estágios compila com Bun e executa o resultado sem Bun ou `node_modules` na imagem final:
 
 ```dockerfile
-FROM oven/bun:1.3 AS build
+FROM oven/bun:1.4.0 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -236,10 +143,4 @@ EXPOSE 3000
 CMD ["./myserver"]
 ```
 
-A imagem final contém três artefatos da aplicação:
-
-- `myserver` é responsável pelas rotas dinâmicas, pelo manifesto estático, pela seleção de cache, pelo CORS e pelos headers de segurança;
-- `dist` é responsável pelos bytes retornados pelas rotas estáticas;
-- `server/db/migrations` contém dados de runtime da aplicação e não participa do serviço estático.
-
-`dist` e o manifesto de rotas compilado precisam vir do mesmo build e ser distribuídos juntos. Caso contrário, o servidor pode registrar rotas para arquivos ausentes ou deixar de registrar arquivos existentes. Gerar ambos na mesma imagem mantém as URLs limpas, as respostas 404 e os headers de cache ligados aos arquivos servidos.
+`myserver` e `dist` precisam vir do mesmo build e ser distribuídos juntos. Esse pareamento mantém a rota nativa da pasta simples e transfere o comportamento de roteamento, validação de cache, respostas parciais e precedência da API ao servidor, em vez de mantê-lo em código que percorre arquivos na aplicação.
