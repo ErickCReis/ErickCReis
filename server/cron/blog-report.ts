@@ -1,4 +1,4 @@
-import { cron, Patterns } from "@elysiajs/cron";
+import { cron, Patterns } from "@elysia/cron";
 import { createBlogReport } from "@server/blog/report";
 import { createBlogPostViewsStore } from "@server/blog/views";
 import { renderBlogReport } from "@server/email/blog-report";

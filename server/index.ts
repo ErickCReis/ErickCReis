@@ -1,19 +1,17 @@
-import { Elysia } from "elysia";
-import cors from "@elysiajs/cors";
+import { Elysia } from "@server/elysia";
+import cors from "@elysia/cors";
 import { blogRoutes } from "@server/blog/routes";
 import { batteryAlertCron } from "@server/cron/battery-alert";
 import { blogReportCron } from "@server/cron/blog-report";
-import { createDistAssetsServeOptions } from "@server/dist-assets";
+import { createDistAssetsSubrouter } from "@server/dist-assets";
 import { internalRoutes } from "@server/internal/routes";
 import { liveRoutes } from "@server/live/routes";
 import { presenceRoutes } from "@server/presence/routes";
 import { applySecureHeaders } from "@server/lib/secure-headers";
 import { startStatsServices, statsRoutes } from "@server/stats/routes";
 
-const app = new Elysia({
-  serve: Bun.env.NODE_ENV === "production" ? createDistAssetsServeOptions() : undefined,
-})
-  .onAfterHandle(({ set }) => {
+const app = new Elysia()
+  .afterHandle(({ set }) => {
     applySecureHeaders(set.headers);
   })
   .use(
@@ -32,6 +30,10 @@ const app = new Elysia({
   .use(liveRoutes)
   .use(batteryAlertCron)
   .use(blogReportCron);
+
+if (Bun.env.NODE_ENV === "production") {
+  app.use(createDistAssetsSubrouter());
+}
 
 app.listen({ hostname: "0.0.0.0", port: 3000 }, ({ hostname, port }) => {
   console.log(`Server is running on: http://${hostname}:${port}`);

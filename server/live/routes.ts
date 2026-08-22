@@ -1,4 +1,5 @@
-import { Elysia, t } from "elysia";
+import { Elysia, t } from "@server/elysia";
+import { websocket } from "elysia/websocket";
 import { cursorPayloadSchema } from "@shared/cursor";
 import { createLiveId } from "@server/lib/id";
 
@@ -13,14 +14,15 @@ const cursorCookieSchema = t.Cookie(
 );
 
 export const liveRoutes = new Elysia({ name: "live-routes" })
+  .use(websocket())
   .get(
     "/live/id",
+    {
+      cookie: cursorCookieSchema,
+    },
     ({ cookie }) => {
       cookie.cursorId.value ??= createLiveId();
       return { cursorId: cookie.cursorId.value };
-    },
-    {
-      cookie: cursorCookieSchema,
     },
   )
   .ws("/live", {
@@ -34,7 +36,7 @@ export const liveRoutes = new Elysia({ name: "live-routes" })
       ws.subscribe("cursors");
     },
     message(ws, payload) {
-      if (payload.id !== ws.data.cookie.cursorId.value) return;
+      if (payload.id !== ws.cookie.cursorId.value) return;
       ws.publish("cursors", payload, true);
     },
     close(ws) {

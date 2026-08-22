@@ -1,4 +1,4 @@
-import { treaty } from "@elysiajs/eden";
+import { treaty } from "@elysia/eden";
 import type { App } from "@server/index";
 
 export const statsClient = treaty<App>(
