@@ -1,4 +1,4 @@
-import { Elysia, sse } from "elysia";
+import { Elysia, sse } from "@server/elysia";
 import { serializeStatsStreamEvent } from "@shared/stats/transport";
 import { buildStatsHistoryResponse } from "@server/stats/history";
 import { tokenUsageStat } from "@server/stats/token-usage";
