@@ -243,3 +243,40 @@ The final image contains three application artifacts:
 - `server/db/migrations` is runtime data for the application, unrelated to static serving.
 
 `dist` and the compiled route manifest must come from the same build and ship together. Otherwise, the server can register routes for files that are missing or fail to register files that exist. Building both in one image keeps clean URLs, 404 responses, and cache headers tied to the files being served.
+
+## Update: Bun 1.4 serves the folder directly
+
+The sections above document the original build-time manifest architecture. Bun 1.4 added native directory routes to `Bun.serve()`, so the production server no longer needs to walk `dist`, generate aliases, or compile a route table.
+
+The replacement configuration is deliberately small:
+
+```ts
+import { resolve } from "node:path";
+
+export function createDistAssetsServeOptions() {
+  return {
+    routes: {
+      "/*": { dir: resolve("dist") },
+    },
+  };
+}
+```
+
+`@types/bun` 1.4 now describes directory routes directly, so this configuration needs no compatibility cast. Elysia passes the options to its underlying Bun server:
+
+```ts
+const app = new Elysia({
+  serve: Bun.env.NODE_ENV === "production" ? createDistAssetsServeOptions() : undefined,
+});
+```
+
+Bun matches the explicit Elysia API routes before the global directory wildcard. Static requests then use normal directory semantics: `/blog` redirects to `/blog/`, directory URLs serve `index.html`, and unknown files return 404.
+
+The native route also supplies `Content-Type`, `Last-Modified`, weak ETags, conditional 304 responses, and byte ranges. On Linux, filesystem lookup is constrained beneath `dist`.
+
+This changes two details from the original implementation:
+
+- `dist` remains a real runtime directory beside `myserver`; Bun's native directory route does not serve the `--asset` embedded filesystem directly.
+- Native directory responses bypass Elysia's `onAfterHandle` hook. Additional static security or cache headers should therefore be applied by the reverse proxy/CDN or by explicit application handlers.
+
+The Docker image now builds with `oven/bun:1.4.0` and still copies both `myserver` and `dist` from the same build. The scheduled battery and blog-report jobs remain `@elysiajs/cron` plugins; only static file delivery moved into Bun.

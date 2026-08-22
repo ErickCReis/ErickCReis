@@ -243,3 +243,40 @@ A imagem final contém três artefatos da aplicação:
 - `server/db/migrations` contém dados de runtime da aplicação e não participa do serviço estático.
 
 `dist` e o manifesto de rotas compilado precisam vir do mesmo build e ser distribuídos juntos. Caso contrário, o servidor pode registrar rotas para arquivos ausentes ou deixar de registrar arquivos existentes. Gerar ambos na mesma imagem mantém as URLs limpas, as respostas 404 e os headers de cache ligados aos arquivos servidos.
+
+## Atualização: o Bun 1.4 serve a pasta diretamente
+
+As seções acima documentam a arquitetura original baseada em um manifesto criado durante o build. O Bun 1.4 adicionou rotas nativas de diretório ao `Bun.serve()`, então o servidor de produção não precisa mais percorrer `dist`, gerar aliases nem compilar uma tabela de rotas.
+
+A configuração substituta é intencionalmente pequena:
+
+```ts
+import { resolve } from "node:path";
+
+export function createDistAssetsServeOptions() {
+  return {
+    routes: {
+      "/*": { dir: resolve("dist") },
+    },
+  };
+}
+```
+
+O `@types/bun` 1.4 agora descreve rotas de diretório diretamente, portanto essa configuração não precisa de uma asserção de compatibilidade. O Elysia entrega as opções ao servidor Bun subjacente:
+
+```ts
+const app = new Elysia({
+  serve: Bun.env.NODE_ENV === "production" ? createDistAssetsServeOptions() : undefined,
+});
+```
+
+O Bun testa as rotas explícitas da API do Elysia antes do wildcard global de diretório. As requisições estáticas seguem a semântica normal de diretórios: `/blog` redireciona para `/blog/`, URLs de diretório servem `index.html` e arquivos desconhecidos retornam 404.
+
+A rota nativa também fornece `Content-Type`, `Last-Modified`, ETags fracos, respostas condicionais 304 e intervalos de bytes. No Linux, a busca no sistema de arquivos fica restrita à raiz de `dist`.
+
+Isso altera dois detalhes da implementação original:
+
+- `dist` continua sendo um diretório real de runtime ao lado de `myserver`; a rota nativa de diretório do Bun não serve diretamente o sistema de arquivos incorporado por `--asset`.
+- Respostas nativas de diretório não passam pelo hook `onAfterHandle` do Elysia. Headers estáticos adicionais de segurança ou cache devem ser aplicados pelo proxy reverso/CDN ou por handlers explícitos da aplicação.
+
+A imagem Docker agora compila com `oven/bun:1.4.0` e continua copiando `myserver` e `dist` do mesmo build. Os jobs agendados de bateria e relatório do blog permanecem como plugins de `@elysiajs/cron`; apenas a entrega dos arquivos estáticos passou para o Bun.
