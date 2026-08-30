@@ -13,6 +13,7 @@ export const apiClient = treaty<App>(API_ORIGIN, {
 
 let socket: WebSocket | null = null;
 const listeners = new Set<(event: CursorServerFrame) => void>();
+let latestCursorFrame: ArrayBuffer | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
 const RECONNECT_DELAY_MS = 1_000;
 
@@ -43,6 +44,12 @@ function connectSocket() {
   const ws = new WebSocket(LIVE_WS_URL);
   ws.binaryType = "arraybuffer";
 
+  ws.addEventListener("open", () => {
+    if (socket !== ws || !latestCursorFrame) return;
+
+    ws.send(latestCursorFrame);
+  });
+
   ws.addEventListener("message", (event) => {
     if (!(event.data instanceof ArrayBuffer)) return;
 
@@ -55,6 +62,8 @@ function connectSocket() {
   });
 
   ws.addEventListener("close", () => {
+    if (socket !== ws) return;
+
     socket = null;
     scheduleReconnect();
   });
@@ -82,16 +91,19 @@ export function subscribeCursor(onEvent: (event: CursorServerFrame) => void) {
       clearReconnectTimeout();
       socket?.close();
       socket = null;
+      latestCursorFrame = null;
     }
   };
 }
 
 export function publishCursor(payload: Uint8Array) {
+  const frame = new ArrayBuffer(payload.byteLength);
+  new Uint8Array(frame).set(payload);
+  latestCursorFrame = frame;
+
   const ws = getSocket();
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
 
-  const frame = new ArrayBuffer(payload.byteLength);
-  new Uint8Array(frame).set(payload);
   ws.send(frame);
   return true;
 }

@@ -5,7 +5,18 @@ date: "2026-07-18"
 tags: [realtime, architecture]
 ---
 
-> This post describes the original JSON transport. The current implementation uses a compact binary protocol, covered in [A four-byte protocol for cursor presence](/blog/four-byte-cursor-presence).
+import { isBlogPostPublished } from "@web/lib/blog-publication";
+
+{isBlogPostPublished(new Date("2026-09-05")) && (
+
+  <blockquote>
+    <p>
+      This post describes the original JSON transport. The current implementation uses a compact
+      binary protocol, covered in{" "}
+      <a href="/blog/four-byte-cursor-presence">A four-byte protocol for cursor presence</a>.
+    </p>
+  </blockquote>
+)}
 
 The [previous post](/blog/astro-static-shell-solid-live-layer) stopped at the Solid island. This one follows a pointer through it.
 

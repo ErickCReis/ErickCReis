@@ -15,7 +15,7 @@ The browser turns the pointer position into coordinates relative to the current 
 
 ```text
 byte 0: x[11..4]
-byte 1: x[3..0] | y[11..8]
+byte 1: bits 7..4 = x[3..0], bits 3..0 = y[11..8]
 byte 2: y[7..0]
 ```
 
@@ -25,7 +25,7 @@ The receiver does not assume the sender has the same screen size. It expands the
 
 ## Identity belongs to the connection
 
-The old protocol asked the client to send an ID and used an HTTP-only cookie to verify it. The binary protocol removes both pieces. When a WebSocket opens, the server assigns it one of 64 slots. The connection owns that slot; the browser never chooses it.
+The old protocol asked the client to send an ID and used an HTTP-only cookie to verify it. The binary protocol removes both pieces. When a WebSocket opens, the server attempts to assign it one of 64 slots. The connection owns that slot; the browser never chooses it. If all slots are occupied, the server closes the excess connection instead of retaining a connection that cannot participate.
 
 Server movement frames add the slot to the three position bytes:
 

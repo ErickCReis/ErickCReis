@@ -15,7 +15,7 @@ O navegador transforma a posição do ponteiro em coordenadas relativas à viewp
 
 ```text
 byte 0: x[11..4]
-byte 1: x[3..0] | y[11..8]
+byte 1: bits 7..4 = x[3..0], bits 3..0 = y[11..8]
 byte 2: y[7..0]
 ```
 
@@ -25,7 +25,7 @@ Quem recebe a mensagem não presume que o outro dispositivo tem o mesmo tamanho 
 
 ## A identidade pertence à conexão
 
-O protocolo antigo pedia que o cliente enviasse um ID e usava um cookie HTTP-only para verificá-lo. O protocolo binário remove as duas partes. Quando um WebSocket é aberto, o servidor atribui a ele um de 64 slots. A conexão é dona desse slot; o navegador nunca o escolhe.
+O protocolo antigo pedia que o cliente enviasse um ID e usava um cookie HTTP-only para verificá-lo. O protocolo binário remove as duas partes. Quando um WebSocket é aberto, o servidor tenta atribuir a ele um de 64 slots. A conexão é dona desse slot; o navegador nunca o escolhe. Se todos os slots estiverem ocupados, o servidor fecha a conexão excedente em vez de manter uma conexão que não pode participar.
 
 Os frames de movimento do servidor acrescentam o slot aos três bytes da posição:
 

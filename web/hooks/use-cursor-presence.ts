@@ -5,6 +5,7 @@ import {
   formatCursorSlot,
   normalizedCursorToViewportPoint,
   packCursorPosition,
+  type PackedCursorPosition,
 } from "@shared/cursor";
 import { pickCursorSlotColor } from "@web/lib/cursor";
 import { publishCursor, subscribeCursor } from "@web/lib/api";
@@ -19,8 +20,13 @@ function getViewport() {
 }
 
 export function useCursorPresence() {
-  const [cursorsBySlot, setCursorsBySlot] = createSignal<Record<number, CursorState>>({});
+  type RemoteCursorState = Omit<CursorState, "x" | "y"> & {
+    position: PackedCursorPosition;
+  };
+
+  const [cursorsBySlot, setCursorsBySlot] = createSignal<Record<number, RemoteCursorState>>({});
   const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
+  const [viewport, setViewport] = createSignal(getViewport());
   const mouse = createMousePosition(window, { followTouch: false });
   let lastPublishedCursorKey: string | null = null;
 
@@ -67,14 +73,12 @@ export function useCursorPresence() {
         return;
       }
 
-      const point = normalizedCursorToViewportPoint(event.position, getViewport());
       setCursorsBySlot((previous) => ({
         ...previous,
         [event.slot]: {
           slot: event.slot,
           label: formatCursorSlot(event.slot),
-          x: point.x,
-          y: point.y,
+          position: event.position,
           color: pickCursorSlotColor(event.slot),
           updatedAt: Date.now(),
           isSelf: false,
@@ -90,15 +94,22 @@ export function useCursorPresence() {
         ),
       );
     }, 2200);
+    const handleResize = () => setViewport(getViewport());
+    window.addEventListener("resize", handleResize, { passive: true });
 
     onCleanup(() => {
       unsubscribe();
       window.clearInterval(staleInterval);
+      window.removeEventListener("resize", handleResize);
     });
   });
 
   const cursors = createMemo(() => {
-    const remoteCursors = Object.values(cursorsBySlot());
+    const currentViewport = viewport();
+    const remoteCursors = Object.values(cursorsBySlot()).map(({ position, ...cursor }) => ({
+      ...cursor,
+      ...normalizedCursorToViewportPoint(position, currentViewport),
+    }));
     const localPoint = localSelfPoint();
     if (!localPoint) {
       return remoteCursors;
