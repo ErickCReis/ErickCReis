@@ -80,6 +80,7 @@ describe("cursor binary transport", () => {
     expect(decodeServerCursorFrame(new Uint8Array([]))).toBeNull();
     expect(decodeServerCursorFrame(new Uint8Array([0, 1, 2]))).toBeNull();
     expect(decodeServerCursorFrame(new Uint8Array([0x40, 1]))).toBeNull();
+    expect(decodeServerCursorFrame(new Uint8Array([0xc0]))).toBeNull();
     expect(() => encodeServerCursorMove(64, new Uint8Array([1, 2, 3]))).toThrow(RangeError);
     expect(() => encodeServerCursorMove(0, new Uint8Array([1, 2]))).toThrow(RangeError);
   });

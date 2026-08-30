@@ -72,7 +72,7 @@ export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
   const cursorLabels = createMemo(() => props.cursors.map((cursor) => cursor.label));
 
   return (
-    <div class="pointer-events-none absolute inset-0 z-40" aria-hidden="true">
+    <div class="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
       <For each={cursorLabels()}>
         {(cursorLabel) => {
           return (

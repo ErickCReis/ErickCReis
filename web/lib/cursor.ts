@@ -1,19 +1,5 @@
 import { PALETTE } from "@web/constants/telemetry";
 
-function hash(value: string) {
-  let output = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    output = (output << 5) - output + value.charCodeAt(index);
-    output |= 0;
-  }
-
-  return Math.abs(output);
-}
-
-export function pickColor(id: string) {
-  return PALETTE[hash(id) % PALETTE.length];
-}
-
 export function pickCursorSlotColor(slot: number) {
   return PALETTE[Math.abs(slot) % PALETTE.length];
 }

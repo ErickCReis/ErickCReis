@@ -41,11 +41,11 @@ export function useCursorPresence() {
   createEffect(() => {
     const x = mouse.x;
     const y = mouse.y;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    if (!mouse.sourceType || !Number.isFinite(x) || !Number.isFinite(y)) {
       return;
     }
 
-    const point = getPositionToScreen(x, y);
+    const point = mouse.sourceType === "touch" ? { x, y } : getPositionToScreen(x, y);
     setLocalSelfPoint(point);
     throttledPublishCursorPosition(point);
   });

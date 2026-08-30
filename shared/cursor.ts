@@ -1,17 +1,14 @@
 export const CURSOR_COORD_MAX = 0xfff;
 export const CURSOR_MAX_SLOTS = 64;
 export const CURSOR_CLIENT_MOVE_BYTES = 3;
-export const CURSOR_SERVER_MOVE_BYTES = 4;
-export const CURSOR_SERVER_CONTROL_BYTES = 1;
+export const CURSOR_CONTROL_FRAME_BYTES = 1;
+export const CURSOR_SERVER_MOVE_BYTES = CURSOR_CLIENT_MOVE_BYTES + CURSOR_CONTROL_FRAME_BYTES;
 
 export const cursorServerOpcode = {
   move: 0,
   join: 1,
   leave: 2,
-  control: 3,
 } as const;
-
-export type CursorServerOpcode = (typeof cursorServerOpcode)[keyof typeof cursorServerOpcode];
 
 export type CursorViewport = {
   width: number;
@@ -40,10 +37,6 @@ export type CursorServerFrame =
     }
   | {
       type: "leave";
-      slot: number;
-    }
-  | {
-      type: "control";
       slot: number;
     };
 
@@ -135,7 +128,7 @@ export function decodeClientCursorMoveFrame(data: ArrayBuffer | Uint8Array): Uin
 
 export function decodeServerCursorFrame(data: ArrayBuffer | Uint8Array): CursorServerFrame | null {
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-  if (bytes.byteLength < CURSOR_SERVER_CONTROL_BYTES) return null;
+  if (bytes.byteLength < CURSOR_CONTROL_FRAME_BYTES) return null;
 
   const opcode = bytes[0] >> 6;
   const slot = bytes[0] & 0x3f;
@@ -151,20 +144,18 @@ export function decodeServerCursorFrame(data: ArrayBuffer | Uint8Array): CursorS
   }
 
   if (opcode === cursorServerOpcode.join) {
-    if (bytes.byteLength !== CURSOR_SERVER_CONTROL_BYTES) return null;
+    if (bytes.byteLength !== CURSOR_CONTROL_FRAME_BYTES) return null;
 
     return { type: "join", slot };
   }
 
   if (opcode === cursorServerOpcode.leave) {
-    if (bytes.byteLength !== CURSOR_SERVER_CONTROL_BYTES) return null;
+    if (bytes.byteLength !== CURSOR_CONTROL_FRAME_BYTES) return null;
 
     return { type: "leave", slot };
   }
 
-  if (bytes.byteLength !== CURSOR_SERVER_CONTROL_BYTES) return null;
-
-  return { type: "control", slot };
+  return null;
 }
 
 export function formatCursorSlot(slot: number) {

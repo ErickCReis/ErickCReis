@@ -15,6 +15,10 @@ type CursorPeer = {
   lastPosition: Uint8Array | null;
 };
 
+function isBinaryCursorPayload(payload: unknown): payload is ArrayBuffer | Uint8Array {
+  return payload instanceof ArrayBuffer || payload instanceof Uint8Array;
+}
+
 const peersByConnectionId = new Map<string, CursorPeer>();
 const occupiedSlots = new Set<number>();
 
@@ -64,9 +68,9 @@ export const liveRoutes = new Elysia({ name: "live-routes" }).ws("/live", {
   },
   message(ws, payload) {
     const peer = peersByConnectionId.get(ws.id);
-    if (!peer || peer.slot === null) return;
+    if (!peer || peer.slot === null || !isBinaryCursorPayload(payload)) return;
 
-    const packedPosition = decodeClientCursorMoveFrame(payload as ArrayBuffer | Uint8Array);
+    const packedPosition = decodeClientCursorMoveFrame(payload);
     if (!packedPosition) return;
 
     peer.lastPosition = packedPosition;
