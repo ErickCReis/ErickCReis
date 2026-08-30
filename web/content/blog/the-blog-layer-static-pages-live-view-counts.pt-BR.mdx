@@ -74,11 +74,11 @@ export function getBlogViewKey(entry: BlogEntry) {
 
 O slug público remove o sufixo reconhecido de um idioma não padrão, portanto as duas variantes usam o mesmo identificador de rota. A chave de visualização mantém o nome completo da fonte, o que dá totais separados aos artigos em inglês e português:
 
-| Responsabilidade | Inglês | Português |
-| --- | --- | --- |
-| Identidade da fonte | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
-| Caminho público | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
-| Chave do contador | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
+| Responsabilidade    | Inglês                   | Português                      |
+| ------------------- | ------------------------ | ------------------------------ |
+| Identidade da fonte | `the-blog-layer-…`       | `the-blog-layer-….pt-BR`       |
+| Caminho público     | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
+| Chave do contador   | `the-blog-layer-…`       | `the-blog-layer-….pt-BR`       |
 
 Manter o idioma na chave do contador impede que os dois públicos sejam combinados sem aviso. Renomear um arquivo também cria uma nova identidade de contador. Nenhum alias ou migração liga a chave antiga à nova.
 
@@ -182,12 +182,12 @@ O primeiro `POST` atribui um ID opaco de visitante compatível com `ct_[A-Za-z0-
 
 O SQLite mantém quatro projeções:
 
-| Tabela | Chave primária | Retenção e finalidade |
-| --- | --- | --- |
-| `blog_post_view_totals` | `slug` | Total permanente |
+| Tabela                    | Chave primária     | Retenção e finalidade               |
+| ------------------------- | ------------------ | ----------------------------------- |
+| `blog_post_view_totals`   | `slug`             | Total permanente                    |
 | `blog_post_view_visitors` | `slug, visitor_id` | Estado de deduplicação por 24 horas |
-| `blog_post_daily_views` | `date, slug` | Agregado para relatório diário |
-| `blog_post_weekly_views` | `week_start, slug` | Agregado de domingo a sábado |
+| `blog_post_daily_views`   | `date, slug`       | Agregado para relatório diário      |
+| `blog_post_weekly_views`  | `week_start, slug` | Agregado de domingo a sábado        |
 
 `registerPostView` executa uma transação imediata do SQLite. Ele calcula o limite de 24 horas, remove registros de visitantes vencidos e consulta o par atual de visitante e chave. Se o par ainda for recente, devolve o total existente. Caso contrário, atualiza o registro de deduplicação e incrementa as projeções total, diária e semanal:
 

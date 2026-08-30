@@ -29,7 +29,7 @@ A integração é registrada com um conjunto fechado de idiomas e um idioma padr
 astroTranslate({
   locales: ["en-US", "pt-BR"],
   defaultLocale: "en-US",
-})
+});
 ```
 
 Durante `astro:config:done`, ela injeta uma declaração para `virtual:translate`. O array configurado se torna uma união de strings literais, e `t` expõe duas formas de chamada:
@@ -83,9 +83,7 @@ i18n.t("Nothing " + "playing");
 function resolveCallTranslationValue(node: ESTree.CallExpression): string | null {
   const argumentIndex = node.arguments.length >= 2 ? 1 : 0;
   const argument = node.arguments[argumentIndex];
-  return argument && argument.type !== "SpreadElement"
-    ? resolveStaticString(argument)
-    : null;
+  return argument && argument.type !== "SpreadElement" ? resolveStaticString(argument) : null;
 }
 ```
 
@@ -117,8 +115,7 @@ export const translations = {
 } as const;
 
 export type TranslationHash = keyof typeof translations;
-export type TranslationOverrides =
-  Partial<Record<TranslationHash, string | null>>;
+export type TranslationOverrides = Partial<Record<TranslationHash, string | null>>;
 ```
 
 O módulo em português é gerado com validação contra esse tipo:
@@ -166,19 +163,13 @@ O Vite resolve `virtual:translate` para o ID interno `\0virtual:translate` e `vi
 ```ts
 import { createTranslateRuntime } from "virtual:translate/runtime";
 
-export const {
-  locales,
-  defaultLocale,
-  resolveLocale,
-  getPathLocale,
-  getLocale,
-  t,
-} = createTranslateRuntime({
-  locales: ["en-US", "pt-BR"],
-  defaultLocale: "en-US",
-  buildCatalogs,
-  clientCatalogs,
-});
+export const { locales, defaultLocale, resolveLocale, getPathLocale, getLocale, t } =
+  createTranslateRuntime({
+    locales: ["en-US", "pt-BR"],
+    defaultLocale: "en-US",
+    buildCatalogs,
+    clientCatalogs,
+  });
 ```
 
 Os valores substituídos nos dois últimos campos dependem do sinalizador SSR do Vite:
@@ -211,9 +202,7 @@ A forma com um argumento retorna deliberadamente o texto de origem sem alteraç�
 No navegador, `getLocale()` usa:
 
 ```ts
-resolveLocale(
-  document.documentElement.lang || getPathLocale(window.location.pathname),
-);
+resolveLocale(document.documentElement.lang || getPathLocale(window.location.pathname));
 ```
 
 `<html lang>` informa ao código hidratado qual idioma usar. O runtime consulta o primeiro segmento da URL apenas quando `lang` está vazio. Um `lang` inválido, mas não vazio, resolve diretamente para o idioma padrão. O layout base do Astro chama `resolveLocale(lang)` antes de escrever o atributo, então as páginas geradas por esse layout fornecem um valor válido.
@@ -237,9 +226,7 @@ if (normalizedLocale === defaultLocale) {
   return normalizedPath ? `/${normalizedPath}` : "/";
 }
 
-return normalizedPath
-  ? `/${normalizedLocale}/${normalizedPath}`
-  : `/${normalizedLocale}`;
+return normalizedPath ? `/${normalizedLocale}/${normalizedPath}` : `/${normalizedLocale}`;
 ```
 
 O layout base usa o idioma normalizado da rota em `<html lang>`, URLs canônicas, alternativas `hreflang` e metadados de idioma do Open Graph. Separadamente, a seleção do blog prefere `slug.pt-BR.mdx` e usa `slug.mdx` como fallback. O fallback do catálogo trata uma string da interface por vez. O fallback do artigo escolhe uma entrada de conteúdo completa.

@@ -21,8 +21,6 @@ const translations = {
   "17ay5xd": "Uso de Tokens",
   // commits today
   "13e5i5c": "commits hoje",
-  // Connected
-  "0ye8ewg": "Conectado",
   // connected now
   "0imz3wo": "conectados agora",
   // Contributions
@@ -111,8 +109,6 @@ const translations = {
   "1oxysc8": "visualização",
   // views
   "0m3uvo1": "visualizações",
-  // WebSocket
-  "1c3f0mo": "Presença ao vivo",
   // Window
   "1s8mpdp": "Janela",
   // Year
@@ -146,6 +142,10 @@ const translations = {
   // SEO metadata, build-time Open Graph images, and an Astro dev-toolbar inspector.
   "0hpm52y":
     "Metadados de SEO, imagens Open Graph geradas no build e um inspetor da barra de desenvolvimento do Astro.",
+  // Connected
+  "0ye8ewg": null,
+  // WebSocket
+  "1c3f0mo": null,
 } satisfies TranslationOverrides;
 
 export default translations;

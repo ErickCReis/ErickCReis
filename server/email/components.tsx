@@ -71,9 +71,7 @@ export function EmailLayout(props: ParentProps<{ preview: string }>) {
         >
           <tbody>
             <tr>
-              <td align="center" style={{ padding: "32px 16px" }}>
-                {props.children}
-              </td>
+              <td style={{ padding: "32px 16px", "text-align": "center" }}>{props.children}</td>
             </tr>
           </tbody>
         </table>

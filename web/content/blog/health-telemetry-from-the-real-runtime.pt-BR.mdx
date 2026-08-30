@@ -39,9 +39,7 @@ O arquivo [`server/stats/system.ts`](https://github.com/ErickCReis/ErickCReis/bl
 
 ```ts
 const usedMicroseconds =
-  currentCpuUsage.user -
-  previousCpuUsage.user +
-  (currentCpuUsage.system - previousCpuUsage.system);
+  currentCpuUsage.user - previousCpuUsage.user + (currentCpuUsage.system - previousCpuUsage.system);
 
 const percent = (usedMicroseconds / (elapsedMicroseconds * CPU_COUNT)) * 100;
 return Number(Math.max(0, Math.min(100, percent)).toFixed(2));
@@ -118,10 +116,7 @@ O valor geral prefere `custom_uptime_ratio`, fornecido pelo UptimeRobot. Se esse
 
 ```ts
 const availableDays = dailyUptime.filter((day) => day.uptimePercent !== null);
-const total = availableDays.reduce(
-  (sum, day) => sum + (day.uptimePercent ?? 0),
-  0,
-);
+const total = availableDays.reduce((sum, day) => sum + (day.uptimePercent ?? 0), 0);
 return Number((total / availableDays.length).toFixed(2));
 ```
 

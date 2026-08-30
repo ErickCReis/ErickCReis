@@ -11,6 +11,8 @@ import {
   renderEmail,
 } from "@server/email/components";
 
+void emailElement;
+
 const reportDateFormatter = new Intl.DateTimeFormat("en", {
   timeZone: "UTC",
   day: "2-digit",
@@ -71,12 +73,21 @@ function BlogReportEmail(props: { report: BlogReport }) {
           >
             <thead>
               <tr>
-                <th align="left" style={{ padding: "8px 0", "border-bottom": "1px solid #e4e4e7" }}>
+                <th
+                  style={{
+                    padding: "8px 0",
+                    "border-bottom": "1px solid #e4e4e7",
+                    "text-align": "left",
+                  }}
+                >
                   Post
                 </th>
                 <th
-                  align="right"
-                  style={{ padding: "8px 0", "border-bottom": "1px solid #e4e4e7" }}
+                  style={{
+                    padding: "8px 0",
+                    "border-bottom": "1px solid #e4e4e7",
+                    "text-align": "right",
+                  }}
                 >
                   Reads
                 </th>
@@ -89,8 +100,11 @@ function BlogReportEmail(props: { report: BlogReport }) {
                     {row.slug}
                   </td>
                   <td
-                    align="right"
-                    style={{ padding: "10px 0", "border-bottom": "1px solid #f4f4f5" }}
+                    style={{
+                      padding: "10px 0",
+                      "border-bottom": "1px solid #f4f4f5",
+                      "text-align": "right",
+                    }}
                   >
                     {row.views}
                   </td>

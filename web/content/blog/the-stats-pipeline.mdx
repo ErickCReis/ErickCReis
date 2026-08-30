@@ -35,14 +35,14 @@ type StatModule<T> = {
 
 Each collector contains its own polling intervals, error state, persistence, and subscriptions:
 
-| Module | Acquisition policy | Server retention |
-| --- | --- | ---: |
-| system | sample process/cgroup resources every 1.5 s | 84 snapshots |
-| websocket | sample every 5 s and update on presence changes | 84 snapshots |
-| Spotify | poll every 2.5 s while playing, otherwise every 15 s | 84 snapshots |
-| GitHub | poll every 30 min, with rate-limit-aware delay and a disk cache | 84 snapshots |
-| server uptime | poll every 5 min, or retry after 1 min following a failed cycle | 10 snapshots |
-| token usage | inspect the persisted aggregate every 30 s | 30 snapshots |
+| Module        | Acquisition policy                                              | Server retention |
+| ------------- | --------------------------------------------------------------- | ---------------: |
+| system        | sample process/cgroup resources every 1.5 s                     |     84 snapshots |
+| websocket     | sample every 5 s and update on presence changes                 |     84 snapshots |
+| Spotify       | poll every 2.5 s while playing, otherwise every 15 s            |     84 snapshots |
+| GitHub        | poll every 30 min, with rate-limit-aware delay and a disk cache |     84 snapshots |
+| server uptime | poll every 5 min, or retry after 1 min following a failed cycle |     10 snapshots |
+| token usage   | inspect the persisted aggregate every 30 s                      |     30 snapshots |
 
 `startStatsServices()` starts each module after Elysia begins listening. The modules keep running without browser connections. Opening the page reads data already held by the process instead of triggering six upstream operations.
 
@@ -165,9 +165,7 @@ const merged = new Map<number, SystemHistoryPoint>();
 for (const sample of prev) merged.set(sample.timestamp, sample);
 for (const sample of data) merged.set(sample.timestamp, sample);
 
-return [...merged.values()]
-  .sort((a, b) => a.timestamp - b.timestamp)
-  .slice(-MAX_POINTS);
+return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_POINTS);
 ```
 
 This removes duplicate chart points when bootstrap and SSE overlap. Initialization is not fully ordered, however. `loadHistory()` always assigns its `latest` value. If a newer stream event beats a slower history response, that response can briefly replace `latest` with an older snapshot. The next stream event corrects the value, and the merged chart stays ordered. A stricter implementation should compare source timestamps before replacing `latest`, or open the stream first and buffer events until bootstrap finishes.

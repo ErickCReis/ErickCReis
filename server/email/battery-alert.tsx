@@ -10,6 +10,8 @@ import {
   renderEmail,
 } from "@server/email/components";
 
+void emailElement;
+
 type BatteryAlert = {
   batteryPercent: number;
   thresholdPercent: number;

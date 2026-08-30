@@ -43,10 +43,10 @@ O retrato público também é uma fronteira de segurança. Ele deve conter exata
 
 O intervalo de polling deve acompanhar o que o visitante vê:
 
-| Fonte | Atualidade útil | Política local | Persistência |
-| --- | --- | --- | --- |
+| Fonte   | Atualidade útil                      | Política local           | Persistência                |
+| ------- | ------------------------------------ | ------------------------ | --------------------------- |
 | Spotify | Poucos segundos durante a reprodução | 2,5 s ativo, 15 s parado | Apenas histórico em memória |
-| GitHub | Vários minutos | 30 min após sucesso | Retrato validado em disco |
+| GitHub  | Vários minutos                       | 30 min após sucesso      | Retrato validado em disco   |
 
 Um timer compartilhado de cinco minutos seria inadequado para as duas fontes. Ele deixaria o Spotify desatualizado e consultaria o GitHub com mais frequência do que a interface precisa.
 
@@ -157,14 +157,14 @@ Os painéis do Solid consomem os retratos normalizados através do transporte de
 
 Cada adaptador passa a concentrar as decisões específicas de sua fonte:
 
-| Preocupação | Adaptador do Spotify | Adaptador do GitHub |
-| --- | --- | --- |
-| Autenticação | Refresh token trocado em memória | Token do servidor na requisição GraphQL |
-| Normalização | Faixa atual ou estado vazio explícito | Dias de contribuição em métricas agregadas |
-| Atualidade | Polling ativo/parado adaptativo | Polling fixo de 30 minutos |
-| Limite | `Retry-After` | `X-RateLimit-Reset` |
-| Retenção | 84 retratos em memória | 84 retratos em memória e um retrato fresco em disco |
-| Payload do navegador | Metadados da faixa e URL pública | Valores agregados de contribuição |
+| Preocupação          | Adaptador do Spotify                  | Adaptador do GitHub                                 |
+| -------------------- | ------------------------------------- | --------------------------------------------------- |
+| Autenticação         | Refresh token trocado em memória      | Token do servidor na requisição GraphQL             |
+| Normalização         | Faixa atual ou estado vazio explícito | Dias de contribuição em métricas agregadas          |
+| Atualidade           | Polling ativo/parado adaptativo       | Polling fixo de 30 minutos                          |
+| Limite               | `Retry-After`                         | `X-RateLimit-Reset`                                 |
+| Retenção             | 84 retratos em memória                | 84 retratos em memória e um retrato fresco em disco |
+| Payload do navegador | Metadados da faixa e URL pública      | Valores agregados de contribuição                   |
 
 Os dois provedores seguem relógios e regras de falha diferentes, mas publicam retratos tipados e pequenos que a interface consegue renderizar diretamente.
 

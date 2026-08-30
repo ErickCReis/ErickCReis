@@ -69,8 +69,7 @@ Pi records are simpler. The adapter accepts only `message` entries whose message
 Claude also emits assistant-message usage, but `input_tokens` excludes prompt-cache activity. The adapter defines inclusive input as:
 
 ```ts
-const inputTokens =
-  uncachedInput + cacheReadInput + cacheCreationInput;
+const inputTokens = uncachedInput + cacheReadInput + cacheCreationInput;
 const totalTokens = inputTokens + outputTokens;
 ```
 
@@ -137,12 +136,14 @@ Before writing, the module reloads the current file, removes dates outside the a
 Writes pass through an in-process promise queue. Each update is written to a uniquely named temporary file and renamed over the destination:
 
 ```ts
-writeQueue = writeQueue.catch(() => {}).then(async () => {
-  await refreshFromDisk(true);
-  // replace (providerId, sourceId), then serialize
-  await Bun.write(tempPath, serialized);
-  await rename(tempPath, filePath);
-});
+writeQueue = writeQueue
+  .catch(() => {})
+  .then(async () => {
+    await refreshFromDisk(true);
+    // replace (providerId, sourceId), then serialize
+    await Bun.write(tempPath, serialized);
+    await rename(tempPath, filePath);
+  });
 ```
 
 The rename prevents partial reads, and the queue serializes writes inside one process. Two processes that share the file can still race. The module logs and ignores invalid persisted data. It accepts only version `2`.
@@ -153,9 +154,7 @@ The public snapshot does not expose source IDs or detailed token categories. For
 
 ```ts
 const providers = getProviderIds(store); // sorted
-const byProvider = providers.map(
-  (providerId) => entry.byProvider.get(providerId) ?? 0,
-);
+const byProvider = providers.map((providerId) => entry.byProvider.get(providerId) ?? 0);
 
 return {
   date: entry.date,
@@ -205,12 +204,10 @@ Freshness is calculated from the newest `generatedAt` across all sources and def
 
 ```ts
 const generatedAt = store.sources.reduce<number | null>(
-  (latest, source) =>
-    latest == null || source.generatedAt > latest ? source.generatedAt : latest,
+  (latest, source) => (latest == null || source.generatedAt > latest ? source.generatedAt : latest),
   null,
 );
-const isStale =
-  generatedAt === null || Date.now() - generatedAt > staleAfterMs;
+const isStale = generatedAt === null || Date.now() - generatedAt > staleAfterMs;
 ```
 
 Freshness applies to the aggregate. One healthy source can keep the snapshot fresh while another has stopped reporting. The client receives `isStale`, but the current panel shows only the generation time, without a separate warning. Per-source health would require a private diagnostic view that keeps each source's timestamp, or a public summary designed for that purpose.

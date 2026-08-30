@@ -35,14 +35,14 @@ type StatModule<T> = {
 
 Cada coletor concentra seus próprios intervalos de polling, estado de erro, persistência e assinaturas:
 
-| Módulo | Política de aquisição | Retenção no servidor |
-| --- | --- | ---: |
-| sistema | amostra os recursos do processo/cgroup a cada 1,5 s | 84 retratos |
-| websocket | amostra a cada 5 s e atualiza quando há mudanças de presença | 84 retratos |
-| Spotify | consulta a cada 2,5 s durante reprodução e a cada 15 s quando ocioso | 84 retratos |
-| GitHub | consulta a cada 30 min, respeita o rate limit e mantém cache em disco | 84 retratos |
-| uptime do servidor | consulta a cada 5 min ou tenta de novo após 1 min se o ciclo falhar | 10 retratos |
-| uso de tokens | inspeciona o agregado persistido a cada 30 s | 30 retratos |
+| Módulo             | Política de aquisição                                                 | Retenção no servidor |
+| ------------------ | --------------------------------------------------------------------- | -------------------: |
+| sistema            | amostra os recursos do processo/cgroup a cada 1,5 s                   |          84 retratos |
+| websocket          | amostra a cada 5 s e atualiza quando há mudanças de presença          |          84 retratos |
+| Spotify            | consulta a cada 2,5 s durante reprodução e a cada 15 s quando ocioso  |          84 retratos |
+| GitHub             | consulta a cada 30 min, respeita o rate limit e mantém cache em disco |          84 retratos |
+| uptime do servidor | consulta a cada 5 min ou tenta de novo após 1 min se o ciclo falhar   |          10 retratos |
+| uso de tokens      | inspeciona o agregado persistido a cada 30 s                          |          30 retratos |
 
 `startStatsServices()` inicia todos os módulos depois que o Elysia começa a escutar. Eles continuam rodando mesmo sem navegadores conectados. Abrir a página lê dados que já estão no processo, em vez de disparar seis operações externas.
 
@@ -165,9 +165,7 @@ const merged = new Map<number, SystemHistoryPoint>();
 for (const sample of prev) merged.set(sample.timestamp, sample);
 for (const sample of data) merged.set(sample.timestamp, sample);
 
-return [...merged.values()]
-  .sort((a, b) => a.timestamp - b.timestamp)
-  .slice(-MAX_POINTS);
+return [...merged.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-MAX_POINTS);
 ```
 
 Isso remove pontos duplicados quando o bootstrap e o SSE se sobrepõem. A inicialização, porém, não é totalmente ordenada. `loadHistory()` sempre define o valor de `latest`. Se um evento mais novo chegar antes de uma resposta de histórico mais lenta, essa resposta pode trocar `latest` por um retrato antigo por alguns instantes. O próximo evento corrige o valor, e o histórico combinado continua ordenado. Uma implementação mais estrita deveria comparar os timestamps antes de substituir `latest` ou abrir o fluxo primeiro e guardar os eventos até o fim do bootstrap.

@@ -9,7 +9,6 @@ export const translations = {
   "19dpkpu": "Blog posts",
   "17ay5xd": "Token Usage",
   "13e5i5c": "commits today",
-  "0ye8ewg": "Connected",
   "0imz3wo": "connected now",
   "1nr0s8k": "Contributions",
   "074rpeu": "d ago",
@@ -54,7 +53,6 @@ export const translations = {
   "0q0zd4n": "Version",
   "1oxysc8": "view",
   "0m3uvo1": "views",
-  "1c3f0mo": "WebSocket",
   "1s8mpdp": "Window",
   "05xgri4": "Year",
   "14z5arr": "Yesterday",
@@ -71,6 +69,8 @@ export const translations = {
   "1j3jgou": "Library / Astro",
   "1vnqb4e": "Product / Realtime",
   "0hpm52y": "SEO metadata, build-time Open Graph images, and an Astro dev-toolbar inspector.",
+  "0ye8ewg": "Connected",
+  "1c3f0mo": "WebSocket",
 } as const;
 
 export type TranslationHash = keyof typeof translations;

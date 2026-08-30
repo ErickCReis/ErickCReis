@@ -43,10 +43,10 @@ The public snapshot is also a security boundary. It should contain exactly what 
 
 Polling should match what the visitor sees:
 
-| Source | Useful freshness | Local policy | Persistence |
-| --- | --- | --- | --- |
-| Spotify | A few seconds while playing | 2.5 s while active, 15 s while idle | In-memory history only |
-| GitHub | Several minutes | 30 min after success | Validated disk snapshot |
+| Source  | Useful freshness            | Local policy                        | Persistence             |
+| ------- | --------------------------- | ----------------------------------- | ----------------------- |
+| Spotify | A few seconds while playing | 2.5 s while active, 15 s while idle | In-memory history only  |
+| GitHub  | Several minutes             | 30 min after success                | Validated disk snapshot |
 
 A shared five-minute timer would be wrong for both. It would make Spotify feel stale while asking GitHub for data more often than the UI needs.
 
@@ -157,14 +157,14 @@ The Solid panels consume the normalized snapshots through the stats transport. T
 
 Each adapter now contains all decisions specific to its source:
 
-| Concern | Spotify adapter | GitHub adapter |
-| --- | --- | --- |
-| Authentication | Refresh token exchanged in memory | Server token in the GraphQL request |
-| Normalization | Current track or explicit empty state | Contribution days into aggregate metrics |
-| Freshness | Adaptive active/idle polling | Fixed 30-minute polling |
-| Rate limit | `Retry-After` | `X-RateLimit-Reset` |
-| Retention | 84 in-memory snapshots | 84 in-memory snapshots plus one fresh disk snapshot |
-| Browser payload | Track metadata and public URL | Aggregated contribution values |
+| Concern         | Spotify adapter                       | GitHub adapter                                      |
+| --------------- | ------------------------------------- | --------------------------------------------------- |
+| Authentication  | Refresh token exchanged in memory     | Server token in the GraphQL request                 |
+| Normalization   | Current track or explicit empty state | Contribution days into aggregate metrics            |
+| Freshness       | Adaptive active/idle polling          | Fixed 30-minute polling                             |
+| Rate limit      | `Retry-After`                         | `X-RateLimit-Reset`                                 |
+| Retention       | 84 in-memory snapshots                | 84 in-memory snapshots plus one fresh disk snapshot |
+| Browser payload | Track metadata and public URL         | Aggregated contribution values                      |
 
 The two providers follow different clocks and failure rules, but both publish a small typed snapshot that the UI can render directly.
 

@@ -74,11 +74,11 @@ export function getBlogViewKey(entry: BlogEntry) {
 
 The public slug removes a recognized non-default locale suffix, so both variants use the same route-shaped identifier. The view key keeps the full source name, which gives the English and Portuguese articles separate totals:
 
-| Concern | English | Portuguese |
-| --- | --- | --- |
-| Source identity | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
-| Public path | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
-| Counter key | `the-blog-layer-…` | `the-blog-layer-….pt-BR` |
+| Concern         | English                  | Portuguese                     |
+| --------------- | ------------------------ | ------------------------------ |
+| Source identity | `the-blog-layer-…`       | `the-blog-layer-….pt-BR`       |
+| Public path     | `/blog/the-blog-layer-…` | `/pt-BR/blog/the-blog-layer-…` |
+| Counter key     | `the-blog-layer-…`       | `the-blog-layer-….pt-BR`       |
 
 Keeping the locale in the counter key prevents the two audiences from being merged without warning. Renaming a source file also creates a new counter identity. No alias or migration connects the old key to the new one.
 
@@ -182,12 +182,12 @@ The first `POST` assigns an opaque visitor ID matching `ct_[A-Za-z0-9_-]{21}`. E
 
 SQLite stores four projections:
 
-| Table | Primary key | Retention and purpose |
-| --- | --- | --- |
-| `blog_post_view_totals` | `slug` | Permanent total |
-| `blog_post_view_visitors` | `slug, visitor_id` | 24-hour dedupe state |
-| `blog_post_daily_views` | `date, slug` | Daily report aggregate |
-| `blog_post_weekly_views` | `week_start, slug` | Sunday-to-Saturday aggregate |
+| Table                     | Primary key        | Retention and purpose        |
+| ------------------------- | ------------------ | ---------------------------- |
+| `blog_post_view_totals`   | `slug`             | Permanent total              |
+| `blog_post_view_visitors` | `slug, visitor_id` | 24-hour dedupe state         |
+| `blog_post_daily_views`   | `date, slug`       | Daily report aggregate       |
+| `blog_post_weekly_views`  | `week_start, slug` | Sunday-to-Saturday aggregate |
 
 `registerPostView` runs an immediate SQLite transaction. It calculates a 24-hour cutoff, removes stale visitor rows, and checks the current visitor-and-key pair. If the pair is still recent, it returns the existing total. Otherwise it upserts the dedupe row and increments the total, daily, and weekly projections:
 

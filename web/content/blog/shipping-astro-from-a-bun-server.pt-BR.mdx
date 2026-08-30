@@ -35,9 +35,9 @@ O `&&` faz parte do contrato de deploy. `astro build` precisa terminar antes de 
 
 O release tem dois artefatos responsáveis pelo conteúdo estático:
 
-| Artefato | É responsável por | Não é responsável por |
-| --- | --- | --- |
-| `dist/` | HTML, JavaScript, CSS, fontes, imagens e outros bytes gerados | Roteamento das requisições |
+| Artefato   | É responsável por                                                   | Não é responsável por           |
+| ---------- | ------------------------------------------------------------------- | ------------------------------- |
+| `dist/`    | HTML, JavaScript, CSS, fontes, imagens e outros bytes gerados       | Roteamento das requisições      |
 | `myserver` | Handlers do Elysia, tabela de rotas gerada e política das respostas | Conteúdo dos arquivos estáticos |
 
 A tabela de rotas contém caminhos de arquivos, não o conteúdo incorporado desses arquivos. Substituir apenas `dist` é inseguro. O binário pode não ter uma rota para um arquivo novo, manter uma rota para um arquivo removido ou apontar um alias para o release errado. Substituir apenas o binário cria o problema inverso. O executável e o diretório formam uma unidade de deploy, apesar de continuarem como arquivos separados.
@@ -70,12 +70,12 @@ function toRouteCandidates(relativePath: string): string[] {
 
 Todo arquivo mantém sua URL literal. Arquivos HTML recebem aliases limpos adicionais:
 
-| Arquivo em `dist` | Caminhos de requisição registrados |
-| --- | --- |
-| `index.html` | `/index.html`, `/` |
-| `blog/index.html` | `/blog/index.html`, `/blog`, `/blog/` |
-| `about.html` | `/about.html`, `/about` |
-| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js` |
+| Arquivo em `dist`    | Caminhos de requisição registrados    |
+| -------------------- | ------------------------------------- |
+| `index.html`         | `/index.html`, `/`                    |
+| `blog/index.html`    | `/blog/index.html`, `/blog`, `/blog/` |
+| `about.html`         | `/about.html`, `/about`               |
+| `_astro/app.A1B2.js` | `/_astro/app.A1B2.js`                 |
 
 O import da macro é a fronteira de build:
 
@@ -195,13 +195,11 @@ Arquivos estáticos e respostas da API passam pelo mesmo hook `onAfterHandle` da
 headers["x-content-type-options"] ??= "nosniff";
 headers["x-frame-options"] ??= "DENY";
 headers["referrer-policy"] ??= "strict-origin-when-cross-origin";
-headers["permissions-policy"] ??=
-  "camera=(), geolocation=(), microphone=(), payment=()";
+headers["permissions-policy"] ??= "camera=(), geolocation=(), microphone=(), payment=()";
 headers["cross-origin-opener-policy"] ??= "same-origin";
 
 if (Bun.env.NODE_ENV === "production") {
-  headers["strict-transport-security"] ??=
-    "max-age=31536000; includeSubDomains; preload";
+  headers["strict-transport-security"] ??= "max-age=31536000; includeSubDomains; preload";
 }
 ```
 

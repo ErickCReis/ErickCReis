@@ -29,7 +29,7 @@ The integration is registered with a closed locale set and one default:
 astroTranslate({
   locales: ["en-US", "pt-BR"],
   defaultLocale: "en-US",
-})
+});
 ```
 
 During `astro:config:done`, it injects a declaration for `virtual:translate`. The configured locale array becomes a string-literal union, and `t` exposes two call shapes:
@@ -83,9 +83,7 @@ i18n.t("Nothing " + "playing");
 function resolveCallTranslationValue(node: ESTree.CallExpression): string | null {
   const argumentIndex = node.arguments.length >= 2 ? 1 : 0;
   const argument = node.arguments[argumentIndex];
-  return argument && argument.type !== "SpreadElement"
-    ? resolveStaticString(argument)
-    : null;
+  return argument && argument.type !== "SpreadElement" ? resolveStaticString(argument) : null;
 }
 ```
 
@@ -117,8 +115,7 @@ export const translations = {
 } as const;
 
 export type TranslationHash = keyof typeof translations;
-export type TranslationOverrides =
-  Partial<Record<TranslationHash, string | null>>;
+export type TranslationOverrides = Partial<Record<TranslationHash, string | null>>;
 ```
 
 The Portuguese module is generated against that type:
@@ -166,19 +163,13 @@ Vite resolves `virtual:translate` to an internal `\0virtual:translate` ID and re
 ```ts
 import { createTranslateRuntime } from "virtual:translate/runtime";
 
-export const {
-  locales,
-  defaultLocale,
-  resolveLocale,
-  getPathLocale,
-  getLocale,
-  t,
-} = createTranslateRuntime({
-  locales: ["en-US", "pt-BR"],
-  defaultLocale: "en-US",
-  buildCatalogs,
-  clientCatalogs,
-});
+export const { locales, defaultLocale, resolveLocale, getPathLocale, getLocale, t } =
+  createTranslateRuntime({
+    locales: ["en-US", "pt-BR"],
+    defaultLocale: "en-US",
+    buildCatalogs,
+    clientCatalogs,
+  });
 ```
 
 The values substituted for those last two fields depend on Vite's SSR flag:
@@ -211,9 +202,7 @@ The one-argument form deliberately returns the source unchanged when `window` is
 In the browser, `getLocale()` uses:
 
 ```ts
-resolveLocale(
-  document.documentElement.lang || getPathLocale(window.location.pathname),
-);
+resolveLocale(document.documentElement.lang || getPathLocale(window.location.pathname));
 ```
 
 `<html lang>` tells hydrated code which locale to use. The runtime checks the URL's first segment only when `lang` is empty. An invalid but non-empty `lang` resolves directly to the default locale. The base Astro layout calls `resolveLocale(lang)` before writing the attribute, so pages generated through that layout provide a valid value.
@@ -237,9 +226,7 @@ if (normalizedLocale === defaultLocale) {
   return normalizedPath ? `/${normalizedPath}` : "/";
 }
 
-return normalizedPath
-  ? `/${normalizedLocale}/${normalizedPath}`
-  : `/${normalizedLocale}`;
+return normalizedPath ? `/${normalizedLocale}/${normalizedPath}` : `/${normalizedLocale}`;
 ```
 
 The base layout uses the normalized route locale for `<html lang>`, canonical URLs, `hreflang` alternates, and Open Graph locale metadata. Separately, blog selection prefers `slug.pt-BR.mdx` and falls back to `slug.mdx`. Catalog fallback handles one UI string at a time. Article fallback chooses a complete content entry.

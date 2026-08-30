@@ -69,8 +69,7 @@ Os registros do Pi são mais simples. O adaptador aceita somente entradas `messa
 O Claude também emite uso em mensagens do assistente, mas `input_tokens` não inclui a atividade do cache de prompts. O adaptador define a entrada inclusiva como:
 
 ```ts
-const inputTokens =
-  uncachedInput + cacheReadInput + cacheCreationInput;
+const inputTokens = uncachedInput + cacheReadInput + cacheCreationInput;
 const totalTokens = inputTokens + outputTokens;
 ```
 
@@ -137,12 +136,14 @@ Antes de gravar, o módulo relê o arquivo atual, remove datas fora da janela at
 As gravações passam por uma fila de `Promise`s dentro do processo. Cada atualização é escrita em um arquivo temporário com nome único, que depois é renomeado para o caminho de destino, substituindo o arquivo anterior:
 
 ```ts
-writeQueue = writeQueue.catch(() => {}).then(async () => {
-  await refreshFromDisk(true);
-  // substitui (providerId, sourceId) e serializa
-  await Bun.write(tempPath, serialized);
-  await rename(tempPath, filePath);
-});
+writeQueue = writeQueue
+  .catch(() => {})
+  .then(async () => {
+    await refreshFromDisk(true);
+    // substitui (providerId, sourceId) e serializa
+    await Bun.write(tempPath, serialized);
+    await rename(tempPath, filePath);
+  });
 ```
 
 A renomeação impede leituras parciais, e a fila serializa gravações dentro de um processo. Dois processos que compartilham o arquivo ainda podem disputar a gravação. O módulo registra e ignora dados persistidos inválidos. Ele aceita somente a versão `2`.
@@ -153,9 +154,7 @@ O retrato público não expõe IDs de origem nem as categorias detalhadas de tok
 
 ```ts
 const providers = getProviderIds(store); // ordenados
-const byProvider = providers.map(
-  (providerId) => entry.byProvider.get(providerId) ?? 0,
-);
+const byProvider = providers.map((providerId) => entry.byProvider.get(providerId) ?? 0);
 
 return {
   date: entry.date,
@@ -205,12 +204,10 @@ A atualidade é determinada pelo `generatedAt` mais recente entre todas as orige
 
 ```ts
 const generatedAt = store.sources.reduce<number | null>(
-  (latest, source) =>
-    latest == null || source.generatedAt > latest ? source.generatedAt : latest,
+  (latest, source) => (latest == null || source.generatedAt > latest ? source.generatedAt : latest),
   null,
 );
-const isStale =
-  generatedAt === null || Date.now() - generatedAt > staleAfterMs;
+const isStale = generatedAt === null || Date.now() - generatedAt > staleAfterMs;
 ```
 
 A atualidade vale para o agregado. Uma origem saudável pode manter o retrato atualizado enquanto outra deixou de reportar. O valor `isStale` chega ao cliente, mas o painel atual mostra apenas o horário de geração, sem um aviso separado. Para diagnosticar cada origem, seria preciso manter o timestamp de cada uma em uma visão privada ou criar um resumo público com esse propósito.
