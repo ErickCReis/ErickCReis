@@ -13,11 +13,11 @@ The browser tracks a position. A shared schema defines the message, then an Elys
 
 ```mermaid center
 flowchart TB
-  Pointer["Pointer movement"] --> Hook["Solid presence hook"]
-  Hook -->|"throttled position"| Socket["Typed WebSocket"]
+  Pointer(["Pointer movement"]) --> Hook["Solid presence hook"]
+  Hook -->|"sampled position"| Socket["Typed WebSocket"]
   Socket --> Server["Elysia live route"]
   Server -->|"broadcast"| Peers["Other browsers"]
-  Peers --> Layer["Solid cursor layer"]
+  Peers --> Layer(["Solid cursor layer"])
 ```
 
 ## One small shared message
@@ -76,11 +76,12 @@ The server does not broadcast an explicit leave event. Local state adds an `upda
 
 ```mermaid center
 stateDiagram-v2
-  [*] --> Connected: first subscriber
-  Connected --> Reconnecting: connection lost
-  Reconnecting --> Connected: retry in 1 second
-  Reconnecting --> [*]: no subscribers
-  Connected --> [*]: last subscriber
+  direction TB
+  [*] --> Online: first subscriber
+  Online --> Retrying: connection lost
+  Retrying --> Online: retry after 1 s
+  Retrying --> [*]: no subscribers
+  Online --> [*]: last subscriber
 ```
 
 ## Rendering cursors beside the Astro page

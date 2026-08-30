@@ -33,16 +33,12 @@ O componente do Solid fica ao lado do conteúdo principal, em vez de envolvê-lo
 
 ```mermaid center
 flowchart TB
-  Build["Build do Astro"] --> Document["HTML + metadados<br/>rotas + projetos"]
-  Document --> Page["Página do portfólio"]
-
-  Browser["Navegador inicia"] --> Island["Camada Solid interativa"]
-  Page ~~~ Browser
-  Island --> Telemetry["Telemetria"]
-  Island --> Cursors["Cursores"]
-  Telemetry ~~~ Cursors
-  Telemetry --> Page
-  Cursors --> Page
+  Build(["Build do Astro"]) --> Document["HTML + metadados<br/>rotas · projetos"]
+  Document --> Page["Página estática do portfólio"]
+  Page --> Browser["Navegador carrega a página"]
+  Browser --> Island["Camada interativa<br/>do Solid"]
+  Island --> Live["Telemetria<br/>cursores remotos"]
+  Live --> Result(["Página do portfólio<br/>com dados ao vivo"])
 ```
 
 ## Por que esta ilha usa client:only

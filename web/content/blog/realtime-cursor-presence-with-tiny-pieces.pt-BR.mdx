@@ -13,11 +13,11 @@ O navegador acompanha uma posição. Um schema compartilhado define a mensagem, 
 
 ```mermaid center
 flowchart TB
-  Pointer["Movimento do ponteiro"] --> Hook["Hook de presença do Solid"]
+  Pointer(["Movimento do ponteiro"]) --> Hook["Hook de presença do Solid"]
   Hook -->|"posição amostrada"| Socket["WebSocket tipado"]
   Socket --> Server["Rota em tempo real do Elysia"]
   Server -->|"broadcast"| Peers["Outros navegadores"]
-  Peers --> Layer["Camada de cursores do Solid"]
+  Peers --> Layer(["Camada de cursores do Solid"])
 ```
 
 ## Uma pequena mensagem compartilhada
@@ -76,11 +76,12 @@ O servidor não transmite uma mensagem explícita de saída. O estado local acre
 
 ```mermaid center
 stateDiagram-v2
-  [*] --> Connected: primeiro acesso
-  Connected --> Reconnecting: conexão perdida
-  Reconnecting --> Connected: nova tentativa em 1 segundo
-  Reconnecting --> [*]: sem assinantes
-  Connected --> [*]: último assinante
+  direction TB
+  [*] --> Conectado: primeiro assinante
+  Conectado --> Reconectando: conexão perdida
+  Reconectando --> Conectado: nova tentativa após 1 s
+  Reconectando --> [*]: sem assinantes
+  Conectado --> [*]: último assinante
 ```
 
 ## Renderizando cursores ao lado da página do Astro

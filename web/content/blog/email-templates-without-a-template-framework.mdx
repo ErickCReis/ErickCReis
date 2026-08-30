@@ -18,14 +18,14 @@ type RenderedMessage = {
 Solid's server renderer turns the TSX tree into HTML. A local JSX factory connects the two. There is no reactivity or hydration.
 
 ```mermaid center
-flowchart LR
-  Data["Typed domain data"] --> Renderer["Template function"]
+flowchart TB
+  Data(["Typed domain data"]) --> Renderer["Template function"]
   Renderer --> Text["Plain text"]
   Renderer --> JSX["Typed TSX tree"]
   JSX --> HTML["Escaped HTML document"]
-  Text --> Message["subject + text + html"]
+  Text --> Message["Email payload<br/>subject · text · html"]
   HTML --> Message
-  Message --> Adapter["Resend adapter"]
+  Message --> Adapter(["Resend adapter"])
 ```
 
 ## Put the type boundary before the markup

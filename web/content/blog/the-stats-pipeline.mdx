@@ -8,15 +8,16 @@ tags: [telemetry, architecture, sse, typescript]
 A telemetry dashboard pulls from sources that update on very different schedules. CPU is sampled every 1.5 seconds. Spotify switches between active and idle polling, GitHub is rate-limited, and another process writes token usage. Each collector owns its polling, retries, cache, and retention. The browser reads all of their snapshots through one contract.
 
 ```mermaid center
-flowchart LR
-  Sources["OS · UptimeRobot · presence · Spotify · GitHub · disk"] --> Collectors["Independent stat modules"]
-  Collectors --> History["GET /stats/history"]
-  Collectors --> Gate["Per-connection version gate"]
-  Gate --> SSE["GET /stats/stream · SSE"]
-  History --> Codec["Shared tuple codecs"]
+flowchart TB
+  Runtime["Runtime sources<br/>OS · uptime · presence"] --> Collectors["Independent stat modules"]
+  Services["Service sources<br/>Spotify · GitHub · disk"] --> Collectors
+  Collectors --> History["GET<br/>/stats/history"]
+  Collectors --> Gate["Per-connection<br/>version gate"]
+  Gate --> SSE["GET /stats/stream<br/>SSE"]
+  History --> Codec["Shared<br/>tuple codecs"]
   SSE --> Codec
-  Codec --> Stores["Solid latest/history stores"]
-  Stores --> Panels["Telemetry panels"]
+  Codec --> Stores["Solid stores<br/>latest + history"]
+  Stores --> Panels(["Telemetry panels"])
 ```
 
 ## Treat each collector as a read model

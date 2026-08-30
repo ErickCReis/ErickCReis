@@ -10,14 +10,13 @@ Esta aplicação Astro traduz textos em dois lugares. Durante o build, cada rota
 Uma integração do Astro coleta chamadas estáticas de `t()`, grava catálogos TypeScript indexados por hashes do texto em inglês e os expõe por um módulo virtual. Posts completos continuam em arquivos MDX separados por idioma. O catálogo guarda textos de interface, como rótulos, estados vazios e títulos de painéis.
 
 ```mermaid center
-flowchart LR
-  Source["Chamadas t() estáticas"] --> AST["Análise ESTree"]
-  AST --> Collector["Strings deduplicadas"]
-  Catalogs["Catálogos de idioma gerados"] --> Virtual["virtual:translate"]
-  Virtual --> SSR["Renderização estática do Astro"]
-  Virtual --> Client["Ilha Solid hidratada"]
-  Collector --> Done["astro:build:done"]
-  Done --> Next["Catálogos para o próximo build"]
+flowchart TB
+  Source["Chamadas t() estáticas"] --> AST["Analisar a ESTree"]
+  AST --> Collector["Deduplicar strings do código"]
+  Collector --> Catalogs["Catálogos de idioma gerados"]
+  Catalogs -->|"próximo build"| Virtual["virtual:translate"]
+  Virtual --> SSR(["Páginas estáticas<br/>do Astro"])
+  Virtual --> Client(["Ilhas Solid<br/>hidratadas"])
 ```
 
 O build consome os catálogos existentes e os regenera depois da renderização. Uma tradução recém-descoberta chega à saída no build seguinte.

@@ -8,15 +8,14 @@ tags: [astro, solidjs, sqlite, architecture]
 Astro validates and renders each article before deployment. The view count changes after deployment, so it needs a small live path through Solid, Elysia, and SQLite:
 
 ```mermaid center
-flowchart LR
-  MDX["Localized MDX"] --> Collection["Astro content collection"]
+flowchart TB
+  MDX(["Localized MDX"]) --> Collection["Astro content collection"]
   Collection --> Filter["Publication filter"]
   Filter --> Paths["Static route generation"]
-  Paths --> HTML["Article and archive HTML"]
-
-  Browser["Hydrated Solid island"] --> API["Elysia view API"]
-  API --> SQLite["SQLite totals and dedupe state"]
-  SQLite --> Browser
+  Paths --> HTML["Article + archive HTML"]
+  HTML --> Browser["Browser<br/>hydrated view counter"]
+  Browser <-->|"increment + total"| API["Elysia view API"]
+  API <--> SQLite["SQLite totals<br/>dedupe state"]
 ```
 
 Astro handles content identity, locale selection, navigation, and publication. SQLite handles the counters. If the API fails, the article still renders.

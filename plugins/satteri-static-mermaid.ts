@@ -46,19 +46,24 @@ async function getMermaid() {
         background: "#090f15",
         primaryColor: "#121921",
         primaryTextColor: "#edf2f8",
-        primaryBorderColor: "#2d3748",
+        primaryBorderColor: "#3a4658",
         lineColor: "#7ce3fd",
         arrowheadColor: "#7ce3fd",
         edgeLabelBackground: "#090f15",
         fontFamily: "monospace",
-        fontSize: "16px",
+        fontSize: "14px",
         radius: 9,
         strokeWidth: 1.25,
       },
       flowchart: {
         curve: "rounded",
-        nodeSpacing: 34,
-        rankSpacing: 42,
+        nodeSpacing: 20,
+        padding: 22,
+        rankSpacing: 24,
+      },
+      state: {
+        nodeSpacing: 20,
+        rankSpacing: 24,
       },
     });
 
@@ -81,7 +86,12 @@ function getDiagramClassName(meta?: string) {
 async function renderMermaid(source: string, id: string, meta?: string) {
   const mermaid = await getMermaid();
   const { svg } = await mermaid.render(id, source);
-  return `<figure class="${getDiagramClassName(meta)}">${svg}</figure>`;
+  const intrinsicWidth = svg.match(/viewBox="[-\d.]+\s+[-\d.]+\s+([\d.]+)\s+[\d.]+"/)?.[1];
+  const width = intrinsicWidth
+    ? ` style="--mermaid-width: ${Math.ceil(Number(intrinsicWidth))}px"`
+    : "";
+
+  return `<figure class="${getDiagramClassName(meta)}"${width}>${svg}</figure>`;
 }
 
 // Sätteri (Astro 7's default Markdown processor) plugin. The `code` visitor

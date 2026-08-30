@@ -99,18 +99,25 @@
 }
 
 .mermaid-diagram {
-  margin: 2rem 0;
-  border: 0;
-  background: transparent;
-  overflow: visible;
-  padding: 0;
+  margin: 1.5rem 0;
+  border: 1px solid hsl(var(--border) / 0.8);
+  border-radius: var(--radius);
+  background-color: hsl(var(--card) / 0.55);
+  background-image:
+    linear-gradient(hsl(var(--foreground) / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--foreground) / 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: 0.75rem;
+  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-width: thin;
 }
 
 .typeset .mermaid-diagram svg {
   display: block;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  width: min(100%, var(--mermaid-width, 100%));
+  max-width: none;
   height: auto;
   margin: 0;
 }
@@ -118,7 +125,46 @@
 .typeset .mermaid-diagram text,
 .typeset .mermaid-diagram .label {
   font-family: var(--font-family-mono) !important;
-  font-size: 16px !important;
+  font-size: 14px !important;
+}
+
+.typeset .mermaid-diagram .node > .label-container.outer-path + .label {
+  font-size: 13px !important;
+}
+
+.typeset .mermaid-diagram .node > .label {
+  translate: 0 2px;
+}
+
+.typeset .mermaid-diagram .node > .label:has(.row:nth-child(2)) {
+  translate: 0 -5px;
+}
+
+.typeset .mermaid-diagram .statediagram-state > .label {
+  transform: translateY(-50%) !important;
+  transform-box: fill-box;
+  translate: 0 0.5px;
+}
+
+.typeset .mermaid-diagram .statediagram-state > .label .row {
+  text-anchor: middle;
+}
+
+.typeset .mermaid-diagram .edgeLabel > .label {
+  transform: translateY(-50%) !important;
+  transform-box: fill-box;
+  translate: 0 0.5px;
+}
+
+.typeset .mermaid-diagram .edgeLabel .background {
+  display: none;
+}
+
+.typeset .mermaid-diagram .edgeLabel text {
+  paint-order: stroke fill;
+  stroke: hsl(var(--background));
+  stroke-linejoin: round;
+  stroke-width: 7px;
 }
 
 .typeset .mermaid-diagram .node rect {
@@ -126,7 +172,24 @@
   ry: 9px !important;
 }
 
+.typeset .mermaid-diagram .node polygon {
+  fill: hsl(var(--accent) / 0.09) !important;
+  stroke: hsl(var(--accent) / 0.85) !important;
+}
+
 .typeset .mermaid-diagram--center svg {
   margin-right: auto;
   margin-left: auto;
+}
+
+@media (max-width: 40rem) {
+  .mermaid-diagram {
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+    padding: 0.75rem;
+  }
+
+  .typeset .mermaid-diagram svg {
+    width: max(100%, min(var(--mermaid-width, 100%), 24rem));
+  }
 }

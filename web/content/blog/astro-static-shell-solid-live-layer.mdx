@@ -33,16 +33,12 @@ The Solid component sits beside the main content instead of wrapping it. Astro r
 
 ```mermaid center
 flowchart TB
-  Build["Astro build"] --> Document["HTML + metadata<br/>routes + projects"]
-  Document --> Page["Portfolio page"]
-
-  Browser["Browser starts"] --> Island["Solid live layer"]
-  Page ~~~ Browser
-  Island --> Telemetry["Telemetry"]
-  Island --> Cursors["Cursors"]
-  Telemetry ~~~ Cursors
-  Telemetry --> Page
-  Cursors --> Page
+  Build(["Astro build"]) --> Document["HTML + metadata<br/>routes · projects"]
+  Document --> Page["Static portfolio page"]
+  Page --> Browser["Browser loads the page"]
+  Browser --> Island["Solid<br/>live layer"]
+  Island --> Live["Telemetry<br/>remote cursors"]
+  Live --> Result(["Portfolio page<br/>with live data"])
 ```
 
 ## Why this island is client-only

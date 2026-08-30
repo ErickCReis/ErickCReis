@@ -18,14 +18,14 @@ type RenderedMessage = {
 O renderizador de servidor do Solid transforma a árvore TSX em HTML. Uma função JSX local conecta os dois. Não há reatividade nem hidratação.
 
 ```mermaid center
-flowchart LR
-  Data["Dados de domínio tipados"] --> Renderer["Função de template"]
+flowchart TB
+  Data(["Dados de domínio tipados"]) --> Renderer["Função de template"]
   Renderer --> Text["Texto puro"]
   Renderer --> JSX["Árvore TSX tipada"]
   JSX --> HTML["Documento HTML com escape"]
-  Text --> Message["subject + text + html"]
+  Text --> Message["Payload do email<br/>subject · text · html"]
   HTML --> Message
-  Message --> Adapter["Adaptador do Resend"]
+  Message --> Adapter(["Adaptador do Resend"])
 ```
 
 ## Coloque o limite de tipos antes da marcação

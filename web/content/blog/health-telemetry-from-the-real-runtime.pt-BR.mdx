@@ -8,17 +8,14 @@ tags: [telemetry, observability, self-hosting]
 Um percentual diz pouco sem o local da medição e o significado do denominador. Aqui, um processo Bun roda dentro de um container em um notebook. Os visitantes chegam até ele por um caminho público de rede. Cada camada mede uma parte diferente do sistema:
 
 ```mermaid center
-flowchart LR
-  Process["Processo Bun<br/>tempo de CPU"] --> Stats["Módulos de estatísticas"]
-  Cgroup["Cgroup do container<br/>orçamento de memória"] --> Stats
-  Host["sysfs montado do host<br/>bateria"] --> Stats
-  Outside["UptimeRobot<br/>acessibilidade pública"] --> Stats
-  Presence["Abas do navegador<br/>heartbeats HTTP"] --> Stats
+flowchart TB
+  Runtime["Runtime<br/>CPU · memória · bateria"] --> Stats["Módulos de estatísticas"]
+  Network["Rede<br/>uptime · heartbeats"] --> Stats
   Stats --> Bootstrap["GET /stats/history"]
-  Stats --> Stream["GET /stats/stream · SSE"]
-  Bootstrap --> Stores["Stores limitados do Solid"]
+  Stats --> Stream["GET /stats/stream<br/>SSE"]
+  Bootstrap --> Stores["Stores limitados<br/>do Solid"]
   Stream --> Stores
-  Stores --> Panels["Painéis de sistema, uptime e presença"]
+  Stores --> Panels(["Painéis de sistema<br/>uptime · presença"])
 ```
 
 ## Um contrato de módulo, várias políticas de amostragem

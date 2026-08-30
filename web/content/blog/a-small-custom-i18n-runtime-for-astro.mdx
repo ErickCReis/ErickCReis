@@ -10,14 +10,13 @@ This Astro application translates text in two places. During the build, every ro
 An Astro integration collects static `t()` calls, writes TypeScript catalogs keyed by hashes of the English source, and exposes them through a virtual module. Long posts remain in separate MDX files for each locale. The catalog holds interface copy such as labels, empty states, and panel headings.
 
 ```mermaid center
-flowchart LR
-  Source["Static t() calls"] --> AST["ESTree analysis"]
-  AST --> Collector["Deduplicated source strings"]
-  Catalogs["Generated locale catalogs"] --> Virtual["virtual:translate"]
-  Virtual --> SSR["Astro static render"]
-  Virtual --> Client["Hydrated Solid island"]
-  Collector --> Done["astro:build:done"]
-  Done --> Next["Catalogs for the next build"]
+flowchart TB
+  Source["Static t() calls"] --> AST["Analyze ESTree"]
+  AST --> Collector["Deduplicate source strings"]
+  Collector --> Catalogs["Generated locale catalogs"]
+  Catalogs -->|"next build"| Virtual["virtual:translate"]
+  Virtual --> SSR(["Static pages<br/>from Astro"])
+  Virtual --> Client(["Hydrated<br/>Solid islands"])
 ```
 
 The build consumes existing catalogs and regenerates them after rendering. A newly discovered translation reaches the output on the following build.

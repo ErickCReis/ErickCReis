@@ -8,13 +8,13 @@ tags: [astro, bun, elysia, deployment, caching]
 O Astro produz arquivos estáticos. O Elysia atende requisições. `bun build --compile` produz um executável. Este deploy junta os três atrás da mesma porta com um manifesto de rotas criado no build. O Astro grava os bytes das respostas em `dist`. Uma macro do Bun transforma esses arquivos em rotas exatas do Elysia enquanto compila o servidor. A imagem de runtime inclui `dist` e o executável.
 
 ```mermaid center
-flowchart LR
-  Astro["astro build"] --> Dist["dist: bytes das respostas"]
-  Dist --> Macro["Macro do Bun: manifesto de rotas"]
-  Macro --> Binary["myserver: handlers + metadados de rotas"]
+flowchart TB
+  Astro(["astro build"]) --> Dist["Bytes das respostas<br/>em dist"]
+  Dist --> Macro["Macro do Bun<br/>manifesto de rotas"]
+  Macro --> Binary["myserver<br/>handlers · rotas"]
   Dist --> Image["imagem de runtime"]
   Binary --> Image
-  Image --> Elysia["um processo Elysia em :3000"]
+  Image --> Elysia(["Um processo Elysia<br/>porta 3000"])
 ```
 
 Cada caminho de requisição aponta para um arquivo produzido pelo mesmo build. Não há renderização no servidor nem fallback genérico de diretório durante a requisição.
@@ -141,12 +141,12 @@ export function createDistAssetsSubrouter() {
 Toda requisição GET segue esta árvore de decisão:
 
 ```mermaid center
-flowchart TD
-  Request["Requisição GET"] --> API{"Rota explícita de API?"}
-  API -- sim --> Handler["Executar handler dinâmico"]
-  API -- não --> Static{"Rota gerada ou alias exato?"}
-  Static -- sim --> File["Retornar arquivo de dist"]
-  Static -- não --> Missing["404 do Elysia"]
+flowchart TB
+  Request(["Requisição GET"]) --> API{"Rota explícita<br/>de API?"}
+  API -->|"sim"| Handler["Executar handler<br/>dinâmico"]
+  API -->|"não"| Static{"Rota gerada<br/>ou alias exato?"}
+  Static -->|"sim"| File["Retornar arquivo<br/>de dist"]
+  Static -->|"não"| Missing["404 do Elysia"]
 ```
 
 Um erro como `/blgo` continua sendo 404. Um roteador no cliente que dependesse do fallback da History API precisaria de uma rota catch-all separada.

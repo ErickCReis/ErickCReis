@@ -8,15 +8,16 @@ tags: [telemetry, architecture, sse, typescript]
 Um painel de telemetria reúne fontes que atualizam em ritmos bem diferentes. A CPU é amostrada a cada 1,5 segundos. O Spotify alterna entre polling ativo e ocioso, o GitHub tem limites de requisição e outro processo grava o uso de tokens. Cada coletor cuida do próprio polling, das retentativas, do cache e da retenção. O navegador lê todos esses retratos por um único contrato.
 
 ```mermaid center
-flowchart LR
-  Sources["SO · UptimeRobot · presença · Spotify · GitHub · disco"] --> Collectors["Módulos independentes"]
-  Collectors --> History["GET /stats/history"]
-  Collectors --> Gate["Filtro de versão por conexão"]
-  Gate --> SSE["GET /stats/stream · SSE"]
-  History --> Codec["Codecs compartilhados de tuplas"]
+flowchart TB
+  Runtime["Fontes do runtime<br/>SO · uptime · presença"] --> Collectors["Módulos independentes"]
+  Services["Fontes de serviços<br/>Spotify · GitHub · disco"] --> Collectors
+  Collectors --> History["GET<br/>/stats/history"]
+  Collectors --> Gate["Filtro de versão<br/>por conexão"]
+  Gate --> SSE["GET /stats/stream<br/>SSE"]
+  History --> Codec["Codecs compartilhados<br/>de tuplas"]
   SSE --> Codec
-  Codec --> Stores["Stores latest/history do Solid"]
-  Stores --> Panels["Painéis de telemetria"]
+  Codec --> Stores["Stores do Solid<br/>latest + history"]
+  Stores --> Panels(["Painéis de telemetria"])
 ```
 
 ## Trate cada coletor como um modelo de leitura

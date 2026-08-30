@@ -10,13 +10,13 @@ O uso de tokens chega em formatos incompatíveis. O Codex emite valores cumulati
 Adaptadores de provedor transformam registros locais em deltas por evento. Um coletor os agrupa por dia, o servidor armazena uma janela substituível por origem e o navegador recebe uma projeção móvel de 30 dias.
 
 ```mermaid center
-flowchart LR
-  Logs["JSONL do Codex / Pi / Claude"] --> Adapters["Adaptadores de provedor"]
+flowchart TB
+  Logs(["Logs JSONL dos agentes<br/>Codex · Pi · Claude"]) --> Adapters["Adaptadores de provedor"]
   Adapters --> Daily["Payload diário normalizado"]
-  Daily -->|"POST + token Bearer"| Store["Store de origens · versão 2"]
+  Daily -->|"POST + token Bearer"| Store["Store de origens<br/>versão 2"]
   Store --> Snapshot["Retrato público de 30 dias"]
   Snapshot --> Transport["Histórico + SSE"]
-  Transport --> Panel["Store do Solid e gráfico empilhado"]
+  Transport --> Panel(["Store do Solid<br/>gráfico empilhado"])
 ```
 
 ## Normalizar eventos antes de agregá-los por data

@@ -8,15 +8,14 @@ tags: [astro, solidjs, sqlite, architecture]
 O Astro valida e renderiza cada artigo antes do deploy. A contagem de visualizações muda depois, por isso precisa de um pequeno caminho dinâmico por Solid, Elysia e SQLite:
 
 ```mermaid center
-flowchart LR
-  MDX["MDX localizado"] --> Collection["Coleção de conteúdo do Astro"]
+flowchart TB
+  MDX(["MDX localizado"]) --> Collection["Coleção de conteúdo do Astro"]
   Collection --> Filter["Filtro de publicação"]
   Filter --> Paths["Geração de rotas estáticas"]
-  Paths --> HTML["HTML do artigo e da listagem"]
-
-  Browser["Ilha hidratada do Solid"] --> API["API de visualizações no Elysia"]
-  API --> SQLite["Totais e estado de deduplicação no SQLite"]
-  SQLite --> Browser
+  Paths --> HTML["HTML do artigo + listagem"]
+  HTML --> Browser["Navegador<br/>contador hidratado"]
+  Browser <-->|"incremento + total"| API["API de visualizações do Elysia"]
+  API <--> SQLite["Totais no SQLite<br/>estado de deduplicação"]
 ```
 
 O Astro cuida da identidade do conteúdo, do idioma, da navegação e da publicação. O SQLite cuida dos contadores. Se a API falhar, o artigo ainda renderiza.

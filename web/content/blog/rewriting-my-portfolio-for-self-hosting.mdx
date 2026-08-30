@@ -30,26 +30,24 @@ I still like Cloudflare, and it remains part of the setup. DNS and connectivity 
 
 The experiment became real when requests to `erickr.dev` started reaching the laptop through a [`cloudflared` tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/). The public request path is short:
 
-```mermaid
+```mermaid center
 flowchart TB
-  Domain["erickr.dev"] --> Tunnel["cloudflared tunnel"]
+  Domain(["erickr.dev"]) --> Tunnel["cloudflared tunnel"]
   Tunnel --> Host["Unused laptop"]
   Host --> Container["Portfolio container"]
   Container --> Server["Bun + Elysia server"]
-  Server --> Static["Static Astro"]
-  Server --> Live["SSE + WebSocket"]
-  Server --> Data["SQLite + /app/data"]
-  Static ~~~ Live ~~~ Data
+  Server --> Web["Web traffic<br/>Astro · SSE · WebSocket"]
+  Server --> Data["SQLite · /app/data"]
 ```
 
 Dokploy handles deployment on a separate path. Public requests never pass through it:
 
 ```mermaid center
 flowchart TB
-  Source["Source repository"] --> Dokploy["Dokploy"]
+  Source(["Source repository"]) --> Dokploy["Dokploy"]
   Dokploy --> Build["Docker build"]
   Build --> Image["Runtime image"]
-  Image --> Container["Running container"]
+  Image --> Container(["Running container"])
 ```
 
 I chose Dokploy because it works directly with [Docker](https://www.docker.com/) and lets me inspect each deploy step. The supporting infrastructure still has several pieces. The application itself now has one deploy target, one container, and one server process.

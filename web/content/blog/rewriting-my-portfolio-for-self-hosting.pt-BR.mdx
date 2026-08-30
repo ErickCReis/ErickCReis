@@ -30,26 +30,24 @@ Ainda gosto da Cloudflare, que continua fazendo parte do projeto. O DNS e a cone
 
 O experimento se tornou real quando as requisições para `erickr.dev` começaram a chegar ao notebook por um túnel do [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/). O caminho de uma requisição pública é curto:
 
-```mermaid
+```mermaid center
 flowchart TB
-  Domain["erickr.dev"] --> Tunnel["cloudflared tunnel"]
+  Domain(["erickr.dev"]) --> Tunnel["Túnel do cloudflared"]
   Tunnel --> Host["Notebook parado"]
   Host --> Container["Container do portfólio"]
   Container --> Server["Servidor Bun + Elysia"]
-  Server --> Static["Astro estático"]
-  Server --> Live["SSE + WebSocket"]
-  Server --> Data["SQLite + /app/data"]
-  Static ~~~ Live ~~~ Data
+  Server --> Web["Tráfego web<br/>Astro · SSE · WebSocket"]
+  Server --> Data["SQLite · /app/data"]
 ```
 
 O Dokploy controla o deploy por outro caminho. As requisições públicas nunca passam por ele:
 
 ```mermaid center
 flowchart TB
-  Source["Repositório"] --> Dokploy["Dokploy"]
+  Source(["Repositório"]) --> Dokploy["Dokploy"]
   Dokploy --> Build["Docker build"]
   Build --> Image["Imagem de runtime"]
-  Image --> Container["Container em execução"]
+  Image --> Container(["Container em execução"])
 ```
 
 Escolhi o Dokploy porque ele trabalha diretamente com o [Docker](https://www.docker.com/) e me deixa inspecionar cada etapa do deploy. A infraestrutura de apoio ainda tem várias peças. A aplicação agora tem um destino de deploy, um container e um processo de servidor.

@@ -10,13 +10,13 @@ Token usage arrives in incompatible shapes. Codex emits cumulative and per-turn 
 Provider adapters turn local records into event deltas. A collector groups them by calendar day, the server stores one replaceable window per source, and the browser receives a rolling 30-day projection.
 
 ```mermaid center
-flowchart LR
-  Logs["Codex / Pi / Claude JSONL"] --> Adapters["Provider adapters"]
+flowchart TB
+  Logs(["Agent JSONL logs<br/>Codex · Pi · Claude"]) --> Adapters["Provider adapters"]
   Adapters --> Daily["Daily normalized payload"]
-  Daily -->|"POST + Bearer token"| Store["version: 2 source store"]
+  Daily -->|"POST + Bearer token"| Store["Version 2<br/>source store"]
   Store --> Snapshot["30-day public snapshot"]
-  Snapshot --> Transport["history response + SSE"]
-  Transport --> Panel["Solid store and stacked chart"]
+  Snapshot --> Transport["History response + SSE"]
+  Transport --> Panel(["Solid store<br/>stacked chart"])
 ```
 
 ## Normalize events before aggregating time

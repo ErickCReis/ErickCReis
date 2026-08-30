@@ -8,17 +8,14 @@ tags: [telemetry, observability, self-hosting]
 A percentage means little until you know where it was measured and what sits in the denominator. Here, a Bun process runs inside a container on a laptop. Visitors reach it through a public network path. Each layer measures a different part of the system:
 
 ```mermaid center
-flowchart LR
-  Process["Bun process<br/>CPU time"] --> Stats["Stat modules"]
-  Cgroup["Container cgroup<br/>memory budget"] --> Stats
-  Host["Mounted host sysfs<br/>battery"] --> Stats
-  Outside["UptimeRobot<br/>public reachability"] --> Stats
-  Presence["Browser tabs<br/>HTTP heartbeats"] --> Stats
+flowchart TB
+  Runtime["Runtime<br/>CPU · memory · battery"] --> Stats["Stat modules"]
+  Network["Network<br/>uptime · heartbeats"] --> Stats
   Stats --> Bootstrap["GET /stats/history"]
-  Stats --> Stream["GET /stats/stream · SSE"]
-  Bootstrap --> Stores["Bounded Solid stores"]
+  Stats --> Stream["GET /stats/stream<br/>SSE"]
+  Bootstrap --> Stores["Bounded<br/>Solid stores"]
   Stream --> Stores
-  Stores --> Panels["System, uptime, and presence panels"]
+  Stores --> Panels(["System · uptime<br/>presence panels"])
 ```
 
 ## One module contract, different sampling policies

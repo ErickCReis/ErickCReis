@@ -11,13 +11,11 @@ Spotify and GitHub are useful contrasting examples. Spotify playback can become 
 
 ```mermaid center
 flowchart TB
-  SpotifyAPI["Spotify API"] --> SpotifyAdapter["Spotify adapter"]
-  GitHubAPI["GitHub GraphQL API"] --> GitHubAdapter["GitHub adapter"]
-  SpotifyAdapter --> Schemas["Shared schemas"]
-  GitHubAdapter --> Schemas
+  APIs(["Source APIs<br/>Spotify · GitHub GraphQL"]) --> Adapters["Source adapters<br/>Spotify · GitHub"]
+  Adapters --> Schemas["Shared schemas"]
   Schemas --> Modules["Stat modules"]
   Modules --> Stream["SSE stream"]
-  Stream --> Panels["Solid panels"]
+  Stream --> Panels(["Solid panels"])
 ```
 
 The adapter deals with the external system. The panel renders the result. If a provider goes down, its adapter decides what to publish and the panel keeps the same input contract.
@@ -114,13 +112,10 @@ Playback history stays in memory. The module keeps at most 84 snapshots, enough 
 The GitHub integration uses the opposite strategy. [`server/stats/github.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/server/stats/github.ts) requests the year-to-date contribution calendar with one GraphQL query, then derives all panel values locally:
 
 ```mermaid center
-flowchart LR
-  Query["Year-to-date calendar"] --> Days["Contribution days"]
-  Days --> Today["Today"]
-  Days --> Month["Current month"]
-  Days --> Year["Current year"]
-  Days --> Window["Last 30 days"]
-  Days --> Last["Last active date"]
+flowchart TB
+  Query(["Year-to-date calendar"]) --> Days["Contribution days"]
+  Days --> Current["Current totals<br/>today · month · year"]
+  Days --> Recent["Recent activity<br/>30 days · last active"]
 ```
 
 The derivation uses ISO date strings as keys. That gives the adapter a stable comparison format for the year and month boundaries, while the 30-day series is generated from the local date window so days without contributions still appear as zeroes.
