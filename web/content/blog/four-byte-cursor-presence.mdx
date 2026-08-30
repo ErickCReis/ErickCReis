@@ -15,11 +15,11 @@ The browser turns the pointer position into coordinates relative to the current 
 
 ```text
 byte 0: x[11..4]
-byte 1: x[3..0] + y[11..8]
+byte 1: x[3..0] | y[11..8]
 byte 2: y[7..0]
 ```
 
-The [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) module owns both sides of that packing. It clamps invalid positions before encoding and checks the exact frame length when decoding. A browser with a 1920-pixel viewport still gets sub-pixel precision after quantization, which is more than the marker needs.
+The [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) module owns both sides of that packing. It clamps invalid positions before encoding and checks the exact frame length when decoding. At 1920 pixels, one quantization step is less than half a pixel, which is more precision than the marker needs.
 
 The receiver does not assume the sender has the same screen size. It expands the normalized values against its own viewport. The cursor therefore represents a relative screen position, not a document coordinate. The layer is fixed to the viewport, so scrolling does not move a stationary marker.
 
@@ -36,7 +36,7 @@ bytes 1-3: packed position
 
 Join and leave messages need only one byte because they carry no position. The server keeps the last packed position for each connection so a new subscriber can receive a snapshot immediately. It also publishes movement and leave frames only to the other subscribers.
 
-This makes the trust boundary easier to see. A client can send only a three-byte movement frame. The server decides which slot that frame belongs to, validates its size, and adds the connection-owned identity before broadcasting it.
+This makes the trust boundary easier to see. The server accepts only three-byte movement frames from a client. It decides which slot that frame belongs to, validates its size, and adds the connection-owned identity before broadcasting it.
 
 ## Small state, explicit cleanup
 

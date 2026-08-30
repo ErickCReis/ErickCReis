@@ -15,11 +15,11 @@ O navegador transforma a posição do ponteiro em coordenadas relativas à viewp
 
 ```text
 byte 0: x[11..4]
-byte 1: x[3..0] + y[11..8]
+byte 1: x[3..0] | y[11..8]
 byte 2: y[7..0]
 ```
 
-O módulo [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) controla os dois lados desse empacotamento. Ele limita posições inválidas antes de codificar e verifica o tamanho exato do frame ao decodificar. Mesmo em uma viewport de 1920 pixels, a quantização mantém precisão subpixel, mais do que o marcador precisa.
+O módulo [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) controla os dois lados desse empacotamento. Ele limita posições inválidas antes de codificar e verifica o tamanho exato do frame ao decodificar. Em 1920 pixels, cada passo da quantização tem menos de meio pixel, uma precisão maior do que o marcador precisa.
 
 Quem recebe a mensagem não presume que o outro dispositivo tem o mesmo tamanho de tela. Os valores normalizados são expandidos de acordo com a própria viewport. Assim, o cursor representa uma posição relativa à tela, não uma coordenada do documento. A camada fica fixa na viewport, então a rolagem não move um marcador parado.
 
@@ -36,7 +36,7 @@ bytes 1-3: posição empacotada
 
 Mensagens de entrada e saída precisam de apenas um byte porque não carregam posição. O servidor guarda a última posição empacotada de cada conexão para que um novo assinante receba um snapshot imediatamente. Ele também publica movimentos e saídas somente para os outros assinantes.
 
-Isso deixa o limite de confiança mais claro. O cliente só consegue enviar um frame de movimento com três bytes. O servidor decide a qual slot esse frame pertence, valida seu tamanho e acrescenta a identidade da conexão antes de transmiti-lo.
+Isso deixa o limite de confiança mais claro. O servidor só aceita do cliente frames de movimento com três bytes. Ele decide a qual slot esse frame pertence, valida seu tamanho e acrescenta a identidade da conexão antes de transmiti-lo.
 
 ## Estado pequeno, limpeza explícita
 
