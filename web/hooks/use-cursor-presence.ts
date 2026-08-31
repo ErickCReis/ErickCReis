@@ -1,22 +1,19 @@
-import { createMousePosition, getPositionToScreen } from "@solid-primitives/mouse";
+import { createMousePosition } from "@solid-primitives/mouse";
 import { throttle } from "@solid-primitives/scheduled";
 import {
   cursorBytesKey,
   formatCursorSlot,
-  normalizedCursorToViewportPoint,
+  normalizedCursorToDocumentPoint,
   packCursorPosition,
   type PackedCursorPosition,
 } from "@shared/cursor";
-import { pickCursorSlotColor } from "@web/lib/cursor";
+import { getCursorDocumentSize, pickCursorSlotColor } from "@web/lib/cursor";
 import { publishCursor, subscribeCursor } from "@web/lib/api";
 import type { CursorState } from "@web/types/home";
 import { createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 
-function getViewport() {
-  return {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  };
+function getDocumentSize() {
+  return getCursorDocumentSize(document.documentElement);
 }
 
 export function useCursorPresence() {
@@ -26,12 +23,13 @@ export function useCursorPresence() {
 
   const [cursorsBySlot, setCursorsBySlot] = createSignal<Record<number, RemoteCursorState>>({});
   const [localSelfPoint, setLocalSelfPoint] = createSignal<{ x: number; y: number } | null>(null);
-  const [viewport, setViewport] = createSignal(getViewport());
+  const [documentSize, setDocumentSize] = createSignal(getDocumentSize());
   const mouse = createMousePosition(window, { followTouch: false });
+  let localViewportPoint: { x: number; y: number } | null = null;
   let lastPublishedCursorKey: string | null = null;
 
   const publishCursorPosition = (point: { x: number; y: number }) => {
-    const packedPosition = packCursorPosition(point, getViewport());
+    const packedPosition = packCursorPosition(point, getDocumentSize());
     const packedKey = cursorBytesKey(packedPosition);
     if (packedKey === lastPublishedCursorKey) {
       return;
@@ -43,6 +41,10 @@ export function useCursorPresence() {
   };
 
   const throttledPublishCursorPosition = throttle(publishCursorPosition, 50);
+  const updateLocalCursorPosition = (point: { x: number; y: number }) => {
+    setLocalSelfPoint(point);
+    throttledPublishCursorPosition(point);
+  };
 
   createEffect(() => {
     const x = mouse.x;
@@ -51,14 +53,34 @@ export function useCursorPresence() {
       return;
     }
 
-    const point = mouse.sourceType === "touch" ? { x, y } : getPositionToScreen(x, y);
-    setLocalSelfPoint(point);
-    throttledPublishCursorPosition(point);
+    const point =
+      mouse.sourceType === "touch" ? { x: x + window.scrollX, y: y + window.scrollY } : { x, y };
+
+    localViewportPoint = {
+      x: point.x - window.scrollX,
+      y: point.y - window.scrollY,
+    };
+    updateLocalCursorPosition(point);
   });
 
   onCleanup(() => throttledPublishCursorPosition.clear());
 
   onMount(() => {
+    const handleScroll = () => {
+      setDocumentSize(getDocumentSize());
+
+      if (!localViewportPoint) {
+        return;
+      }
+
+      updateLocalCursorPosition({
+        x: localViewportPoint.x + window.scrollX,
+        y: localViewportPoint.y + window.scrollY,
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     const unsubscribe = subscribeCursor((event) => {
       if (event.type === "leave") {
         setCursorsBySlot((previous) => {
@@ -94,10 +116,11 @@ export function useCursorPresence() {
         ),
       );
     }, 2200);
-    const handleResize = () => setViewport(getViewport());
+    const handleResize = () => setDocumentSize(getDocumentSize());
     window.addEventListener("resize", handleResize, { passive: true });
 
     onCleanup(() => {
+      window.removeEventListener("scroll", handleScroll);
       unsubscribe();
       window.clearInterval(staleInterval);
       window.removeEventListener("resize", handleResize);
@@ -105,10 +128,10 @@ export function useCursorPresence() {
   });
 
   const cursors = createMemo(() => {
-    const currentViewport = viewport();
+    const currentDocumentSize = documentSize();
     const remoteCursors = Object.values(cursorsBySlot()).map(({ position, ...cursor }) => ({
       ...cursor,
-      ...normalizedCursorToViewportPoint(position, currentViewport),
+      ...normalizedCursorToDocumentPoint(position, currentDocumentSize),
     }));
     const localPoint = localSelfPoint();
     if (!localPoint) {

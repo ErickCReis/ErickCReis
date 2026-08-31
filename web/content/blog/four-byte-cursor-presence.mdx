@@ -11,7 +11,7 @@ That is a lot of structure for a tiny, short-lived message. I replaced it with a
 
 ## Three bytes from the browser
 
-The browser turns the pointer position into coordinates relative to the current viewport. Each coordinate is normalized to a 12-bit integer from `0` to `4095`. Two 12-bit values fit into 24 bits, so a movement update takes three bytes:
+The browser turns the pointer position into coordinates relative to the document. Each coordinate is normalized to a 12-bit integer from `0` to `4095`; the vertical coordinate uses the document's scroll height. Two 12-bit values fit into 24 bits, so a movement update takes three bytes:
 
 ```text
 byte 0: x[11..4]
@@ -21,7 +21,7 @@ byte 2: y[7..0]
 
 The [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) module owns both sides of that packing. It clamps invalid positions before encoding and checks the exact frame length when decoding. At 1920 pixels, one quantization step is less than half a pixel, which is more precision than the marker needs.
 
-The receiver does not assume the sender has the same screen size. It expands the normalized values against its own viewport. The cursor therefore represents a relative screen position, not a document coordinate. The layer is fixed to the viewport, so scrolling does not move a stationary marker.
+The receiver does not assume the sender has the same document dimensions. It expands the normalized values against its own document width and scroll height. The cursor therefore remains attached to a relative position in the page, and the absolute overlay moves naturally with the document while scrolling.
 
 ## Identity belongs to the connection
 
