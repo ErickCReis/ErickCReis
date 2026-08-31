@@ -1,0 +1,47 @@
+---
+title: "A four-byte protocol for cursor presence"
+description: How normalized coordinates and connection-owned slots replace chatty JSON updates.
+date: "2026-09-05"
+tags: [realtime, performance]
+---
+
+A pointer moves often, but a cursor update does not need much information. The first version of this feature sent a JSON object for every sampled position. It worked, but the payload carried an identifier and a color along with two numbers that changed constantly.
+
+That is a lot of structure for a tiny, short-lived message. I replaced it with a small binary protocol shared by the browser and the server.
+
+## Three bytes from the browser
+
+The browser turns the pointer position into coordinates relative to the current viewport. Each coordinate is normalized to a 12-bit integer from `0` to `4095`. Two 12-bit values fit into 24 bits, so a movement update takes three bytes:
+
+```text
+byte 0: x[11..4]
+byte 1: bits 7..4 = x[3..0], bits 3..0 = y[11..8]
+byte 2: y[7..0]
+```
+
+The [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) module owns both sides of that packing. It clamps invalid positions before encoding and checks the exact frame length when decoding. At 1920 pixels, one quantization step is less than half a pixel, which is more precision than the marker needs.
+
+The receiver does not assume the sender has the same screen size. It expands the normalized values against its own viewport. The cursor therefore represents a relative screen position, not a document coordinate. The layer is fixed to the viewport, so scrolling does not move a stationary marker.
+
+## Identity belongs to the connection
+
+The old protocol asked the client to send an ID and used an HTTP-only cookie to verify it. The binary protocol removes both pieces. When a WebSocket opens, the server attempts to assign it one of 64 slots. The connection owns that slot; the browser never chooses it. If all slots are occupied, the server closes the excess connection instead of retaining a connection that cannot participate.
+
+Server movement frames add the slot to the three position bytes:
+
+```text
+byte 0: opcode[7..6] + slot[5..0]
+bytes 1-3: packed position
+```
+
+Join and leave messages need only one byte because they carry no position. The server keeps the last packed position for each connection so a new subscriber can receive a snapshot immediately. It also publishes movement and leave frames only to the other subscribers.
+
+This makes the trust boundary easier to see. The server accepts only three-byte movement frames from a client. It decides which slot that frame belongs to, validates its size, and adds the connection-owned identity before broadcasting it.
+
+## Small state, explicit cleanup
+
+The browser keeps remote cursors in a map keyed by slot. A leave frame removes one immediately; a seven-second timeout handles connections that disappear without a clean close. The local cursor never travels through that remote state—it is rendered directly from the current pointer position.
+
+The result is not a general-purpose serialization layer. It is a deliberately narrow contract for data that is frequent, ephemeral, and easy to reconstruct. Three bytes from the client, four bytes from the server, and one byte for membership changes are enough for this feature.
+
+The useful optimization was also a small design correction: identity belongs to the connection, while position belongs to the message.

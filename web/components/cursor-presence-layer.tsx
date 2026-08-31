@@ -1,18 +1,16 @@
 import { clsx } from "clsx";
-import { formatCursorPosition, pickColor } from "@web/lib/cursor";
+import { formatCursorPosition } from "@web/lib/cursor";
 import type { CursorState } from "@web/types/home";
 import { For, createMemo, type JSX } from "solid-js";
 import { t } from "virtual:translate";
 
 type CursorPresenceLayerProps = {
-  selfId: string | null;
   cursors: CursorState[];
   isStatsHovered: boolean;
 };
 
 type CursorMarkerProps = {
   cursor: () => CursorState | undefined;
-  selfId: string | null;
   isStatsHovered: boolean;
   smooth: boolean;
 };
@@ -30,12 +28,12 @@ function CursorMarker(props: CursorMarkerProps) {
     return {
       "--cursor-x": `${x()}px`,
       "--cursor-y": `${y()}px`,
-      "--cursor-color": cursor.color ?? pickColor(cursor.id),
+      "--cursor-color": cursor.color,
     } as JSX.CSSProperties;
   });
-  const cursorLabel = () => props.cursor()?.id ?? "";
-  const isSelf = () => cursorLabel() === props.selfId;
-  const opensToLeft = () => x() - window.scrollX > document.documentElement.clientWidth / 2;
+  const cursorLabel = () => props.cursor()?.label ?? "";
+  const isSelf = () => props.cursor()?.isSelf ?? false;
+  const opensToLeft = () => x() > document.documentElement.clientWidth / 2;
 
   if (!props.cursor()) {
     return null;
@@ -59,7 +57,7 @@ function CursorMarker(props: CursorMarkerProps) {
             opensToLeft() ? "right-3" : "left-3",
           )}
         >
-          <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel().slice(0, 4)}</span>
+          <span class="text-slate-300/60">{isSelf() ? t("you") : cursorLabel()}</span>
           <span class="text-slate-100/84">{position()}</span>
         </span>
       ) : null}
@@ -68,21 +66,20 @@ function CursorMarker(props: CursorMarkerProps) {
 }
 
 export function CursorPresenceLayer(props: CursorPresenceLayerProps) {
-  const cursorsById = createMemo<Record<string, CursorState>>(() =>
-    Object.fromEntries(props.cursors.map((cursor) => [cursor.id, cursor])),
+  const cursorsByLabel = createMemo<Record<string, CursorState>>(() =>
+    Object.fromEntries(props.cursors.map((cursor) => [cursor.label, cursor])),
   );
-  const cursorIds = createMemo(() => props.cursors.map((cursor) => cursor.id));
+  const cursorLabels = createMemo(() => props.cursors.map((cursor) => cursor.label));
 
   return (
-    <div class="pointer-events-none absolute inset-0 z-40" aria-hidden="true">
-      <For each={cursorIds()}>
-        {(cursorId) => {
+    <div class="pointer-events-none fixed inset-0 z-40" aria-hidden="true">
+      <For each={cursorLabels()}>
+        {(cursorLabel) => {
           return (
             <CursorMarker
-              cursor={() => cursorsById()[cursorId]}
-              selfId={props.selfId}
+              cursor={() => cursorsByLabel()[cursorLabel]}
               isStatsHovered={props.isStatsHovered}
-              smooth={cursorId !== props.selfId}
+              smooth={!cursorsByLabel()[cursorLabel]?.isSelf}
             />
           );
         }}

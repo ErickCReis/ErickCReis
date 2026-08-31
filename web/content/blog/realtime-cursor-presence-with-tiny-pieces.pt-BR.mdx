@@ -5,6 +5,21 @@ date: "2026-07-18"
 tags: [realtime, architecture]
 ---
 
+import { isBlogPostPublished } from "@web/lib/blog-publication";
+
+{isBlogPostPublished(new Date("2026-09-05")) && (
+
+  <blockquote>
+    <p>
+      Este post descreve o transporte JSON original. A implementação atual usa um protocolo binário
+      compacto, explicado em{" "}
+      <a href="/pt-BR/blog/four-byte-cursor-presence">
+        Um protocolo de quatro bytes para presença de cursores
+      </a>{"."}
+    </p>
+  </blockquote>
+)}
+
 O [post anterior](/pt-BR/blog/astro-static-shell-solid-live-layer) parou na ilha do Solid. Este acompanha o caminho de um ponteiro dentro dela.
 
 Ao mover o ponteiro na página inicial, um pequeno marcador o acompanha. Se a página estiver aberta em outro navegador, o marcador aparece ali como um cursor remoto. O resultado é divertido. A implementação é pequena o bastante para ser acompanhada de ponta a ponta, que é o que me interessa aqui.

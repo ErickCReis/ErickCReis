@@ -1,43 +1,88 @@
-import { Elysia, t } from "elysia";
-import { cursorPayloadSchema } from "@shared/cursor";
-import { createLiveId } from "@server/lib/id";
+import { Elysia } from "elysia";
+import type { ElysiaWS } from "elysia/ws";
+import {
+  CURSOR_MAX_SLOTS,
+  decodeClientCursorMoveFrame,
+  encodeServerCursorJoin,
+  encodeServerCursorLeave,
+  encodeServerCursorMove,
+} from "@shared/cursor";
 
-const cursorCookieSchema = t.Cookie(
-  { cursorId: t.Optional(t.String()) },
-  {
-    httpOnly: true,
-    sameSite: "strict",
-    path: "/",
-    secure: Bun.env.NODE_ENV === "production",
-  },
-);
+const CURSOR_TOPIC = "cursors";
 
-export const liveRoutes = new Elysia({ name: "live-routes" })
-  .get(
-    "/live/id",
-    ({ cookie }) => {
-      cookie.cursorId.value ??= createLiveId();
-      return { cursorId: cookie.cursorId.value };
-    },
-    {
-      cookie: cursorCookieSchema,
-    },
-  )
-  .ws("/live", {
-    body: cursorPayloadSchema,
-    response: cursorPayloadSchema,
-    cookie: cursorCookieSchema,
-    upgrade({ cookie }) {
-      cookie.cursorId.value ??= createLiveId();
-    },
+type CursorPeer = {
+  slot: number;
+  lastPosition: Uint8Array | null;
+};
+
+function isBinaryCursorPayload(payload: unknown): payload is ArrayBuffer | Uint8Array {
+  return payload instanceof ArrayBuffer || payload instanceof Uint8Array;
+}
+
+export function createLiveRoutes() {
+  const peersByConnectionId = new Map<string, CursorPeer>();
+  const occupiedSlots = new Set<number>();
+
+  function allocateSlot() {
+    for (let slot = 0; slot < CURSOR_MAX_SLOTS; slot += 1) {
+      if (!occupiedSlots.has(slot)) {
+        occupiedSlots.add(slot);
+        return slot;
+      }
+    }
+
+    return null;
+  }
+
+  function releaseSlot(slot: number) {
+    occupiedSlots.delete(slot);
+  }
+
+  function sendPeerSnapshot(ws: ElysiaWS, selfId: string) {
+    for (const [connectionId, peer] of peersByConnectionId) {
+      if (connectionId === selfId) continue;
+
+      ws.sendBinary(encodeServerCursorJoin(peer.slot), false);
+      if (peer.lastPosition) {
+        ws.sendBinary(encodeServerCursorMove(peer.slot, peer.lastPosition), false);
+      }
+    }
+  }
+
+  return new Elysia({ name: "live-routes" }).ws("/live", {
     open(ws) {
-      ws.subscribe("cursors");
+      const slot = allocateSlot();
+      if (slot === null) {
+        ws.close(1013, "Cursor capacity reached");
+        return;
+      }
+
+      peersByConnectionId.set(ws.id, { slot, lastPosition: null });
+      ws.subscribe(CURSOR_TOPIC);
+      sendPeerSnapshot(ws, ws.id);
+      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorJoin(slot), false);
     },
     message(ws, payload) {
-      if (payload.id !== ws.data.cookie.cursorId.value) return;
-      ws.publish("cursors", payload, true);
+      const peer = peersByConnectionId.get(ws.id);
+      if (!peer || !isBinaryCursorPayload(payload)) return;
+
+      const packedPosition = decodeClientCursorMoveFrame(payload);
+      if (!packedPosition) return;
+
+      peer.lastPosition = packedPosition;
+      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorMove(peer.slot, packedPosition), false);
     },
     close(ws) {
-      ws.unsubscribe("cursors");
+      const peer = peersByConnectionId.get(ws.id);
+      peersByConnectionId.delete(ws.id);
+      ws.unsubscribe(CURSOR_TOPIC);
+
+      if (!peer) return;
+
+      releaseSlot(peer.slot);
+      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorLeave(peer.slot), false);
     },
   });
+}
+
+export const liveRoutes = createLiveRoutes();
