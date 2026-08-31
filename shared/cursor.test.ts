@@ -7,17 +7,17 @@ import {
   encodeServerCursorLeave,
   encodeServerCursorMove,
   formatCursorSlot,
-  normalizedCursorToViewportPoint,
+  normalizedCursorToDocumentPoint,
   packCursorPosition,
   unpackCursorPosition,
 } from "@shared/cursor";
 
 describe("cursor binary transport", () => {
-  it("packs min and max viewport positions into three bytes", () => {
-    expect([...packCursorPosition({ x: 0, y: 0 }, { width: 1920, height: 1080 })]).toEqual([
+  it("packs min and max document positions into three bytes", () => {
+    expect([...packCursorPosition({ x: 0, y: 0 }, { width: 1920, height: 2400 })]).toEqual([
       0, 0, 0,
     ]);
-    expect([...packCursorPosition({ x: 1919, y: 1079 }, { width: 1920, height: 1080 })]).toEqual([
+    expect([...packCursorPosition({ x: 1919, y: 2399 }, { width: 1920, height: 2400 })]).toEqual([
       0xff, 0xff, 0xff,
     ]);
   });
@@ -47,13 +47,13 @@ describe("cursor binary transport", () => {
     });
   });
 
-  it("converts normalized cursor positions back to receiver viewport pixels", () => {
+  it("converts normalized cursor positions back to the receiver document", () => {
     expect(
-      normalizedCursorToViewportPoint(
+      normalizedCursorToDocumentPoint(
         { x: CURSOR_COORD_MAX, y: CURSOR_COORD_MAX },
-        { width: 320, height: 240 },
+        { width: 320, height: 2400 },
       ),
-    ).toEqual({ x: 319, y: 239 });
+    ).toEqual({ x: 319, y: 2399 });
   });
 
   it("encodes and decodes server movement frames with a two-bit opcode and six-bit slot", () => {

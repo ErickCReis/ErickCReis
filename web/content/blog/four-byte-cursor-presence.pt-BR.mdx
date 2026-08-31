@@ -11,7 +11,7 @@ O ponteiro se move muitas vezes, mas uma atualização de cursor não precisa de
 
 ## Três bytes saindo do navegador
 
-O navegador transforma a posição do ponteiro em coordenadas relativas à viewport atual. Cada coordenada é normalizada para um inteiro de 12 bits, entre `0` e `4095`. Dois valores de 12 bits ocupam 24 bits, então uma atualização de movimento usa três bytes:
+O navegador transforma a posição do ponteiro em coordenadas relativas ao documento. Cada coordenada é normalizada para um inteiro de 12 bits, entre `0` e `4095`; a coordenada vertical usa a altura total de rolagem do documento. Dois valores de 12 bits ocupam 24 bits, então uma atualização de movimento usa três bytes:
 
 ```text
 byte 0: x[11..4]
@@ -21,7 +21,7 @@ byte 2: y[7..0]
 
 O módulo [`shared/cursor.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/shared/cursor.ts) controla os dois lados desse empacotamento. Ele limita posições inválidas antes de codificar e verifica o tamanho exato do frame ao decodificar. Em 1920 pixels, cada passo da quantização tem menos de meio pixel, uma precisão maior do que o marcador precisa.
 
-Quem recebe a mensagem não presume que o outro dispositivo tem o mesmo tamanho de tela. Os valores normalizados são expandidos de acordo com a própria viewport. Assim, o cursor representa uma posição relativa à tela, não uma coordenada do documento. A camada fica fixa na viewport, então a rolagem não move um marcador parado.
+Quem recebe a mensagem não presume que o outro dispositivo tem as mesmas dimensões de documento. Os valores normalizados são expandidos de acordo com a própria largura do documento e altura total de rolagem. Assim, o cursor continua preso a uma posição relativa na página, e a camada absoluta acompanha naturalmente o documento durante a rolagem.
 
 ## A identidade pertence à conexão
 

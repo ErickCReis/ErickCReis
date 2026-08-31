@@ -10,7 +10,7 @@ export const cursorServerOpcode = {
   leave: 2,
 } as const;
 
-export type CursorViewport = {
+export type CursorDocumentSize = {
   width: number;
   height: number;
 };
@@ -56,7 +56,7 @@ function assertByteLength(bytes: Uint8Array, expectedLength: number) {
   }
 }
 
-function toFiniteViewportSize(value: number) {
+function toFiniteDocumentSize(value: number) {
   return Number.isFinite(value) && value > 1 ? value - 1 : 1;
 }
 
@@ -64,15 +64,18 @@ function toNormalizedCoordinate(value: number, size: number) {
   if (!Number.isFinite(value)) return 0;
 
   return clamp(
-    Math.round((value / toFiniteViewportSize(size)) * CURSOR_COORD_MAX),
+    Math.round((value / toFiniteDocumentSize(size)) * CURSOR_COORD_MAX),
     0,
     CURSOR_COORD_MAX,
   );
 }
 
-export function packCursorPosition(point: CursorPoint, viewport: CursorViewport): Uint8Array {
-  const x = toNormalizedCoordinate(point.x, viewport.width);
-  const y = toNormalizedCoordinate(point.y, viewport.height);
+export function packCursorPosition(
+  point: CursorPoint,
+  documentSize: CursorDocumentSize,
+): Uint8Array {
+  const x = toNormalizedCoordinate(point.x, documentSize.width);
+  const y = toNormalizedCoordinate(point.y, documentSize.height);
 
   return new Uint8Array([x >> 4, ((x & 0x0f) << 4) | (y >> 8), y & 0xff]);
 }
@@ -86,17 +89,17 @@ export function unpackCursorPosition(bytes: Uint8Array): PackedCursorPosition {
   };
 }
 
-export function normalizedCursorToViewportPoint(
+export function normalizedCursorToDocumentPoint(
   position: PackedCursorPosition,
-  viewport: CursorViewport,
+  documentSize: CursorDocumentSize,
 ): CursorPoint {
   return {
     x:
       (clamp(position.x, 0, CURSOR_COORD_MAX) / CURSOR_COORD_MAX) *
-      toFiniteViewportSize(viewport.width),
+      toFiniteDocumentSize(documentSize.width),
     y:
       (clamp(position.y, 0, CURSOR_COORD_MAX) / CURSOR_COORD_MAX) *
-      toFiniteViewportSize(viewport.height),
+      toFiniteDocumentSize(documentSize.height),
   };
 }
 
