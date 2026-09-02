@@ -201,15 +201,12 @@ The scheduled report follows a narrow pipeline:
 ```ts
 const message = renderBlogReport(createBlogReport(blogViewsStore, now));
 
-return sendEmail({
-  to: BLOG_REPORT_EMAIL_TO,
-  ...message,
-});
+return sendEmail(message);
 ```
 
-`createBlogReport` handles calendar and aggregation rules. `renderBlogReport` handles presentation. The cron task selects the time and recipient. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) calls the provider and adds the sender address.
+`createBlogReport` handles calendar and aggregation rules. `renderBlogReport` handles presentation. The cron task selects the time. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) calls the provider and reads the shared recipient from `EMAIL_TO`.
 
-The delivery adapter accepts `to`, `subject`, `text`, and `html`, adds the fixed sender, and calls `resend.emails.send`. If `RESEND_API_KEY` is missing it returns `false`. It also returns `false` for a provider error or thrown exception after logging the error, and `true` only when the API call succeeds.
+The delivery adapter accepts `subject`, `text`, and `html`. It adds the fixed sender and the `EMAIL_TO` recipient before calling `resend.emails.send`. If `RESEND_API_KEY` or `EMAIL_TO` is missing, it returns `false`. It also returns `false` for a provider error or thrown exception after logging the error, and `true` only when the API call succeeds.
 
 The battery cron uses that boolean as its in-memory `batteryAlertSent` latch. A failed attempt does not suppress the next check five seconds later. A successful attempt suppresses repeats until the battery status changes. The blog report cron returns the result, but the code has no retry queue or persisted delivery record.
 

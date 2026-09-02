@@ -201,15 +201,12 @@ O relatório agendado segue um pipeline estreito:
 ```ts
 const message = renderBlogReport(createBlogReport(blogViewsStore, now));
 
-return sendEmail({
-  to: BLOG_REPORT_EMAIL_TO,
-  ...message,
-});
+return sendEmail(message);
 ```
 
-`createBlogReport` cuida das regras de calendário e agregação. `renderBlogReport` cuida da apresentação. A tarefa agendada escolhe o horário e o destinatário. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) chama o provedor e adiciona o remetente.
+`createBlogReport` cuida das regras de calendário e agregação. `renderBlogReport` cuida da apresentação. A tarefa agendada escolhe o horário. [`sendEmail`](https://github.com/ErickCReis/ErickCReis/blob/main/server/lib/email.ts) chama o provedor e lê o destinatário compartilhado de `EMAIL_TO`.
 
-O adaptador de entrega recebe `to`, `subject`, `text` e `html`, adiciona o remetente fixo e chama `resend.emails.send`. Se `RESEND_API_KEY` não existir, ele retorna `false`. Também retorna `false` para um erro do provedor ou uma exceção, depois de registrar o erro, e retorna `true` apenas quando a chamada à API termina sem erro.
+O adaptador de entrega recebe `subject`, `text` e `html`. Ele adiciona o remetente fixo e o destinatário de `EMAIL_TO` antes de chamar `resend.emails.send`. Se `RESEND_API_KEY` ou `EMAIL_TO` não existir, ele retorna `false`. Também retorna `false` para um erro do provedor ou uma exceção, depois de registrar o erro, e retorna `true` apenas quando a chamada à API termina sem erro.
 
 O cron da bateria usa esse booleano como seu latch em memória `batteryAlertSent`. Uma tentativa malsucedida não bloqueia a próxima verificação, feita cinco segundos depois. Um envio bem-sucedido evita repetições até que o status da bateria mude. O cron do relatório apenas devolve o resultado, mas o código não tem fila de tentativas nem registro persistente de entrega.
 

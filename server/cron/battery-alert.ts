@@ -5,27 +5,22 @@ import { isEmailConfigured, sendEmail } from "@server/lib/email";
 
 const BATTERY_ALERT_THRESHOLD_PERCENT = 50;
 
-const BATTERY_ALERT_EMAIL_TO = Bun.env.BATTERY_ALERT_EMAIL_TO?.trim() || null;
-
 let batteryAlertSent = false;
 let lastBatteryStatus: string | null = null;
 
 async function sendBatteryAlertEmail(batteryPercent: number) {
-  if (!BATTERY_ALERT_EMAIL_TO) return false;
-
   const timestamp = new Date().toISOString();
-  return sendEmail({
-    to: BATTERY_ALERT_EMAIL_TO,
-    ...renderBatteryAlert({
+  return sendEmail(
+    renderBatteryAlert({
       batteryPercent,
       thresholdPercent: BATTERY_ALERT_THRESHOLD_PERCENT,
       timestamp,
     }),
-  });
+  );
 }
 
 async function checkBatteryAndNotify() {
-  if (!isEmailConfigured() || !BATTERY_ALERT_EMAIL_TO) return;
+  if (!isEmailConfigured()) return;
 
   const { batteryPercent, batteryStatus } = getBatteryInfo({ forceRefresh: true });
 

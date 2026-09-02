@@ -1,5 +1,7 @@
+import * as v from "valibot";
 import type { SpotifyNowPlaying } from "@shared/stats/spotify";
 import type { StatModule } from "@server/stats/types";
+import { spotifyTokenAlert } from "@server/stats/spotify-token-alert";
 
 const SPOTIFY_TOKEN_ENDPOINT = "https://accounts.spotify.com/api/token";
 const SPOTIFY_NOW_PLAYING_ENDPOINT = "https://api.spotify.com/v1/me/player/currently-playing";
@@ -29,6 +31,25 @@ type SpotifyNowPlayingResponse = {
   currently_playing_type: string;
   item: SpotifyTrackPayload | null;
 };
+
+const spotifyTokenErrorSchema = v.pipe(
+  v.string(),
+  v.parseJson(),
+  v.object({
+    error: v.optional(v.string()),
+    error_description: v.optional(v.string()),
+  }),
+  v.transform((payload) => ({
+    error: payload.error ?? null,
+    errorDescription: payload.error_description ?? null,
+  })),
+);
+
+export function parseSpotifyTokenError(responseText: string) {
+  const result = v.safeParse(spotifyTokenErrorSchema, responseText);
+
+  return result.success ? result.output : { error: null, errorDescription: null };
+}
 
 function hasSpotifyCredentials() {
   return Boolean(
@@ -102,10 +123,20 @@ async function getSpotifyAccessToken() {
 
   if (!response.ok) {
     const responseText = await response.text();
+
+    const tokenError = parseSpotifyTokenError(responseText);
+    if (tokenError.error === "invalid_grant") {
+      await spotifyTokenAlert.notify({
+        errorDescription: tokenError.errorDescription ?? "Refresh token expired or revoked",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     throw new Error(`Spotify token refresh failed (${response.status}): ${responseText}`);
   }
 
   const payload = (await response.json()) as { access_token: string; expires_in: number };
+  spotifyTokenAlert.reset();
   tokenCache = {
     accessToken: payload.access_token,
     expiresAt: Date.now() + payload.expires_in * 1000,

@@ -20,8 +20,7 @@ services:
       DATA_DIR: ${DATA_DIR:-/app/data}
       BATTERY_SUPPLY_ROOT: ${BATTERY_SUPPLY_ROOT:-/host-sys/class/power_supply}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      BATTERY_ALERT_EMAIL_TO: ${BATTERY_ALERT_EMAIL_TO:-}
-      BLOG_REPORT_EMAIL_TO: ${BLOG_REPORT_EMAIL_TO:-}
+      EMAIL_TO: ${EMAIL_TO:-}
     volumes:
       - ./data:/app/data
       - /sys/class/power_supply:/host-sys/class/power_supply:ro
