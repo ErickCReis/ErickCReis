@@ -76,6 +76,20 @@ function connectSocket() {
   return ws;
 }
 
+function disconnectSocket() {
+  clearReconnectTimeout();
+  socket?.close();
+  socket = null;
+  latestCursorFrame = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", disconnectSocket);
+  window.addEventListener("pageshow", () => {
+    if (listeners.size > 0) connectSocket();
+  });
+}
+
 function getSocket() {
   return socket ?? connectSocket();
 }
@@ -88,10 +102,7 @@ export function subscribeCursor(onEvent: (event: CursorServerFrame) => void) {
     listeners.delete(onEvent);
 
     if (listeners.size === 0) {
-      clearReconnectTimeout();
-      socket?.close();
-      socket = null;
-      latestCursorFrame = null;
+      disconnectSocket();
     }
   };
 }
