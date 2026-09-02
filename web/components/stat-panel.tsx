@@ -117,13 +117,25 @@ export function PanelHeader(props: { title: string; actionUrl?: string; actionLa
         <Show when={isPinned()}>
           <button
             type="button"
+            aria-label={t("Release")}
+            title={t("Release")}
             onClick={(event) => {
               event.stopPropagation();
               onRelease();
             }}
-            class="inline-flex h-5 items-center rounded-md border border-slate-200/20 px-1.5 font-mono text-xxs tracking-wide text-slate-200/72 uppercase transition-colors hover:text-slate-100"
+            class="inline-flex size-5 items-center justify-center border-0 bg-transparent p-0 text-slate-200/72 transition-colors hover:text-slate-100"
           >
-            {t("Release")}
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+              class="size-3.5"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
         </Show>
       </div>
