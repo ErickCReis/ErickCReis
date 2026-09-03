@@ -74,5 +74,7 @@ describe("blog report", () => {
     expect(message.text).toContain("typescript-<patterns>: 1");
     expect(message.html).toContain("typescript-&lt;patterns>");
     expect(message.html).not.toContain("typescript-<patterns>");
+    expect(message.html).toContain("max-width:600px;margin:0 auto");
+    expect(message.html).toContain("color:#18181b;text-align:left");
   });
 });

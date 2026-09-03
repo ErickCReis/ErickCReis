@@ -87,6 +87,7 @@ export function EmailCard(props: ParentProps) {
       style={{
         width: "100%",
         "max-width": "600px",
+        margin: "0 auto",
         "border-collapse": "collapse",
         "background-color": "#ffffff",
         border: "1px solid #e4e4e7",
@@ -95,7 +96,14 @@ export function EmailCard(props: ParentProps) {
     >
       <tbody>
         <tr>
-          <td style={{ padding: "32px", "font-family": fontFamily, color: "#18181b" }}>
+          <td
+            style={{
+              padding: "32px",
+              "font-family": fontFamily,
+              color: "#18181b",
+              "text-align": "left",
+            }}
+          >
             {props.children}
           </td>
         </tr>
