@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import type { GitHubCommitStats } from "@shared/stats/github";
 import {
   deserializeGitHubCommitStats,
@@ -83,82 +82,27 @@ type StatsHistoryResponse = {
   tokenUsage: { latest: TokenUsageSnapshot; history: TokenUsageHistoryPoint[] };
 };
 
-type StatsStreamEventWire =
-  | { e: "sy"; d: SystemStatTuple }
-  | { e: "sr"; d: ServerInfoStatTuple }
-  | { e: "ws"; d: WebSocketStatTuple }
-  | { e: "sp"; d: SpotifyNowPlayingTuple }
-  | { e: "gh"; d: GitHubCommitStatsTuple }
-  | { e: "tu"; d: TokenUsageSnapshotTuple };
+type StatsStreamEventWire = {
+  e: StatEventCode;
+  d:
+    | SystemStatTuple
+    | ServerInfoStatTuple
+    | WebSocketStatTuple
+    | SpotifyNowPlayingTuple
+    | GitHubCommitStatsTuple
+    | TokenUsageSnapshotTuple;
+};
 
-type StatsStreamEvent =
-  | { name: "system"; data: SystemStat }
-  | { name: "server"; data: ServerInfoStat }
-  | { name: "websocket"; data: WebSocketStat }
-  | { name: "spotify"; data: SpotifyNowPlaying }
-  | { name: "github"; data: GitHubCommitStats }
-  | { name: "tokenUsage"; data: TokenUsageSnapshot };
-
-const systemStatTupleSchema = v.tuple([
-  v.number(),
-  v.number(),
-  v.number(),
-  v.number(),
-  v.number(),
-  v.number(),
-  v.nullable(v.number()),
-  v.nullable(v.picklist(["charging", "discharging", "full", "unknown"])),
-]) satisfies v.GenericSchema<unknown, SystemStatTuple>;
-
-const serverInfoStatTupleSchema = v.tuple([
-  v.number(),
-  v.string(),
-  v.number(),
-  v.number(),
-  v.array(v.tuple([v.string(), v.nullable(v.number())])),
-]) satisfies v.GenericSchema<unknown, ServerInfoStatTuple>;
-
-const websocketStatTupleSchema = v.tuple([
-  v.number(),
-  v.number(),
-  v.number(),
-  v.number(),
-]) satisfies v.GenericSchema<unknown, WebSocketStatTuple>;
-
-const spotifyNowPlayingTupleSchema = v.tuple([
-  v.boolean(),
-  v.boolean(),
-  v.nullable(v.string()),
-  v.nullable(v.string()),
-  v.array(v.string()),
-  v.nullable(v.string()),
-  v.nullable(v.string()),
-  v.number(),
-  v.number(),
-  v.number(),
-]) satisfies v.GenericSchema<unknown, SpotifyNowPlayingTuple>;
-
-const gitHubCommitStatsTupleSchema = v.tuple([
-  v.boolean(),
-  v.string(),
-  v.nullable(v.string()),
-  v.number(),
-  v.array(v.number()),
-  v.array(v.string()),
-  v.number(),
-  v.number(),
-  v.number(),
-]) satisfies v.GenericSchema<unknown, GitHubCommitStatsTuple>;
-
-const tokenUsageSnapshotTupleSchema = v.tuple([
-  v.number(),
-  v.nullable(v.number()),
-  v.boolean(),
-  v.number(),
-  v.number(),
-  v.array(v.string()),
-  v.array(v.tuple([v.string(), v.number(), v.array(v.number())])),
-]) satisfies v.GenericSchema<unknown, TokenUsageSnapshotTuple>;
+type StatsStreamEvent = {
+  name: StatEventName;
+  data:
+    | SystemStat
+    | ServerInfoStat
+    | WebSocketStat
+    | SpotifyNowPlaying
+    | GitHubCommitStats
+    | TokenUsageSnapshot;
+};
 
 const statEventCodes = {
   system: "sy",
@@ -167,7 +111,7 @@ const statEventCodes = {
   spotify: "sp",
   github: "gh",
   tokenUsage: "tu",
-} satisfies Record<StatEventName, StatEventCode>;
+} as const satisfies Record<StatEventName, StatEventCode>;
 
 const statEventNames = {
   sy: "system",
@@ -176,7 +120,7 @@ const statEventNames = {
   sp: "spotify",
   gh: "github",
   tu: "tokenUsage",
-} satisfies Record<StatEventCode, StatEventName>;
+} as const satisfies Record<StatEventCode, StatEventName>;
 
 export function serializeStatsHistoryResponse(
   data: StatsHistoryResponse,
@@ -240,22 +184,31 @@ export function deserializeStatsHistoryResponse(
   };
 }
 
-export function serializeStatsStreamEvent(event: StatsStreamEvent): StatsStreamEventWire {
-  switch (event.name) {
+export function serializeStatsStreamEvent(
+  name: StatEventName,
+  data:
+    | SystemStat
+    | ServerInfoStat
+    | WebSocketStat
+    | SpotifyNowPlaying
+    | GitHubCommitStats
+    | TokenUsageSnapshot,
+): StatsStreamEventWire {
+  switch (name) {
     case "system":
-      return { e: statEventCodes[event.name], d: serializeSystemStat(event.data) };
+      return { e: statEventCodes[name], d: serializeSystemStat(data as SystemStat) };
     case "server":
-      return { e: statEventCodes[event.name], d: serializeServerInfoStat(event.data) };
+      return { e: statEventCodes[name], d: serializeServerInfoStat(data as ServerInfoStat) };
     case "websocket":
-      return { e: statEventCodes[event.name], d: serializeWebSocketStat(event.data) };
+      return { e: statEventCodes[name], d: serializeWebSocketStat(data as WebSocketStat) };
     case "spotify":
-      return { e: statEventCodes[event.name], d: serializeSpotifyNowPlaying(event.data) };
+      return { e: statEventCodes[name], d: serializeSpotifyNowPlaying(data as SpotifyNowPlaying) };
     case "github":
-      return { e: statEventCodes[event.name], d: serializeGitHubCommitStats(event.data) };
+      return { e: statEventCodes[name], d: serializeGitHubCommitStats(data as GitHubCommitStats) };
     case "tokenUsage":
       return {
-        e: statEventCodes[event.name],
-        d: serializeTokenUsageSnapshot(event.data),
+        e: statEventCodes[name],
+        d: serializeTokenUsageSnapshot(data as TokenUsageSnapshot),
       };
   }
 }
@@ -265,34 +218,34 @@ export function deserializeStatsStreamEvent(wire: { e: string; d: unknown }): St
     case "sy":
       return {
         name: statEventNames[wire.e],
-        data: deserializeSystemStat(v.parse(systemStatTupleSchema, wire.d)),
+        data: deserializeSystemStat(wire.d as SystemStatTuple),
       };
     case "sr":
       return {
         name: statEventNames[wire.e],
-        data: deserializeServerInfoStat(v.parse(serverInfoStatTupleSchema, wire.d)),
+        data: deserializeServerInfoStat(wire.d as ServerInfoStatTuple),
       };
     case "ws":
       return {
         name: statEventNames[wire.e],
-        data: deserializeWebSocketStat(v.parse(websocketStatTupleSchema, wire.d)),
+        data: deserializeWebSocketStat(wire.d as WebSocketStatTuple),
       };
     case "sp":
       return {
         name: statEventNames[wire.e],
-        data: deserializeSpotifyNowPlaying(v.parse(spotifyNowPlayingTupleSchema, wire.d)),
+        data: deserializeSpotifyNowPlaying(wire.d as SpotifyNowPlayingTuple),
       };
     case "gh":
       return {
         name: statEventNames[wire.e],
-        data: deserializeGitHubCommitStats(v.parse(gitHubCommitStatsTupleSchema, wire.d)),
+        data: deserializeGitHubCommitStats(wire.d as GitHubCommitStatsTuple),
       };
     case "tu":
       return {
         name: statEventNames[wire.e],
-        data: deserializeTokenUsageSnapshot(v.parse(tokenUsageSnapshotTupleSchema, wire.d)),
+        data: deserializeTokenUsageSnapshot(wire.d as TokenUsageSnapshotTuple),
       };
   }
 
-  throw new Error(`Unknown stats stream event code: ${wire.e}`);
+  throw new Error(`Unknown stats stream event code: ${String((wire as { e?: unknown }).e)}`);
 }

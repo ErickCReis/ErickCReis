@@ -3,25 +3,19 @@ import { compress } from "@elysia/compress";
 import { Elysia } from "elysia";
 import { createDistAssetsSubrouter } from "@server/dist-assets";
 
-function requireEtag(response: Response) {
-  const etag = response.headers.get("etag");
-  expect(etag).toMatch(/^W\/"[0-9a-f]{16}"$/);
-  if (etag === null) throw new Error("Expected response to include an ETag");
-  return etag;
-}
-
 describe("dist asset cache validation", () => {
   it("returns an ETag and revalidates matching requests", async () => {
     const app = createDistAssetsSubrouter();
     const initial = await app.handle(new Request("http://localhost/"));
-    const etag = requireEtag(initial);
+    const etag = initial.headers.get("etag");
 
     expect(initial.status).toBe(200);
     expect(initial.headers.get("cache-control")).toBe("no-cache");
+    expect(etag).toMatch(/^W\/"[0-9a-f]{16}"$/);
 
     const revalidated = await app.handle(
       new Request("http://localhost/", {
-        headers: { "if-none-match": etag },
+        headers: { "if-none-match": etag! },
       }),
     );
 
@@ -34,11 +28,11 @@ describe("dist asset cache validation", () => {
   it("uses weak comparison and supports validator lists", async () => {
     const app = createDistAssetsSubrouter();
     const initial = await app.handle(new Request("http://localhost/"));
-    const etag = requireEtag(initial);
+    const etag = initial.headers.get("etag");
 
     const response = await app.handle(
       new Request("http://localhost/", {
-        headers: { "if-none-match": `"outdated", ${etag.replace(/^W\//, "")}` },
+        headers: { "if-none-match": `"outdated", ${etag!.replace(/^W\//, "")}` },
       }),
     );
 
@@ -64,7 +58,7 @@ describe("dist asset cache validation", () => {
         headers: { "accept-encoding": "gzip" },
       }),
     );
-    const etag = requireEtag(compressed);
+    const etag = compressed.headers.get("etag");
 
     expect(compressed.status).toBe(200);
     expect(compressed.headers.get("content-encoding")).toBe("gzip");
@@ -77,7 +71,7 @@ describe("dist asset cache validation", () => {
       new Request("http://localhost/", {
         headers: {
           "accept-encoding": "gzip",
-          "if-none-match": etag,
+          "if-none-match": etag!,
         },
       }),
     );

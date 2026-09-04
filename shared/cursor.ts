@@ -8,7 +8,7 @@ export const cursorServerOpcode = {
   move: 0,
   join: 1,
   leave: 2,
-};
+} as const;
 
 export type CursorDocumentSize = {
   width: number;

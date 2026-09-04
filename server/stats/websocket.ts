@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import type { WebSocketStat } from "@shared/stats/websocket";
 import type { StatModule } from "@server/stats/types";
 import { getDataPath } from "@server/data-dir";
@@ -9,19 +8,10 @@ const HOUR_MS = 3_600_000;
 const PERSIST_INTERVAL_MS = 30_000;
 const VIEWER_STALE_AFTER_MS = 45_000;
 
-const persistedDataSchema = v.object({
-  maxConcurrentUsers: v.optional(v.number()),
-  hourlyHistory: v.optional(
-    v.array(
-      v.object({
-        ts: v.number(),
-        count: v.number(),
-      }),
-    ),
-  ),
-});
-
-type PersistedData = v.InferOutput<typeof persistedDataSchema>;
+type PersistedData = {
+  maxConcurrentUsers: number;
+  hourlyHistory: { ts: number; count: number }[];
+};
 
 function getPersistPath() {
   return getDataPath("presence-stats-v1.json");
@@ -86,7 +76,7 @@ async function loadPersisted(): Promise<void> {
   const file = Bun.file(filePath);
   try {
     if (await file.exists()) {
-      const data = v.parse(persistedDataSchema, await file.json());
+      const data = (await file.json()) as PersistedData;
       maxConcurrentUsers = data.maxConcurrentUsers ?? 0;
       const cutoff = Date.now() - HOUR_MS;
       const restored = (data.hourlyHistory ?? []).filter((h) => h.ts >= cutoff);

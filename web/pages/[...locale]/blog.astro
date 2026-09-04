@@ -178,23 +178,12 @@ const blogPath = getLocalizedPath(locale, "blog");
 
     const normalize = (value: string) => value.trim().toLocaleLowerCase();
 
-    function parseTags(value: string | undefined): string[] {
-      try {
-        const parsed: unknown = JSON.parse(value ?? "[]");
-        return Array.isArray(parsed)
-          ? parsed.filter((tag): tag is string => typeof tag === "string")
-          : [];
-      } catch {
-        return [];
-      }
-    }
-
     function applyTagFilter(value: string, updateUrl = true) {
       const query = normalize(value);
       let visiblePosts = 0;
 
       for (const post of posts) {
-        const tags = parseTags(post.dataset.tags);
+        const tags = JSON.parse(post.dataset.tags ?? "[]") as string[];
         const visible = !query || tags.some((tag) => normalize(tag) === query);
         post.classList.toggle("hidden", !visible);
         visiblePosts += Number(visible);

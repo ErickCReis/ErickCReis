@@ -225,10 +225,9 @@ async function refreshFromDisk(force = false) {
   try {
     const exists = await file.exists();
     if (!exists) {
-      latestStore = createEmptyStore();
-      latestFileMtimeMs = null;
-      refreshDerivedSnapshot();
-      return;
+      const err = new Error("ENOENT") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      throw err;
     }
 
     const mtimeMs = file.lastModified;
@@ -257,7 +256,8 @@ async function refreshFromDisk(force = false) {
 
     console.error("[token-usage] Ignoring invalid usage file payload");
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    const nodeError = error as NodeJS.ErrnoException;
+    if (nodeError?.code === "ENOENT") {
       latestStore = createEmptyStore();
       latestFileMtimeMs = null;
       refreshDerivedSnapshot();
@@ -307,14 +307,14 @@ export async function persistTokenUsageSyncPayload(payload: TokenUsageSyncPayloa
       };
       const tempPath = `${filePath}.${Math.random().toString(36).slice(2)}.${Date.now()}.tmp`;
       const serialized = {
-        version: 2,
+        version: 2 as const,
         sources: normalized.sources.map((source) => ({
           sourceId: source.sourceId,
           providerId: source.providerId,
           generatedAt: source.generatedAt,
           daily: source.daily.map((entry) => ({ date: entry.date, ...entry.day })),
         })),
-      } satisfies v.InferInput<typeof persistedStoreSchema>;
+      };
 
       try {
         await Bun.write(tempPath, `${JSON.stringify(serialized, null, 2)}\n`);

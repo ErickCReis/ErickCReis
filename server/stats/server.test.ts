@@ -62,8 +62,6 @@ describe("buildDailyUptime", () => {
   it("maps custom_uptime_ranges to the requested UTC days", () => {
     const nowMs = Date.UTC(2026, 4, 20, 12, 0, 0);
     const ranges = getDailyRanges(nowMs);
-    const lastRange = ranges.at(-1);
-    if (!lastRange) throw new Error("Expected at least one uptime range");
     const percents = ranges.map((_, index) => (index === ranges.length - 1 ? 95.83 : 100));
 
     const daily = buildDailyUptime(nowMs, {
@@ -72,7 +70,7 @@ describe("buildDailyUptime", () => {
     });
 
     expect(daily.at(-1)).toEqual({
-      date: lastRange.date,
+      date: ranges[ranges.length - 1]!.date,
       uptimePercent: 95.83,
     });
   });

@@ -20,7 +20,7 @@ export function emailElement(
   type: EmailElementType,
   props: Record<string, unknown> | null,
   ...children: unknown[]
-) {
+): JSX.Element {
   const resolvedChildren = children.length === 1 ? children[0] : children;
 
   if (typeof type === "function") {
@@ -30,7 +30,12 @@ export function emailElement(
     });
   }
 
-  return ssrElement(type, props, resolveIntrinsicChild(resolvedChildren), false);
+  return ssrElement(
+    type,
+    props,
+    resolveIntrinsicChild(resolvedChildren),
+    false,
+  ) as unknown as JSX.Element;
 }
 
 export function renderEmail(template: () => JSX.Element) {

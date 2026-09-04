@@ -16,26 +16,21 @@ type SpotifyTokenCache = {
   expiresAt: number;
 };
 
-const spotifyAccessTokenSchema = v.object({
-  access_token: v.string(),
-  expires_in: v.number(),
-});
+type SpotifyTrackPayload = {
+  id: string;
+  name: string;
+  duration_ms: number;
+  artists: Array<{ name: string }>;
+  album: { name: string };
+  external_urls?: { spotify?: string };
+};
 
-const spotifyTrackSchema = v.object({
-  id: v.string(),
-  name: v.string(),
-  duration_ms: v.number(),
-  artists: v.array(v.object({ name: v.string() })),
-  album: v.object({ name: v.string() }),
-  external_urls: v.optional(v.object({ spotify: v.optional(v.string()) })),
-});
-
-const spotifyNowPlayingResponseSchema = v.object({
-  is_playing: v.boolean(),
-  progress_ms: v.nullable(v.number()),
-  currently_playing_type: v.string(),
-  item: v.unknown(),
-});
+type SpotifyNowPlayingResponse = {
+  is_playing: boolean;
+  progress_ms: number | null;
+  currently_playing_type: string;
+  item: SpotifyTrackPayload | null;
+};
 
 const spotifyTokenErrorSchema = v.pipe(
   v.string(),
@@ -140,7 +135,7 @@ async function getSpotifyAccessToken() {
     throw new Error(`Spotify token refresh failed (${response.status}): ${responseText}`);
   }
 
-  const payload = v.parse(spotifyAccessTokenSchema, await response.json());
+  const payload = (await response.json()) as { access_token: string; expires_in: number };
   spotifyTokenAlert.reset();
   tokenCache = {
     accessToken: payload.access_token,
@@ -188,12 +183,12 @@ async function requestNowPlaying(accessToken: string) {
     throw new Error(`Spotify now-playing request failed (${response.status}): ${responseText}`);
   }
 
-  const payload = v.parse(spotifyNowPlayingResponseSchema, await response.json());
-  if (payload.currently_playing_type !== "track" || !payload.item) {
+  const payload = (await response.json()) as SpotifyNowPlayingResponse;
+  const item = payload.item;
+
+  if (payload.currently_playing_type !== "track" || !item) {
     return { nowPlaying: createEmptyNowPlaying(true), retryAfterMs: null };
   }
-
-  const item = v.parse(spotifyTrackSchema, payload.item);
 
   return {
     nowPlaying: {

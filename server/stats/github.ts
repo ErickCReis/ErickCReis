@@ -28,46 +28,19 @@ const CONTRIBUTIONS_QUERY = `query($login: String!, $from: DateTime!, $to: DateT
 
 type ContributionDay = { date: string; contributionCount: number };
 
-const contributionDaySchema = v.object({
-  date: v.string(),
-  contributionCount: v.number(),
-});
-
-const gitHubGraphQLResponseSchema = v.object({
-  data: v.optional(
-    v.nullable(
-      v.object({
-        user: v.optional(
-          v.nullable(
-            v.object({
-              contributionsCollection: v.optional(
-                v.nullable(
-                  v.object({
-                    contributionCalendar: v.optional(
-                      v.nullable(
-                        v.object({
-                          totalContributions: v.optional(v.number()),
-                          weeks: v.optional(
-                            v.array(
-                              v.object({
-                                contributionDays: v.optional(v.array(contributionDaySchema)),
-                              }),
-                            ),
-                          ),
-                        }),
-                      ),
-                    ),
-                  }),
-                ),
-              ),
-            }),
-          ),
-        ),
-      }),
-    ),
-  ),
-  errors: v.optional(v.array(v.object({ message: v.optional(v.string()) }))),
-});
+type GitHubGraphQLResponse = {
+  data?: {
+    user?: {
+      contributionsCollection?: {
+        contributionCalendar?: {
+          totalContributions?: number;
+          weeks?: { contributionDays?: ContributionDay[] }[];
+        };
+      };
+    };
+  };
+  errors?: { message?: string }[];
+};
 
 class GitHubRateLimitError extends Error {
   retryAfterMs: number;
@@ -166,7 +139,7 @@ async function fetchContributionDays(
     throw new Error(`GitHub GraphQL request failed (${response.status}): ${responseText}`);
   }
 
-  const payload = v.parse(gitHubGraphQLResponseSchema, await response.json());
+  const payload = (await response.json()) as GitHubGraphQLResponse;
   if (payload.errors?.length) {
     throw new Error(`GitHub GraphQL errors: ${JSON.stringify(payload.errors)}`);
   }

@@ -9,12 +9,11 @@ function monitorPayload() {
   };
 }
 
-async function captureError(promise: Promise<unknown>): Promise<Error> {
+async function captureError(promise: Promise<unknown>) {
   try {
     await promise;
   } catch (error) {
-    if (error instanceof Error) return error;
-    throw new Error("Expected the promise to reject with an Error", { cause: error });
+    return error;
   }
 
   throw new Error("Expected the promise to reject");
@@ -49,7 +48,7 @@ describe("fetchMonitor", () => {
     const error = await captureError(fetchMonitor(1_700_000_000_000, fetchFn, async () => {}));
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toContain("invalid api key");
+    expect((error as Error).message).toContain("invalid api key");
     expect(calls).toBe(1);
   });
 
@@ -59,6 +58,6 @@ describe("fetchMonitor", () => {
     const error = await captureError(fetchMonitor(1_700_000_000_000, fetchFn, async () => {}));
 
     expect(error).toBeInstanceOf(Error);
-    expect(error.message).toBe("UptimeRobot request failed (400): upstream exploded");
+    expect((error as Error).message).toBe("UptimeRobot request failed (400): upstream exploded");
   });
 });

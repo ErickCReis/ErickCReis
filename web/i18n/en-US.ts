@@ -71,7 +71,7 @@ export const translations = {
   "0hpm52y": "SEO metadata, build-time Open Graph images, and an Astro dev-toolbar inspector.",
   "0ye8ewg": "Connected",
   "1c3f0mo": "WebSocket",
-};
+} as const;
 
 export type TranslationHash = keyof typeof translations;
 export type TranslationCatalog = typeof translations;
