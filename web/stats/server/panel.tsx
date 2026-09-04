@@ -61,4 +61,4 @@ export function ServerPanel() {
 }
 
 ServerPanel.primaryColor = PRIMARY_COLOR;
-ServerPanel.id = "server" as const;
+ServerPanel.id = "server";

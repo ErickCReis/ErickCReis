@@ -82,4 +82,4 @@ export function TokenUsagePanel() {
 }
 
 TokenUsagePanel.primaryColor = PRIMARY_COLOR;
-TokenUsagePanel.id = "tokenUsage" as const;
+TokenUsagePanel.id = "tokenUsage";

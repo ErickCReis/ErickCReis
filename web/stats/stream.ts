@@ -9,14 +9,28 @@ import { deserializeStatsStreamEvent } from "@shared/stats/transport";
 
 const RECONNECT_DELAY_MS = 1_000;
 
-const storeDispatch: Record<string, (data: never) => void> = {
-  system: (d) => systemStore.pushSample(d),
-  server: (d) => serverStore.pushSample(d),
-  websocket: (d) => websocketStore.pushSample(d),
-  spotify: (d) => spotifyStore.pushSample(d),
-  github: (d) => githubStore.pushSample(d),
-  tokenUsage: (d) => tokenUsageStore.pushSample(d),
-};
+function pushStreamEvent(event: ReturnType<typeof deserializeStatsStreamEvent>) {
+  switch (event.name) {
+    case "system":
+      systemStore.pushSample(event.data);
+      break;
+    case "server":
+      serverStore.pushSample(event.data);
+      break;
+    case "websocket":
+      websocketStore.pushSample(event.data);
+      break;
+    case "spotify":
+      spotifyStore.pushSample(event.data);
+      break;
+    case "github":
+      githubStore.pushSample(event.data);
+      break;
+    case "tokenUsage":
+      tokenUsageStore.pushSample(event.data);
+      break;
+  }
+}
 
 export async function subscribeStatsStream(signal?: AbortSignal) {
   while (!signal?.aborted) {
@@ -33,8 +47,7 @@ export async function subscribeStatsStream(signal?: AbortSignal) {
           continue;
         }
 
-        const push = storeDispatch[decoded.name];
-        if (push) push(decoded.data as never);
+        pushStreamEvent(decoded);
       }
     } catch (error) {
       if (signal?.aborted) {

@@ -92,11 +92,11 @@ The live route does not subscribe to source-specific emitters. Each SSE response
 const lastSeen = new Map<string, number>();
 
 while (true) {
-  for (const { name, mod } of statModules) {
+  for (const { name, mod, serialize } of statModules) {
     const version = mod.getVersion();
     if (version > (lastSeen.get(name) ?? 0)) {
       lastSeen.set(name, version);
-      const payload = serializeStatsStreamEvent(name, mod.getLatest());
+      const payload = serialize();
       yield sse({ event: payload.e, data: payload.d });
     }
   }

@@ -80,15 +80,12 @@ Todo arquivo mantém sua URL literal. Arquivos HTML recebem aliases limpos adici
 O import da macro é a fronteira de build:
 
 ```ts
-import {
-  loadDistAssetRoutes,
-  type DistAssetRoute,
-} from "./dist-assets.macro" with { type: "macro" };
+import { loadDistAssetRoutes } from "./dist-assets.macro" with { type: "macro" };
 
-const distAssetRoutes = loadDistAssetRoutes() as DistAssetRoute[];
+const distAssetRoutes = await loadDistAssetRoutes();
 ```
 
-O Bun avalia `loadDistAssetRoutes()` enquanto processa o build do servidor e substitui seu resultado. A inicialização em produção não percorre `dist` recursivamente. Ela percorre os metadados de rota já compilados em `myserver`.
+O Bun aguarda `loadDistAssetRoutes()` enquanto processa o build do servidor e substitui seu resultado. A inicialização em produção não percorre `dist` recursivamente. Ela percorre os metadados de rota já compilados em `myserver`.
 
 O loader também considera a ausência de `dist` um erro quando o Bun está compilando ou `NODE_ENV` é `production`. Assim, uma ordem de build invertida interrompe o release em vez de iniciar um servidor que retorna 404 para todas as páginas.
 
@@ -158,7 +155,9 @@ O servidor conecta o subroteador estático apenas quando `NODE_ENV === "producti
 Nem todo arquivo gerado tem o mesmo modelo de invalidação. O handler estático escolhe uma de três políticas:
 
 ```ts
-function getCacheControl(asset: DistAssetRoute) {
+type DistAsset = (typeof distAssetRoutes)[number];
+
+function getCacheControl(asset: DistAsset) {
   if (asset.routePath.startsWith("/_astro/")) {
     return "public, max-age=31536000, immutable";
   }

@@ -8,8 +8,8 @@ let mermaidPromise: Promise<Mermaid> | null = null;
 function ensureCssStyleSheet() {
   if ("CSSStyleSheet" in globalThis) return;
 
-  globalThis.CSSStyleSheet = class CSSStyleSheet {
-    cssRules: CSSRule[] = [];
+  class MinimalCssStyleSheet {
+    cssRules: { cssText: string }[] = [];
     rules = this.cssRules;
     ownerRule = null;
 
@@ -23,14 +23,20 @@ function ensureCssStyleSheet() {
     }
 
     insertRule(rule: string, index = this.cssRules.length) {
-      this.cssRules.splice(index, 0, { cssText: rule } as CSSRule);
+      this.cssRules.splice(index, 0, { cssText: rule });
       return index;
     }
 
     deleteRule(index: number) {
       this.cssRules.splice(index, 1);
     }
-  } as unknown as typeof CSSStyleSheet;
+  }
+
+  Object.defineProperty(globalThis, "CSSStyleSheet", {
+    configurable: true,
+    writable: true,
+    value: MinimalCssStyleSheet,
+  });
 }
 
 async function getMermaid() {

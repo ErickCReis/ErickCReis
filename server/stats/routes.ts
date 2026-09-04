@@ -11,12 +11,39 @@ import { websocketStat } from "@server/stats/websocket";
 const SSE_POLL_INTERVAL_MS = 500;
 
 const statModules = [
-  { name: "system" as const, mod: systemStat },
-  { name: "server" as const, mod: serverInfoStat },
-  { name: "websocket" as const, mod: websocketStat },
-  { name: "spotify" as const, mod: spotifyStat },
-  { name: "github" as const, mod: githubStat },
-  { name: "tokenUsage" as const, mod: tokenUsageStat },
+  {
+    name: "system",
+    mod: systemStat,
+    serialize: () => serializeStatsStreamEvent({ name: "system", data: systemStat.getLatest() }),
+  },
+  {
+    name: "server",
+    mod: serverInfoStat,
+    serialize: () =>
+      serializeStatsStreamEvent({ name: "server", data: serverInfoStat.getLatest() }),
+  },
+  {
+    name: "websocket",
+    mod: websocketStat,
+    serialize: () =>
+      serializeStatsStreamEvent({ name: "websocket", data: websocketStat.getLatest() }),
+  },
+  {
+    name: "spotify",
+    mod: spotifyStat,
+    serialize: () => serializeStatsStreamEvent({ name: "spotify", data: spotifyStat.getLatest() }),
+  },
+  {
+    name: "github",
+    mod: githubStat,
+    serialize: () => serializeStatsStreamEvent({ name: "github", data: githubStat.getLatest() }),
+  },
+  {
+    name: "tokenUsage",
+    mod: tokenUsageStat,
+    serialize: () =>
+      serializeStatsStreamEvent({ name: "tokenUsage", data: tokenUsageStat.getLatest() }),
+  },
 ];
 
 export const statsRoutes = new Elysia({ name: "stats-routes" })
@@ -30,11 +57,11 @@ export const statsRoutes = new Elysia({ name: "stats-routes" })
     const lastSeen = new Map<string, number>();
 
     while (true) {
-      for (const { name, mod } of statModules) {
+      for (const { name, mod, serialize } of statModules) {
         const version = mod.getVersion();
         if (version > (lastSeen.get(name) ?? 0)) {
           lastSeen.set(name, version);
-          const payload = serializeStatsStreamEvent(name, mod.getLatest());
+          const payload = serialize();
           yield sse({ event: payload.e, data: payload.d });
         }
       }

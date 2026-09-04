@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { version } from "../../package.json";
 import type { ServerInfoStat } from "@shared/stats/server";
 import type { StatModule } from "@server/stats/types";
@@ -18,11 +19,26 @@ const STREAK_LOG_LIMIT = 50;
 const REQUEST_TIMEOUT_MS = 15_000;
 const REQUEST_RETRY_DELAYS_MS = [1_000, 2_000];
 
-type UptimeRobotResponse = {
-  stat?: string;
-  error?: { message?: string };
-  monitors?: UptimeRobotMonitor[];
-};
+const uptimeRobotLogSchema = v.object({
+  type: v.optional(v.number()),
+  datetime: v.optional(v.number()),
+});
+
+const uptimeRobotMonitorSchema = v.object({
+  id: v.optional(v.number()),
+  status: v.optional(v.number()),
+  create_datetime: v.optional(v.number()),
+  custom_uptime_ranges: v.optional(v.string()),
+  custom_uptime_ratio: v.optional(v.string()),
+  custom_uptime_ratios: v.optional(v.string()),
+  logs: v.optional(v.array(uptimeRobotLogSchema)),
+});
+
+const uptimeRobotResponseSchema = v.object({
+  stat: v.optional(v.string()),
+  error: v.optional(v.object({ message: v.optional(v.string()) })),
+  monitors: v.optional(v.array(uptimeRobotMonitorSchema)),
+});
 
 type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -109,9 +125,9 @@ async function requestMonitor(nowMs: number, fetchFn: FetchFn) {
     );
   }
 
-  let payload: UptimeRobotResponse;
+  let payload;
   try {
-    payload = (await response.json()) as UptimeRobotResponse;
+    payload = v.parse(uptimeRobotResponseSchema, await response.json());
   } catch (error) {
     throw new UptimeRobotRequestError(
       `UptimeRobot returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,

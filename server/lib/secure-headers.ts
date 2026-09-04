@@ -3,7 +3,9 @@ const PERMISSIONS_POLICY = ["camera=()", "geolocation=()", "microphone=()", "pay
   ", ",
 );
 
-export function applySecureHeaders(headers: Record<string, string | number>) {
+export function applySecureHeaders(
+  headers: Record<string, string | number | string[] | undefined>,
+) {
   headers["x-content-type-options"] ??= "nosniff";
   headers["x-frame-options"] ??= "DENY";
   headers["referrer-policy"] ??= "strict-origin-when-cross-origin";

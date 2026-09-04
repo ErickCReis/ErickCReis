@@ -60,7 +60,11 @@ class FakeWebSocket {
 describe("cursor WebSocket transport", () => {
   beforeEach(() => {
     FakeWebSocket.instances = [];
-    globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+    Object.defineProperty(globalThis, "WebSocket", {
+      configurable: true,
+      writable: true,
+      value: FakeWebSocket,
+    });
   });
 
   afterAll(() => {

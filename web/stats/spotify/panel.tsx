@@ -59,4 +59,4 @@ export function SpotifyPanel() {
 }
 
 SpotifyPanel.primaryColor = PRIMARY_COLOR;
-SpotifyPanel.id = "spotify" as const;
+SpotifyPanel.id = "spotify";

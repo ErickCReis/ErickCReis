@@ -14,6 +14,11 @@ const DEFAULT_WINDOW_DAYS = 30;
 const DEFAULT_SESSIONS_SUBDIR = "sessions";
 const STABLE_SERVER_SOURCE_ID = "vps-prod";
 
+const syncResponseSchema = v.object({
+  daysSynced: v.optional(v.number()),
+  generatedAt: v.optional(v.number()),
+});
+
 type RawUsage = {
   input_tokens: number;
   cached_input_tokens: number;
@@ -95,12 +100,12 @@ function isWithinDateRange(date: string, since: string, until: string) {
   return date >= since && date <= until;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value == null || typeof value !== "object") {
-    return null;
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
 
-  return value as Record<string, unknown>;
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) ? value : null;
 }
 
 function ensureNumber(value: unknown) {
@@ -306,7 +311,7 @@ async function loadDailyUsageFromCodexSessions(
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }
@@ -369,7 +374,7 @@ async function loadDailyUsageFromPiSessions(config: ProviderConfig, since: strin
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }
@@ -440,7 +445,7 @@ async function loadDailyUsageFromClaudeSessions(
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }
@@ -550,7 +555,9 @@ function parseProviderSelection() {
 
   for (const value of raw.split(",").map((item) => item.trim().toLowerCase())) {
     if (value === "" || value === "all") {
-      for (const providerId of Object.keys(providers)) selected.add(providerId as ProviderId);
+      for (const providerId of Object.keys(providers)) {
+        if (isProviderId(providerId)) selected.add(providerId);
+      }
       continue;
     }
 
@@ -619,7 +626,7 @@ async function sendPayload(syncUrl: string, syncToken: string, payload: TokenUsa
     throw new Error(`Sync endpoint returned ${response.status}: ${responseText}`);
   }
 
-  return (await response.json()) as { daysSynced?: number; generatedAt?: number };
+  return v.parse(syncResponseSchema, await response.json());
 }
 
 async function main() {

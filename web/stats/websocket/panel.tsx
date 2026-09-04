@@ -68,4 +68,4 @@ export function WebSocketPanel() {
 }
 
 WebSocketPanel.primaryColor = PRIMARY_COLOR;
-WebSocketPanel.id = "websocket" as const;
+WebSocketPanel.id = "websocket";

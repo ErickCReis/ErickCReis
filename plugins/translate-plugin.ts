@@ -54,32 +54,28 @@ function createCollector(): TranslationCollector {
   };
 }
 
+function isEstreeNode(value: unknown): value is ESTree.Node {
+  return (
+    typeof value === "object" && value !== null && "type" in value && typeof value.type === "string"
+  );
+}
+
 function walkAst(node: ESTree.Node, visit: (node: ESTree.Node) => void): void {
   visit(node);
 
   for (const value of Object.values(node)) {
     if (Array.isArray(value)) {
       for (const entry of value) {
-        if (
-          typeof entry === "object" &&
-          entry !== null &&
-          "type" in entry &&
-          typeof entry.type === "string"
-        ) {
-          walkAst(entry as ESTree.Node, visit);
+        if (isEstreeNode(entry)) {
+          walkAst(entry, visit);
         }
       }
 
       continue;
     }
 
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "type" in value &&
-      typeof value.type === "string"
-    ) {
-      walkAst(value as ESTree.Node, visit);
+    if (isEstreeNode(value)) {
+      walkAst(value, visit);
     }
   }
 }
@@ -151,14 +147,14 @@ async function loadGeneratedLocaleCatalogs(options: {
 }): Promise<LocaleCatalogs> {
   return Object.fromEntries(
     await Promise.all(
-      options.locales.map(async (locale) => {
+      options.locales.map(async (locale): Promise<[string, TranslationCatalog]> => {
         if (locale === options.defaultLocale) {
-          return [locale, {}] as const;
+          return [locale, {}];
         }
 
         const filePath = resolve(options.rootDir, options.generatedDir, `${locale}.ts`);
         const rawCatalog = await importModuleIfExists(filePath);
-        return [locale, normalizeLocaleCatalog(rawCatalog)] as const;
+        return [locale, normalizeLocaleCatalog(rawCatalog)];
       }),
     ),
   );
@@ -211,7 +207,10 @@ function createDefaultCatalog(
   sourceStrings: string[],
   existingCatalog: Record<string, string> = {},
 ): Record<string, string> {
-  const nextEntries = sourceStrings.map((value) => [hashTranslationKey(value), value] as const);
+  const nextEntries = sourceStrings.map((value): [string, string] => [
+    hashTranslationKey(value),
+    value,
+  ]);
   const nextHashes = new Set(nextEntries.map(([hash]) => hash));
   const catalog: Record<string, string> = {};
 
@@ -277,10 +276,10 @@ function serializeTsProperty(key: string, value: string | null): string {
 }
 
 function createDefaultModule(catalog: Record<string, string>): string {
-  const entries = Object.entries(catalog) as [string, string][];
+  const entries = Object.entries(catalog);
 
   return [
-    `export const translations = ${serializeTsObject(entries)} as const;`,
+    `export const translations = ${serializeTsObject(entries)};`,
     "",
     "export type TranslationHash = keyof typeof translations;",
     "export type TranslationCatalog = typeof translations;",
@@ -300,7 +299,7 @@ function createLocaleModule(
   catalog: TranslationCatalog,
   defaultCatalog: Record<string, string>,
 ): string {
-  const entries = Object.entries(catalog) as [string, string | null][];
+  const entries = Object.entries(catalog);
   const body =
     entries.length === 0
       ? "{}"
@@ -423,9 +422,7 @@ export function createTranslateVitePlugin({
 
       return null;
     },
-    async load(...args) {
-      const [id, loadOptions] = args as [string, { ssr?: boolean }?];
-
+    async load(id, loadOptions) {
       if (id !== RESOLVED_VIRTUAL_MODULE_ID) {
         return null;
       }
@@ -529,9 +526,9 @@ export default function astroTranslate({
         const sourceStrings = collector.values();
         const generatedDirPath = resolve(rootDir, generatedDir);
         const defaultCatalogPath = resolve(generatedDirPath, `${defaultLocale}.ts`);
-        const existingDefaultCatalog = normalizeLocaleCatalog(
-          await importModuleIfExists(defaultCatalogPath),
-        ) as Record<string, string>;
+        const existingDefaultCatalog = createClientCatalog(
+          normalizeLocaleCatalog(await importModuleIfExists(defaultCatalogPath)),
+        );
         const defaultCatalog = createDefaultCatalog(sourceStrings, existingDefaultCatalog);
 
         await mkdir(generatedDirPath, { recursive: true });

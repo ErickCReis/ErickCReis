@@ -26,7 +26,11 @@ const includeScheduled = import.meta.env.MODE === "development";
 const entries = await getCollection("blog");
 const post = getBlogEntry(entries, slug, locale, {
   includeScheduled,
-})!;
+});
+
+if (!post) {
+  throw new Error(`Missing blog entry for locale "${locale}" and slug "${slug}"`);
+}
 
 const posts = getBlogEntries(entries, locale, { includeScheduled }).sort(
   (left, right) => right.entry.data.date.getTime() - left.entry.data.date.getTime(),
