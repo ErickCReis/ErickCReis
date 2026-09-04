@@ -9,7 +9,7 @@
     "tokens:sync": "bun scripts/token-usage-sync.ts",
     "db:generate": "drizzle-kit generate",
     "lint": "oxlint --fix --type-aware && oxfmt && tsgo --noEmit && astro check",
-    "build": "bun --bun astro build && bun build ./server/index.ts --compile --outfile myserver",
+    "build": "bun --bun astro build && bun scripts/build-server.ts",
     "start": "NODE_ENV=production bun server/index.ts"
   },
   "dependencies": {

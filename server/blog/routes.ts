@@ -1,13 +1,26 @@
 import { Elysia, t } from "elysia";
 import {
+  BLOG_POST_SLUG_MAX_LENGTH,
+  BLOG_POST_SLUG_PATTERN,
+  BLOG_POST_VIEW_MAX_BATCH_SLUGS,
   BLOG_POST_VISITOR_ID_PATTERN,
-  blogPostQueryRequestSchema,
   blogPostViewIncrementRequestSchema,
 } from "@shared/blog/views";
 import { createBlogPostViewsStore } from "@server/blog/views";
 import { createBlogVisitorId } from "@server/lib/id";
 
 const BLOG_VISITOR_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+
+const blogPostQuerySchema = t.Object({
+  slugs: t.Array(
+    t.String({
+      minLength: 1,
+      maxLength: BLOG_POST_SLUG_MAX_LENGTH,
+      pattern: BLOG_POST_SLUG_PATTERN.source,
+    }),
+    { minItems: 1, maxItems: BLOG_POST_VIEW_MAX_BATCH_SLUGS },
+  ),
+});
 
 const blogVisitorCookieSchema = t.Cookie(
   { blogVisitorId: t.Optional(t.String({ pattern: BLOG_POST_VISITOR_ID_PATTERN.source })) },
@@ -26,7 +39,7 @@ export const blogRoutes = new Elysia({ name: "blog-routes" })
   .get(
     "/blog/views",
     {
-      query: blogPostQueryRequestSchema,
+      query: blogPostQuerySchema,
     },
     ({ query, set }) => {
       set.headers["cache-control"] = "no-store";
