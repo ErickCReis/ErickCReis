@@ -211,7 +211,7 @@ O CORS é configurado separadamente. Em produção, requisições de navegador c
 O build Docker de múltiplos estágios compila com Bun e executa o resultado sem instalar Bun ou `node_modules` no estágio final:
 
 ```dockerfile
-FROM oven/bun:1.3 AS build
+FROM oven/bun:1.4.0 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -240,3 +240,33 @@ A imagem final contém três artefatos da aplicação:
 - `server/db/migrations` contém dados de runtime da aplicação e não participa do serviço estático.
 
 `dist` e o manifesto de rotas compilado precisam vir do mesmo build e ser distribuídos juntos. Caso contrário, o servidor pode registrar rotas para arquivos ausentes ou deixar de registrar arquivos existentes. Gerar ambos na mesma imagem mantém as URLs limpas, as respostas 404 e os headers de cache ligados aos arquivos servidos.
+
+## Atualização: as rotas de diretório do Bun 1.4 não substituíram o manifesto
+
+O Bun 1.4 adicionou rotas de diretório nativas ao `Bun.serve()`. Um único curinga parecia tornar todo o manifesto desnecessário:
+
+```ts
+const app = new Elysia({
+  serve: { routes: { "/*": { dir: resolve("dist") } } },
+});
+```
+
+Duas medições encerraram a ideia.
+
+O curinga se sobrepõe ao roteador da aplicação. Com a rota de diretório montada, um handler do Elysia registrado em `/api` retornou `404`; o mesmo handler retornou `200` assim que a rota foi removida. O Bun resolve `"/*"` antes da tabela de rotas do Elysia, e não depois, então a rota de diretório não funciona como fallback. Adotá-la teria derrubado todos os endpoints da API.
+
+As respostas de diretório nativas também ignoram o ciclo de vida do Elysia. Elas nunca chegam ao `afterHandle`, então `applySecureHeaders` não roda e o plugin de compressão não as enxerga. As requisições estáticas perderiam `x-frame-options`, `strict-transport-security`, `referrer-policy` e gzip, mantendo apenas os headers que o próprio Bun escreve.
+
+O manifesto gerado no build mantém tudo isso em um único ciclo de vida. Servir `/` a partir do binário compilado retorna o conjunto de headers de segurança, um `ETag` fraco com `304` na revalidação, `cache-control: no-cache` para HTML e `public, max-age=31536000, immutable` sob `/_astro/`, além de um corpo em gzip de 5.768 bytes a partir de 24.526 bytes.
+
+Ou seja, o Bun 1.4 mudou o runtime, não a arquitetura. A imagem base passou para `oven/bun:1.4.0` e as instalações passaram a ser isoladas:
+
+```toml
+[install]
+linker = "isolated"
+
+[run]
+noOrphans = true
+```
+
+Rotas de diretório continuam sendo uma boa escolha para um servidor que só serve arquivos. Este também atende requisições de API e WebSocket por um pipeline compartilhado de headers e compressão, e a precedência de rotas decide isso.
