@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { getDataPath } from "@server/data-dir";
-import { schema } from "@server/db/schema";
 
 const DEFAULT_DB_FILENAME = "server.sqlite";
 const DEFAULT_MIGRATIONS_FOLDER = join(process.cwd(), "server", "db", "migrations");
@@ -39,7 +38,7 @@ export function createServerDatabase(options: CreateServerDatabaseOptions = {}) 
     configureSqlite(client);
   }
 
-  const db = drizzle({ client, schema });
+  const db = drizzle({ client });
   migrate(db, { migrationsFolder: getMigrationsFolder(options.migrationsFolder) });
 
   return {
