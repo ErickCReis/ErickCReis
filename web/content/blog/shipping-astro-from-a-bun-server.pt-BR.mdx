@@ -211,7 +211,7 @@ O CORS é configurado separadamente. Em produção, requisições de navegador c
 O build Docker de múltiplos estágios compila com Bun e executa o resultado sem instalar Bun ou `node_modules` no estágio final:
 
 ```dockerfile
-FROM oven/bun:1.4.0 AS build
+FROM oven/bun:1.4 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -259,7 +259,7 @@ As respostas de diretório nativas também ignoram o ciclo de vida do Elysia. El
 
 O manifesto gerado no build mantém tudo isso em um único ciclo de vida. Servir `/` a partir do binário compilado retorna o conjunto de headers de segurança, um `ETag` fraco com `304` na revalidação, `cache-control: no-cache` para HTML e `public, max-age=31536000, immutable` sob `/_astro/`, além de um corpo em gzip de 5.768 bytes a partir de 24.526 bytes.
 
-Ou seja, o Bun 1.4 mudou o runtime, não a arquitetura. A imagem base passou para `oven/bun:1.4.0` e as instalações passaram a ser isoladas:
+Ou seja, o Bun 1.4 mudou o runtime, não a arquitetura. A imagem base passou para `oven/bun:1.4`, que acompanha o último patch em vez de fixar uma versão, e as instalações passaram a ser isoladas:
 
 ```toml
 [install]

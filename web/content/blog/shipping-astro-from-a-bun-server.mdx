@@ -211,7 +211,7 @@ CORS is configured separately. Production browser requests with credentials are 
 The multi-stage Docker build compiles with Bun, then runs the result without a Bun installation or `node_modules`:
 
 ```dockerfile
-FROM oven/bun:1.4.0 AS build
+FROM oven/bun:1.4 AS build
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -259,7 +259,7 @@ Native directory responses also skip the Elysia lifecycle. They never reach `aft
 
 The build-time manifest keeps all of it in one lifecycle. Serving `/` from the compiled binary returns the security header set, a weak `ETag` with a `304` on revalidation, `cache-control: no-cache` for HTML and `public, max-age=31536000, immutable` under `/_astro/`, and a gzip-encoded body of 5,768 bytes from 24,526 bytes on the wire.
 
-So Bun 1.4 changed the runtime, not the architecture. The base image moved to `oven/bun:1.4.0` and installs became isolated:
+So Bun 1.4 changed the runtime, not the architecture. The base image moved to `oven/bun:1.4`, which tracks the latest patch release rather than pinning one, and installs became isolated:
 
 ```toml
 [install]
