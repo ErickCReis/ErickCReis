@@ -306,7 +306,7 @@ async function loadDailyUsageFromCodexSessions(
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }
@@ -369,7 +369,7 @@ async function loadDailyUsageFromPiSessions(config: ProviderConfig, since: strin
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }
@@ -440,7 +440,7 @@ async function loadDailyUsageFromClaudeSessions(
 
       let parsedEntry: unknown;
       try {
-        parsedEntry = JSON.parse(trimmedLine) as unknown;
+        parsedEntry = JSON.parse(trimmedLine);
       } catch {
         continue;
       }

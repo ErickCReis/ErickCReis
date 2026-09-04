@@ -8,23 +8,23 @@ const presenceQuerySchema = t.Object({
 export const presenceRoutes = new Elysia({ name: "presence-routes" })
   .post(
     "/presence/ping",
+    {
+      query: presenceQuerySchema,
+    },
     ({ query, set }) => {
       set.headers["cache-control"] = "no-store";
       websocketStat.touchViewerTab(query.tabId);
       return { ok: true };
     },
-    {
-      query: presenceQuerySchema,
-    },
   )
   .post(
     "/presence/leave",
+    {
+      query: presenceQuerySchema,
+    },
     ({ query, set }) => {
       set.headers["cache-control"] = "no-store";
       websocketStat.removeViewerTab(query.tabId);
       return { ok: true };
-    },
-    {
-      query: presenceQuerySchema,
     },
   );

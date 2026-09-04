@@ -4,6 +4,7 @@ import { relative, resolve, sep } from "node:path";
 export type DistAssetRoute = {
   routePath: string;
   filePath: string;
+  etag: string;
 };
 
 function shouldRequireDist() {
@@ -52,7 +53,14 @@ function toRouteCandidates(relativePath: string): string[] {
   return [...routes];
 }
 
-export function loadDistAssetRoutes(): DistAssetRoute[] {
+async function createEtag(filePath: string) {
+  const hash = Bun.hash(await Bun.file(filePath).arrayBuffer())
+    .toString(16)
+    .padStart(16, "0");
+  return `W/"${hash}"`;
+}
+
+export async function loadDistAssetRoutes(): Promise<DistAssetRoute[]> {
   const distRoot = resolve(import.meta.dir, "../dist");
   if (!existsSync(distRoot)) {
     if (!shouldRequireDist()) {
@@ -67,6 +75,8 @@ export function loadDistAssetRoutes(): DistAssetRoute[] {
   const routes = new Map<string, DistAssetRoute>();
 
   for (const filePath of walkFiles(distRoot)) {
+    const etag = await createEtag(filePath);
+
     for (const routePath of toRouteCandidates(relative(distRoot, filePath))) {
       const existingRoute = routes.get(routePath);
       if (existingRoute) {
@@ -78,6 +88,7 @@ export function loadDistAssetRoutes(): DistAssetRoute[] {
       routes.set(routePath, {
         routePath,
         filePath,
+        etag,
       });
     }
   }

@@ -1,4 +1,4 @@
-import { treaty } from "@elysiajs/eden";
+import { treaty } from "@elysia/eden";
 import { decodeServerCursorFrame, type CursorServerFrame } from "@shared/cursor";
 import type { App } from "@server/index";
 

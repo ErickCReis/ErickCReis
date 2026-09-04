@@ -54,32 +54,28 @@ function createCollector(): TranslationCollector {
   };
 }
 
+function isEstreeNode(value: unknown): value is ESTree.Node {
+  return (
+    typeof value === "object" && value !== null && "type" in value && typeof value.type === "string"
+  );
+}
+
 function walkAst(node: ESTree.Node, visit: (node: ESTree.Node) => void): void {
   visit(node);
 
   for (const value of Object.values(node)) {
     if (Array.isArray(value)) {
       for (const entry of value) {
-        if (
-          typeof entry === "object" &&
-          entry !== null &&
-          "type" in entry &&
-          typeof entry.type === "string"
-        ) {
-          walkAst(entry as ESTree.Node, visit);
+        if (isEstreeNode(entry)) {
+          walkAst(entry, visit);
         }
       }
 
       continue;
     }
 
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "type" in value &&
-      typeof value.type === "string"
-    ) {
-      walkAst(value as ESTree.Node, visit);
+    if (isEstreeNode(value)) {
+      walkAst(value, visit);
     }
   }
 }
@@ -277,7 +273,7 @@ function serializeTsProperty(key: string, value: string | null): string {
 }
 
 function createDefaultModule(catalog: Record<string, string>): string {
-  const entries = Object.entries(catalog) as [string, string][];
+  const entries = Object.entries(catalog);
 
   return [
     `export const translations = ${serializeTsObject(entries)} as const;`,
@@ -300,7 +296,7 @@ function createLocaleModule(
   catalog: TranslationCatalog,
   defaultCatalog: Record<string, string>,
 ): string {
-  const entries = Object.entries(catalog) as [string, string | null][];
+  const entries = Object.entries(catalog);
   const body =
     entries.length === 0
       ? "{}"
@@ -423,9 +419,7 @@ export function createTranslateVitePlugin({
 
       return null;
     },
-    async load(...args) {
-      const [id, loadOptions] = args as [string, { ssr?: boolean }?];
-
+    async load(id, loadOptions) {
       if (id !== RESOLVED_VIRTUAL_MODULE_ID) {
         return null;
       }

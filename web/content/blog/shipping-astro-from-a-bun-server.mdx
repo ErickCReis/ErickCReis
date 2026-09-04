@@ -80,15 +80,12 @@ Every file keeps its literal URL. HTML receives additional clean aliases:
 The macro import is the build-time boundary:
 
 ```ts
-import {
-  loadDistAssetRoutes,
-  type DistAssetRoute,
-} from "./dist-assets.macro" with { type: "macro" };
+import { loadDistAssetRoutes } from "./dist-assets.macro" with { type: "macro" };
 
-const distAssetRoutes = loadDistAssetRoutes() as DistAssetRoute[];
+const distAssetRoutes = await loadDistAssetRoutes();
 ```
 
-Bun evaluates `loadDistAssetRoutes()` while processing the server build and substitutes its result. Production startup does not recursively scan `dist`. It iterates route metadata already compiled into `myserver`.
+Bun awaits `loadDistAssetRoutes()` while processing the server build and substitutes its result. Production startup does not recursively scan `dist`. It iterates route metadata already compiled into `myserver`.
 
 The loader also treats a missing `dist` as a build error when Bun is compiling or `NODE_ENV` is `production`. That turns a reversed build order into a failed release instead of a server that starts successfully and returns 404 for every page.
 
@@ -158,7 +155,9 @@ The server attaches the static subrouter only when `NODE_ENV === "production"`. 
 Not every generated file has the same invalidation model. The static handler assigns one of three policies:
 
 ```ts
-function getCacheControl(asset: DistAssetRoute) {
+type DistAsset = (typeof distAssetRoutes)[number];
+
+function getCacheControl(asset: DistAsset) {
   if (asset.routePath.startsWith("/_astro/")) {
     return "public, max-age=31536000, immutable";
   }

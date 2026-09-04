@@ -1,4 +1,4 @@
-import { cron, Patterns } from "@elysiajs/cron";
+import { cron, Patterns } from "@elysia/cron";
 import { renderBatteryAlert } from "@server/email/battery-alert";
 import { getBatteryInfo } from "@server/lib/battery";
 import { isEmailConfigured, sendEmail } from "@server/lib/email";

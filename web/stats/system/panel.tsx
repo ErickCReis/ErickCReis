@@ -69,4 +69,4 @@ export function SystemPanel() {
 }
 
 SystemPanel.primaryColor = PRIMARY_COLOR;
-SystemPanel.id = "system" as const;
+SystemPanel.id = "system";

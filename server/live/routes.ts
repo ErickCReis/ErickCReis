@@ -1,5 +1,5 @@
 import { Elysia } from "elysia";
-import type { ElysiaWS } from "elysia/ws";
+import { websocket } from "elysia/websocket";
 import {
   CURSOR_MAX_SLOTS,
   decodeClientCursorMoveFrame,
@@ -13,6 +13,10 @@ const CURSOR_TOPIC = "cursors";
 type CursorPeer = {
   slot: number;
   lastPosition: Uint8Array | null;
+};
+
+type CursorSocketSender = {
+  send(data: Uint8Array, compress?: boolean): number;
 };
 
 function isBinaryCursorPayload(payload: unknown): payload is ArrayBuffer | Uint8Array {
@@ -38,18 +42,18 @@ export function createLiveRoutes() {
     occupiedSlots.delete(slot);
   }
 
-  function sendPeerSnapshot(ws: ElysiaWS, selfId: string) {
+  function sendPeerSnapshot(ws: CursorSocketSender, selfId: string) {
     for (const [connectionId, peer] of peersByConnectionId) {
       if (connectionId === selfId) continue;
 
-      ws.sendBinary(encodeServerCursorJoin(peer.slot), false);
+      ws.send(encodeServerCursorJoin(peer.slot), false);
       if (peer.lastPosition) {
-        ws.sendBinary(encodeServerCursorMove(peer.slot, peer.lastPosition), false);
+        ws.send(encodeServerCursorMove(peer.slot, peer.lastPosition), false);
       }
     }
   }
 
-  return new Elysia({ name: "live-routes" }).ws("/live", {
+  return new Elysia({ name: "live-routes" }).use(websocket()).ws("/live", {
     open(ws) {
       const slot = allocateSlot();
       if (slot === null) {
@@ -60,7 +64,7 @@ export function createLiveRoutes() {
       peersByConnectionId.set(ws.id, { slot, lastPosition: null });
       ws.subscribe(CURSOR_TOPIC);
       sendPeerSnapshot(ws, ws.id);
-      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorJoin(slot), false);
+      ws.publish(CURSOR_TOPIC, encodeServerCursorJoin(slot), false);
     },
     message(ws, payload) {
       const peer = peersByConnectionId.get(ws.id);
@@ -70,7 +74,7 @@ export function createLiveRoutes() {
       if (!packedPosition) return;
 
       peer.lastPosition = packedPosition;
-      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorMove(peer.slot, packedPosition), false);
+      ws.publish(CURSOR_TOPIC, encodeServerCursorMove(peer.slot, packedPosition), false);
     },
     close(ws) {
       const peer = peersByConnectionId.get(ws.id);
@@ -80,7 +84,7 @@ export function createLiveRoutes() {
       if (!peer) return;
 
       releaseSlot(peer.slot);
-      ws.publishBinary(CURSOR_TOPIC, encodeServerCursorLeave(peer.slot), false);
+      ws.publish(CURSOR_TOPIC, encodeServerCursorLeave(peer.slot), false);
     },
   });
 }

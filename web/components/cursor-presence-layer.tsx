@@ -19,17 +19,17 @@ function CursorMarker(props: CursorMarkerProps) {
   const x = () => props.cursor()?.x ?? 0;
   const y = () => props.cursor()?.y ?? 0;
   const position = () => formatCursorPosition(x(), y());
-  const style = createMemo(() => {
+  const style = createMemo<JSX.CSSProperties>(() => {
     const cursor = props.cursor();
     if (!cursor) {
-      return {} as JSX.CSSProperties;
+      return {};
     }
 
     return {
       "--cursor-x": `${x()}px`,
       "--cursor-y": `${y()}px`,
       "--cursor-color": cursor.color,
-    } as JSX.CSSProperties;
+    };
   });
   const cursorLabel = () => props.cursor()?.label ?? "";
   const isSelf = () => props.cursor()?.isSelf ?? false;

@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
-import cors from "@elysiajs/cors";
+import { compress } from "@elysia/compress";
+import cors from "@elysia/cors";
 import { blogRoutes } from "@server/blog/routes";
 import { batteryAlertCron } from "@server/cron/battery-alert";
 import { blogReportCron } from "@server/cron/blog-report";
@@ -11,7 +12,8 @@ import { applySecureHeaders } from "@server/lib/secure-headers";
 import { startStatsServices, statsRoutes } from "@server/stats/routes";
 
 const app = new Elysia()
-  .onAfterHandle(({ set }) => {
+  .use(compress())
+  .afterHandle(({ set }) => {
     applySecureHeaders(set.headers);
   })
   .use(

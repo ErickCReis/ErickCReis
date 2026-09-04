@@ -54,4 +54,4 @@ export function GitHubPanel() {
 }
 
 GitHubPanel.primaryColor = PRIMARY_COLOR;
-GitHubPanel.id = "github" as const;
+GitHubPanel.id = "github";
