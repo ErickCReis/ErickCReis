@@ -14,7 +14,7 @@ void emailElement;
 
 type BatteryAlert = {
   batteryPercent: number;
-  thresholdPercent: number;
+  dischargingMinutes: number;
   timestamp: string;
 };
 
@@ -28,7 +28,7 @@ function BatteryAlertEmail(props: BatteryAlert) {
           <strong>discharging</strong>.
         </EmailText>
         <EmailText>
-          Alert threshold: below <strong>{props.thresholdPercent}%</strong>.
+          Alert trigger: discharging for <strong>{props.dischargingMinutes} minutes</strong>.
         </EmailText>
         <EmailText>
           Checked at: <code>{props.timestamp}</code>.
@@ -45,7 +45,7 @@ export function renderBatteryAlert(alert: BatteryAlert) {
       "Battery alert",
       "",
       `Your battery is at ${alert.batteryPercent}% and is currently discharging.`,
-      `Alert threshold: below ${alert.thresholdPercent}%.`,
+      `Alert trigger: discharging for ${alert.dischargingMinutes} minutes.`,
       `Checked at: ${alert.timestamp}.`,
     ].join("\n"),
     html: renderEmail(() => <BatteryAlertEmail {...alert} />),

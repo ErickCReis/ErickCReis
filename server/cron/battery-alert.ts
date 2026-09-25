@@ -3,17 +3,19 @@ import { renderBatteryAlert } from "@server/email/battery-alert";
 import { getBatteryInfo } from "@server/lib/battery";
 import { isEmailConfigured, sendEmail } from "@server/lib/email";
 
-const BATTERY_ALERT_THRESHOLD_PERCENT = 50;
+const BATTERY_ALERT_DISCHARGING_MINUTES = 3;
+const BATTERY_ALERT_DISCHARGING_MS = BATTERY_ALERT_DISCHARGING_MINUTES * 60_000;
 
 let batteryAlertSent = false;
 let lastBatteryStatus: string | null = null;
+let lastBatteryStatusChangedAt = Date.now();
 
 async function sendBatteryAlertEmail(batteryPercent: number) {
   const timestamp = new Date().toISOString();
   return sendEmail(
     renderBatteryAlert({
       batteryPercent,
-      thresholdPercent: BATTERY_ALERT_THRESHOLD_PERCENT,
+      dischargingMinutes: BATTERY_ALERT_DISCHARGING_MINUTES,
       timestamp,
     }),
   );
@@ -23,16 +25,18 @@ async function checkBatteryAndNotify() {
   if (!isEmailConfigured()) return;
 
   const { batteryPercent, batteryStatus } = getBatteryInfo({ forceRefresh: true });
+  const now = Date.now();
 
   if (batteryStatus !== lastBatteryStatus) {
     batteryAlertSent = false;
     lastBatteryStatus = batteryStatus;
+    lastBatteryStatusChangedAt = now;
   }
 
   const shouldAlert =
     batteryStatus === "discharging" &&
     batteryPercent !== null &&
-    batteryPercent < BATTERY_ALERT_THRESHOLD_PERCENT;
+    now - lastBatteryStatusChangedAt >= BATTERY_ALERT_DISCHARGING_MS;
 
   if (!shouldAlert || batteryAlertSent) return;
 
