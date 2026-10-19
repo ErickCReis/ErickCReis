@@ -13,12 +13,12 @@ import { startStatsServices, statsRoutes } from "@server/stats/routes";
 
 const app = new Elysia()
   .use(compress())
-  .request(({ request }): Promise<Response> | undefined => {
+  .onRequest(({ request }): Promise<Response> | undefined => {
     if (request.method !== "HEAD") return;
 
     return app.handle(new Request(request.url, { method: "GET", headers: request.headers }));
   })
-  .afterHandle(({ set }) => {
+  .onAfterHandle(({ set }) => {
     applySecureHeaders(set.headers);
   })
   .use(
