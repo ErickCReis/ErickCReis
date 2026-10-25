@@ -81,3 +81,14 @@ describe("dist asset cache validation", () => {
     expect(await revalidated.text()).toBe("");
   });
 });
+
+describe("dist asset trailing slash", () => {
+  it("redirects slashed paths to the canonical form, keeping the query", async () => {
+    const app = createDistAssetsSubrouter();
+    const response = await app.handle(new Request("http://localhost/blog/?tag=astro"));
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toBe("/blog?tag=astro");
+    expect((await app.handle(new Request("http://localhost/blog"))).status).toBe(200);
+  });
+});

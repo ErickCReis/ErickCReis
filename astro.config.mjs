@@ -12,6 +12,9 @@ export default defineConfig({
   srcDir: "./web",
   output: "static",
   site: "https://erickr.dev",
+  // Canonical URLs, the sitemap, and internal links omit the trailing slash;
+  // the server redirects "/blog/" to "/blog".
+  trailingSlash: "never",
   // Astro 7's default Rust-based Markdown processor. Its native mdast plugin API
   // runs the build-time mermaid transform (see plugins/satteri-static-mermaid.ts).
   // MDX extends this config by default, so .mdx content uses it too.

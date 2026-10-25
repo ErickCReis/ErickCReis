@@ -25,10 +25,6 @@ const locale = resolveLocale(lang);
 const pathname = Astro.url.pathname.replace(/\/+$/g, "") || "/";
 const pageType = seo?.type ?? "website";
 
-function withTrailingSlash(path: string) {
-  return path === "/" ? path : `${path.replace(/\/+$/g, "")}/`;
-}
-
 function getContentPath(path: string) {
   if (locale === defaultLocale) return path === "/" ? "" : path.slice(1);
 
@@ -38,7 +34,7 @@ function getContentPath(path: string) {
 }
 
 function getCanonicalUrl(path: string) {
-  return new URL(withTrailingSlash(path), Astro.site!);
+  return new URL(path, Astro.site!);
 }
 
 const contentPath = getContentPath(pathname);
@@ -72,7 +68,7 @@ const article =
     <OgSeo
       title={title}
       description={description}
-      canonical={withTrailingSlash(pathname)}
+      canonical={pathname}
       lang={locale}
       robots={seo?.robots}
       alternates={alternates}

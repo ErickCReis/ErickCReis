@@ -1,4 +1,4 @@
-import { Elysia, file } from "elysia";
+import { Elysia, file, redirect } from "elysia";
 import { loadDistAssetRoutes } from "./dist-assets.macro" with { type: "macro" };
 
 const distAssetRoutes = await loadDistAssetRoutes();
@@ -32,6 +32,15 @@ export function createDistAssetsSubrouter() {
   const router = new Elysia({ name: "dist-assets" });
 
   for (const asset of distAssetRoutes) {
+    // "/blog/" duplicates "/blog"; send crawlers to the canonical form.
+    if (asset.routePath.length > 1 && asset.routePath.endsWith("/")) {
+      const target = asset.routePath.slice(0, -1);
+      router.get(asset.routePath, ({ request }) =>
+        redirect(`${target}${new URL(request.url).search}`, 301),
+      );
+      continue;
+    }
+
     router.get(asset.routePath, ({ request, set }) => {
       set.headers["cache-control"] = getCacheControl(asset);
       set.headers.etag = asset.etag;
