@@ -1,3 +1,5 @@
+jsx = "react"
+
 [install]
 linker = "isolated"
 

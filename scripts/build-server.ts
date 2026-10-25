@@ -6,6 +6,7 @@ const OUTFILE = "./myserver";
 const result = await Bun.build({
   entrypoints: [SERVER_ENTRY],
   target: "bun",
+  jsx: { runtime: "classic" },
   compile: { outfile: OUTFILE },
   plugins: [aot(SERVER_ENTRY)],
 });
