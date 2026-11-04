@@ -87,8 +87,14 @@ const article =
       />
     </OgSeo>
     <meta name="theme-color" content="#070b13" />
-    <Font cssVariable="--font-family-sans" preload />
-    <Font cssVariable="--font-family-serif" preload />
+    <Font
+      cssVariable="--font-family-sans"
+      preload={[{ subset: "core", style: "normal" }]}
+    />
+    <Font
+      cssVariable="--font-family-serif"
+      preload={[{ subset: "core", style: "normal" }]}
+    />
     <Font cssVariable="--font-family-mono" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Scripts hold no class names; keep words in their comments out of the CSS. */
+@source not "../../scripts";
 @import "./typeset.css";
 
 .typeset-blog {
