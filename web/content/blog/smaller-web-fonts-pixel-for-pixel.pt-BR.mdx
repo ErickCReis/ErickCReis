@@ -1,0 +1,56 @@
+---
+title: "Fontes web menores, pixel por pixel"
+description: Como as fontes deste site caíram de 193 KB para 40 KB na página inicial sem mudar nenhum pixel renderizado.
+date: "2026-11-04"
+tags: [performance, fonts]
+---
+
+O Shu Ding [compartilhou um prompt](https://x.com/shuding/status/2115855028737200211) para pedir a um agente de código que otimize as fontes web de um site. A maioria das dicas sobre fontes para em "faça subset das fontes". Esse prompt pede arquivos menores enquanto todas as páginas continuam renderizando exatamente como antes, com diffs de pixels de antes e depois como prova. Rodei no meu site, e a parte rígida é onde estavam todos os problemas interessantes.
+
+## O que as páginas carregavam
+
+O site usa três famílias pela API de fontes do Astro. A Instrument Sans compõe o texto, a STIX Two Text compõe títulos e nomes de projetos, e a IBM Plex Mono compõe código e rótulos. Cada página baixava de 193 a 208 KB de fontes e fazia preload de quatro arquivos.
+
+Dois desses quatro preloads eram fontes itálicas. Nenhuma página deste site tem texto em itálico. A fonte sans também carregava um eixo de largura que nada usa, o que quase dobrava o tamanho dela.
+
+## O que as páginas usam
+
+O agente não confiou nas folhas de estilo. Ele renderizou as 30 páginas no Chrome e registrou as configurações de fonte calculadas de cada nó de texto. O texto sans usa os pesos 400, 500 e 600. O texto serifado usa só 400. A mono usa 400 e 500. Nada define largura, itálico ou `hyphens: auto`.
+
+A partir disso, os cortes foram:
+
+- Fixar o eixo de largura no valor padrão.
+- Fixar o peso da serifada em 400, o que deixa essa fonte 39% menor.
+- Manter Latin-1, Latin Extended-A e todo caractere que os arquivos antigos desenhavam. Os que eles não desenhavam, como `→` na mono, continuam vindo da mesma fonte de fallback.
+- Dividir cada fonte em um arquivo principal e um arquivo estendido. O principal tem ASCII, aspas curvas, travessões e as letras do português, já que metade do site está em português. O estendido fica atrás de `unicode-range` e só é baixado nas páginas que precisam de algum caractere dele.
+
+Um corte não sobreviveu. Terminar o eixo de peso da sans em 600 economiza cerca de 1 KB por arquivo. Só que isso também move alguns pontos dos contornos em menos de uma unidade da fonte, e foi o bastante para mudar o antialiasing dos botões de peso médio na página inicial. O eixo mantém o intervalo completo.
+
+## Provando que nada mudou
+
+O teste gera o site duas vezes, uma com as fontes antigas e outra com as novas. Ele tira screenshots das 30 páginas de cada build e compara pixel por pixel, em largura de desktop e de celular, com renderização por GPU e por software.
+
+A primeira comparação falhou em todas as páginas. Os contornos dos glifos batiam exatamente com os originais, mas cada letra renderizava um pouco diferente. Trocar as tabelas da fonte uma de cada vez mostrou a causa. O subsetter descartava os nomes dos glifos, e o Chrome no macOS rasteriza de outro jeito uma fonte sem eles. Uma bounding box recalculada e um glifo `.notdef` vazio causavam diferenças menores, e o subsetter arredondava alguns pontos dos contornos ao fixar um eixo. Nada disso aparece num inspetor de fontes. Só as screenshots pegaram.
+
+Os diagramas foram outra surpresa. O plugin do Mermaid sorteia os pontos de controle das curvas a cada build, então dois builds do mesmo post nunca batem. A comparação precisou fixar o markup dos diagramas antes de significar alguma coisa.
+
+Com tudo isso corrigido, nenhuma página tem um único pixel diferente. Medi tudo no Chrome no macOS.
+
+## Os números
+
+| Página                          | Antes        | Depois     |
+| ------------------------------- | ------------ | ---------- |
+| Página inicial e índice do blog | 193 KB       | 40 KB      |
+| Posts do blog                   | 193 a 208 KB | 40 a 53 KB |
+
+Os preloads passaram de quatro arquivos somando 178 KB para dois arquivos principais somando 32 KB.
+
+## Rodando de novo
+
+O build não processa as fontes. O [`scripts/subset-fonts.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/subset-fonts.ts) gera o site, lê quais caracteres ele usa e faz o subset das fontes originais com o HarfBuzz compilado para WebAssembly. Depois confere cada arquivo com o original e grava o resultado numa pasta que eu versiono.
+
+```sh
+bun run fonts:subset
+```
+
+Leva uns sete segundos. Vou rodar de novo quando os posts começarem a usar caracteres novos, ou quando algum estilo pedir um peso que as fontes não mantêm mais.

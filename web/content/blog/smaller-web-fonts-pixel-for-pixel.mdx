@@ -1,0 +1,56 @@
+---
+title: "Smaller web fonts, pixel for pixel"
+description: How this site's fonts went from 193 KB to 40 KB on the home page without changing a single rendered pixel.
+date: "2026-11-04"
+tags: [performance, fonts]
+---
+
+Shu Ding [shared a prompt](https://x.com/shuding/status/2115855028737200211) for asking a coding agent to optimize a site's web fonts. Most font advice stops at "subset your fonts." This prompt asks for smaller files while every page renders exactly as before, with before and after pixel diffs as proof. I ran it on this site, and the strict part is where all the interesting problems were.
+
+## What the pages loaded
+
+The site uses three families through Astro's font API. Instrument Sans sets the text, STIX Two Text sets titles and project names, and IBM Plex Mono sets code and labels. Every page downloaded 193 to 208 KB of fonts and preloaded four files.
+
+Two of those four preloads were italic fonts. No page on this site has italic text. The sans file also carried a width axis that nothing uses, which nearly doubled its size.
+
+## What the pages use
+
+The agent didn't trust the stylesheets. It rendered all 30 pages in Chrome and recorded the computed font settings of every text node. Sans text uses weights 400, 500 and 600. Serif text only uses 400. Mono uses 400 and 500. Nothing sets a width, italics or `hyphens: auto`.
+
+From that, the cuts were:
+
+- Fix the width axis at its default.
+- Fix the serif weight at 400, which makes that font 39% smaller.
+- Keep Latin-1, Latin Extended-A and every character the old files drew. Characters they didn't draw, like `→` in monospace, still come from the same fallback font.
+- Split each font into a core file and an extended file. The core holds ASCII, curly quotes, dashes and the Portuguese letters, since half of this site is in Portuguese. The extended file sits behind `unicode-range` and only downloads on pages that need one of its characters.
+
+One cut didn't survive. Ending the sans weight axis at 600 saves about 1 KB per file. It also moves some outline points by less than a font unit, and that was enough to change the antialiasing of the medium-weight buttons on the home page. The axis keeps its full range.
+
+## Proving nothing changed
+
+The test builds the site twice, once with the old fonts and once with the new ones. It screenshots all 30 pages from each build and compares them pixel by pixel, at desktop and mobile widths, with GPU and software rendering.
+
+The first comparison failed on every page. The glyph outlines matched the originals exactly, yet every letter rendered a little differently. Swapping font tables one at a time found the cause. The subsetter dropped the glyph names, and Chrome on macOS rasterizes a font without them differently. A recalculated bounding box and an empty `.notdef` glyph caused smaller differences, and the subsetter rounded some outline points when it fixed an axis. None of this shows up in a font inspector. Only the screenshots caught it.
+
+The diagrams were their own surprise. The Mermaid plugin randomizes its curve control points on every build, so two builds of the same post never match. The comparison had to hold the diagram markup constant before it meant anything.
+
+With all of that fixed, no page differs by a single pixel. I measured everything in Chrome on macOS.
+
+## The numbers
+
+| Page                | Before        | After       |
+| ------------------- | ------------- | ----------- |
+| Home and blog index | 193 KB        | 40 KB       |
+| Blog posts          | 193 to 208 KB | 40 to 53 KB |
+
+Preloads went from four files totaling 178 KB to two core files totaling 32 KB.
+
+## Rerunning it
+
+The build doesn't process fonts. [`scripts/subset-fonts.ts`](https://github.com/ErickCReis/ErickCReis/blob/main/scripts/subset-fonts.ts) builds the site, reads which characters it uses and subsets the original fonts with HarfBuzz compiled to WebAssembly. It checks each file against the original and writes the result to a folder I commit.
+
+```sh
+bun run fonts:subset
+```
+
+It takes about seven seconds. I'll rerun it when posts start using new characters, or when a style asks for a weight the fonts no longer keep.
