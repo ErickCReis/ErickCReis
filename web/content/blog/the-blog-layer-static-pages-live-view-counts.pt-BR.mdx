@@ -174,11 +174,13 @@ export const blogPostQueryRequestSchema = v.object({
 
 `GET /blog/views` lê até 100 chaves em uma consulta. `POST /blog/views` recebe uma chave e registra uma visualização. As duas respostas definem `cache-control: no-store`, e o cliente também solicita `cache: "no-store"`. Nem o navegador nem um cache intermediário devem servir uma contagem antiga.
 
-A API valida o formato da chave, mas não verifica se ela pertence à coleção compilada. Qualquer cliente pode criar linhas para uma chave inventada e bem-formada. Também não há rate limiter além da deduplicação por cookie, então clientes que descartam cookies podem inflar os totais.
+A API valida o formato da chave, mas não verifica se ela pertence à coleção compilada. Qualquer cliente pode criar linhas para uma chave inventada e bem-formada. Também não há rate limiter. Uma requisição sem cookie de visitante nunca conta, mas um script que mantém cada cookie por uma requisição a mais ainda pode inflar os totais.
 
 ## Conte uma visualização em uma única transação
 
-O primeiro `POST` atribui um ID opaco de visitante compatível com `ct_[A-Za-z0-9_-]{21}`. O Elysia o armazena por um ano em um cookie `HttpOnly` com `SameSite=Strict` e ativa `Secure` em produção. O JavaScript do cliente envia o cookie, mas não pode ler nem escolher seu valor.
+Os dois endpoints atribuem um ID opaco de visitante compatível com `ct_[A-Za-z0-9_-]{21}` quando a requisição não tem um. O Elysia o armazena por um ano em um cookie `HttpOnly` com `SameSite=Strict` e ativa `Secure` em produção. O JavaScript do cliente envia o cookie, mas não pode ler nem escolher seu valor.
+
+Um `POST` sem o cookie apenas recebe um. Ele devolve o total atual com `counted: false` e não grava nada, então um cliente que descarta cookies ganha uma identidade nova a cada requisição e nunca conta. Quem abre o arquivo do blog primeiro já tem o cookie ao abrir um artigo. Quem chega direto em um artigo passa a contar a partir do próximo.
 
 O SQLite mantém quatro projeções:
 
@@ -216,7 +218,7 @@ O valor exibido conta gravações aceitas de `(chave do conteúdo, cookie do vis
 
 Essa definição expõe os limites do sistema:
 
-- Limpar ou bloquear o cookie cria uma nova identidade de visitante.
+- Bloquear o cookie faz o leitor nunca contar. Limpá-lo faz o próximo artigo aberto não contar.
 - Várias pessoas usando o mesmo perfil de navegador são deduplicadas juntas.
 - Uma pessoa em múltiplos navegadores ou dispositivos é contada mais de uma vez.
 - Os totais se dividem quando uma fonte localizada ou um nome de arquivo usa outra chave.

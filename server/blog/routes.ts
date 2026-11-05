@@ -33,31 +33,47 @@ const blogVisitorCookieSchema = t.Cookie(
   },
 );
 
-const blogPostViewsStore = createBlogPostViewsStore();
+type BlogPostViewsStore = ReturnType<typeof createBlogPostViewsStore>;
 
-export const blogRoutes = new Elysia({ name: "blog-routes" })
-  .get(
-    "/blog/views",
-    {
-      query: blogPostQuerySchema,
-    },
-    ({ query, set }) => {
-      set.headers["cache-control"] = "no-store";
-      return blogPostViewsStore.getPostViewCounts(query.slugs);
-    },
-  )
-  .post(
-    "/blog/views",
-    {
-      body: blogPostViewIncrementRequestSchema,
-      cookie: blogVisitorCookieSchema,
-    },
-    ({ body, cookie, set }) => {
-      set.headers["cache-control"] = "no-store";
-      const visitorId = (cookie.blogVisitorId.value ??= createBlogVisitorId());
-      return blogPostViewsStore.registerPostView({
-        slug: body.slug,
-        visitorId,
-      });
-    },
-  );
+export function createBlogRoutes(store: BlogPostViewsStore = createBlogPostViewsStore()) {
+  return new Elysia({ name: "blog-routes" })
+    .get(
+      "/blog/views",
+      {
+        query: blogPostQuerySchema,
+        cookie: blogVisitorCookieSchema,
+      },
+      ({ query, cookie, set }) => {
+        set.headers["cache-control"] = "no-store";
+        // Readers who arrive through the archive get their cookie before opening a post.
+        cookie.blogVisitorId.value ??= createBlogVisitorId();
+        return store.getPostViewCounts(query.slugs);
+      },
+    )
+    .post(
+      "/blog/views",
+      {
+        body: blogPostViewIncrementRequestSchema,
+        cookie: blogVisitorCookieSchema,
+      },
+      ({ body, cookie, set }) => {
+        set.headers["cache-control"] = "no-store";
+        const visitorId = cookie.blogVisitorId.value;
+
+        // A request without a cookie only receives one. Clients that discard cookies
+        // would otherwise get a fresh visitor ID, and a counted view, on every request.
+        if (!visitorId) {
+          cookie.blogVisitorId.value = createBlogVisitorId();
+          return {
+            slug: body.slug,
+            totalViews: store.getPostViewCounts([body.slug])[body.slug] ?? 0,
+            counted: false,
+          };
+        }
+
+        return store.registerPostView({ slug: body.slug, visitorId });
+      },
+    );
+}
+
+export const blogRoutes = createBlogRoutes();

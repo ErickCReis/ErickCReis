@@ -174,11 +174,13 @@ export const blogPostQueryRequestSchema = v.object({
 
 `GET /blog/views` reads up to 100 keys in one query. `POST /blog/views` accepts one key and registers a view. Both responses set `cache-control: no-store`, and the client requests `cache: "no-store"` too. Neither the browser nor an intermediary cache should serve an old count.
 
-The API validates key shape but does not verify that a key belongs to the built collection. Any caller can create rows for a well-formed invented key. There is also no rate limiter beyond per-cookie deduplication, so clients that discard cookies can inflate totals.
+The API validates key shape but does not verify that a key belongs to the built collection. Any caller can create rows for a well-formed invented key. There is no rate limiter either. A request without a visitor cookie never counts, but a script that keeps each cookie for one extra request can still inflate totals.
 
 ## Count one view in one transaction
 
-The first `POST` assigns an opaque visitor ID matching `ct_[A-Za-z0-9_-]{21}`. Elysia stores it in a strict same-site, HTTP-only cookie with a one-year lifetime and enables `Secure` in production. Client JavaScript sends the cookie but cannot read or select its value.
+Both endpoints assign an opaque visitor ID matching `ct_[A-Za-z0-9_-]{21}` when the request has none. Elysia stores it in a strict same-site, HTTP-only cookie with a one-year lifetime and enables `Secure` in production. Client JavaScript sends the cookie but cannot read or select its value.
+
+A `POST` without the cookie only receives one. It returns the current total with `counted: false` and writes nothing, so a client that discards cookies gets a new identity on every request and never counts. A reader who opens the archive first already has the cookie when they open an article. A reader who lands directly on an article counts from their next article on.
 
 SQLite stores four projections:
 
@@ -216,7 +218,7 @@ The displayed value counts accepted `(content key, visitor cookie, 24-hour windo
 
 That definition exposes the system's limits:
 
-- Clearing or blocking the cookie creates a new visitor identity.
+- Blocking the cookie means the reader never counts. Clearing it means the next article they open does not count.
 - Several people sharing one browser profile are deduplicated together.
 - One person using multiple browsers or devices is counted multiple times.
 - View totals split when a localized source or filename uses a different key.
