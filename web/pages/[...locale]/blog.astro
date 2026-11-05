@@ -8,6 +8,7 @@ import { BlogViewCountsHydrator } from "@web/islands/blog-view-counts-hydrator";
 import { getBlogEntries, getBlogViewKey } from "@web/lib/blog";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
+import { PERSON_ID, absoluteUrl } from "@web/lib/structured-data";
 
 export function getStaticPaths() {
   return locales.map((locale) => ({
@@ -32,27 +33,35 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
 
 const posts = getBlogEntries(await getCollection("blog"), locale, {
   includeScheduled,
-})
-  .map(({ slug, entry }) => ({
-    ...entry.data,
-    viewKey: getBlogViewKey(entry),
-    href: getLocalizedPath(locale, `blog/${slug}`),
-  }))
-  .sort((a, b) => b.date.getTime() - a.date.getTime());
+}).map(({ slug, entry }) => ({
+  ...entry.data,
+  viewKey: getBlogViewKey(entry),
+  href: getLocalizedPath(locale, `blog/${slug}`),
+}));
 
 const tags = [...new Set(posts.flatMap((post) => post.tags))].sort((a, b) =>
   a.localeCompare(b),
 );
 const blogPath = getLocalizedPath(locale, "blog");
+const blogDescription = t(
+  locale,
+  "Notes on frontend engineering, systems work, and the decisions behind the build.",
+);
+const blogJsonLd = {
+  "@type": "Blog",
+  "@id": `${absoluteUrl(blogPath)}#blog`,
+  name: t(locale, "Blog | Erick Reis"),
+  description: blogDescription,
+  inLanguage: resolveLocale(locale),
+  author: { "@id": PERSON_ID },
+};
 ---
 
 <BaseLayout
   title={t(locale, "Blog | Erick Reis")}
-  description={t(
-    locale,
-    "Notes on frontend engineering, systems work, and the decisions behind the build.",
-  )}
+  description={blogDescription}
   lang={locale}
+  jsonLd={[blogJsonLd]}
 >
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
@@ -134,7 +143,9 @@ const blogPath = getLocalizedPath(locale, "blog");
                         {post.description}
                       </p>
                       <div class="flex flex-wrap gap-3 font-mono text-xxs tracking-widest text-muted-foreground uppercase">
-                        <span>{dateFormatter.format(post.date)}</span>
+                        <time datetime={post.date.toISOString()}>
+                          {dateFormatter.format(post.date)}
+                        </time>
                         <span data-post-view-count={post.viewKey}>
                           -- {t(locale, "views")}
                         </span>

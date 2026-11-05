@@ -64,7 +64,9 @@ export function getBlogEntries(
     }
   }
 
-  return [...postsBySlug.entries()].map(([slug, entry]) => ({ slug, entry }));
+  return [...postsBySlug.entries()]
+    .map(([slug, entry]) => ({ slug, entry }))
+    .sort((left, right) => right.entry.data.date.getTime() - left.entry.data.date.getTime());
 }
 
 export function getBlogStaticPaths(
