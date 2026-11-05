@@ -377,6 +377,22 @@
       width: max-content;
       max-width: none;
     }
+    /* Tables with prose cells: the wrapper grows past the text column up to
+       --typeset-wide (centered on it), cells keep wrapping, and the wrapper
+       scrolls only once the table would get narrower than its minimum width. */
+    &:where(.typeset-scroll--wrap) {
+      --typeset-wide: min(64rem, 100vw - 2rem);
+      width: max(100%, var(--typeset-wide));
+      margin-inline-start: min(0px, (100% - var(--typeset-wide)) / 2);
+    }
+    &:where(.typeset-scroll--wrap table) {
+      width: auto;
+      min-width: 48rem;
+      font-size: 0.875em;
+    }
+    &:where(.typeset-scroll--wrap :is(th, td):first-child) {
+      white-space: nowrap;
+    }
     &:where(thead th) {
       font-weight: 500;
       text-align: start;
