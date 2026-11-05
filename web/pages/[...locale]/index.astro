@@ -4,6 +4,7 @@ import LocaleSwitcher from "@web/components/locale-switcher.astro";
 import { HomeLiveOverlay } from "@web/islands/home-live-overlay";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
+import { PERSON_ID, WEBSITE_ID } from "@web/lib/structured-data";
 
 export function getStaticPaths() {
   return locales.map((locale) => ({
@@ -90,6 +91,14 @@ const featuredProjects = [
   title={t(locale, "Erick Reis | Portfolio")}
   description={homeDescription}
   lang={locale}
+  jsonLd={[
+    {
+      "@type": "ProfilePage",
+      inLanguage: locale,
+      isPartOf: { "@id": WEBSITE_ID },
+      mainEntity: { "@id": PERSON_ID },
+    },
+  ]}
 >
   <HomeLiveOverlay client:only="solid-js" />
   <main class="relative z-10">

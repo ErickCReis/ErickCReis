@@ -146,6 +146,8 @@ const translations = {
   "0ye8ewg": null,
   // WebSocket
   "1c3f0mo": null,
+  // Home
+  "0n0mxf2": "Início",
 } satisfies TranslationOverrides;
 
 export default translations;

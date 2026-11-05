@@ -14,6 +14,7 @@ import {
 import { PostViewCounter } from "@web/islands/post-view-counter";
 import BaseLayout from "@web/layouts/base-layout.astro";
 import { getLocalizedPath } from "@web/i18n";
+import { AUTHOR_NAME, PERSON_ID, absoluteUrl } from "@web/lib/structured-data";
 
 export async function getStaticPaths() {
   return getBlogStaticPaths(await getCollection("blog"), {
@@ -28,9 +29,7 @@ const post = getBlogEntry(entries, slug, locale, {
   includeScheduled,
 })!;
 
-const posts = getBlogEntries(entries, locale, { includeScheduled }).sort(
-  (left, right) => right.entry.data.date.getTime() - left.entry.data.date.getTime(),
-);
+const posts = getBlogEntries(entries, locale, { includeScheduled });
 const postIndex = posts.findIndex((entry) => entry.slug === slug);
 const nextPost = postIndex > 0 ? posts[postIndex - 1] : undefined;
 const previousPost = postIndex >= 0 ? posts[postIndex + 1] : undefined;
@@ -44,6 +43,34 @@ const dateFormatter = new Intl.DateTimeFormat(resolveLocale(locale), {
 const { Content } = await render(post);
 const viewKey = getBlogViewKey(post);
 const blogPath = getLocalizedPath(locale, "blog");
+const postPath = getLocalizedPath(locale, `blog/${slug}`);
+const breadcrumbs = [
+  [t(locale, "Home"), getLocalizedPath(locale)],
+  [t(locale, "Blog"), blogPath],
+  [post.data.title, postPath],
+];
+const postJsonLd = [
+  {
+    "@type": "BlogPosting",
+    headline: post.data.title,
+    description: post.data.description,
+    inLanguage: resolveLocale(locale),
+    datePublished: post.data.date.toISOString(),
+    author: { "@id": PERSON_ID },
+    isPartOf: { "@id": `${absoluteUrl(blogPath)}#blog` },
+    image: absoluteUrl(`/_og${postPath}/index.png`),
+    keywords: post.data.tags.join(", "),
+  },
+  {
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs.map(([name, path], index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name,
+      item: absoluteUrl(path),
+    })),
+  },
+];
 ---
 
 <BaseLayout
@@ -53,8 +80,16 @@ const blogPath = getLocalizedPath(locale, "blog");
   seo={{
     type: "article",
     publishedTime: post.data.date,
+    tags: post.data.tags,
   }}
+  jsonLd={postJsonLd}
 >
+  <link
+    slot="head"
+    rel="alternate"
+    type="text/markdown"
+    href={`${postPath}.md`}
+  />
   <main
     class="relative z-10 mx-auto min-h-svh w-full max-w-3xl px-4 py-12 md:min-h-dvh md:px-8"
     transition:animate={fade({ duration: "0.2s" })}
@@ -90,7 +125,16 @@ const blogPath = getLocalizedPath(locale, "blog");
           <div
             class="flex flex-wrap gap-3 font-mono text-xxs tracking-widest text-muted-foreground uppercase"
           >
-            <span>{dateFormatter.format(post.data.date)}</span>
+            <a
+              href={getLocalizedPath(locale)}
+              rel="author"
+              class="transition-colors hover:text-foreground"
+            >
+              {AUTHOR_NAME}
+            </a>
+            <time datetime={post.data.date.toISOString()}>
+              {dateFormatter.format(post.data.date)}
+            </time>
             <PostViewCounter client:only="solid-js" slug={viewKey} />
           </div>
           <div class="flex flex-wrap gap-2" aria-label={t(locale, "Tags")}>

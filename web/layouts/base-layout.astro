@@ -1,10 +1,12 @@
 ---
 import { Font } from "astro:assets";
+import type { OgSeoJsonLd } from "astro-og-seo";
 import OgSeo from "astro-og-seo/OgSeo.astro";
-import { defaultLocale, locales, resolveLocale } from "virtual:translate";
+import { defaultLocale, locales, resolveLocale, t } from "virtual:translate";
 import OgImageCard from "@web/components/og-image-card.astro";
 import SitePresenceScript from "@web/components/site-presence-script.astro";
 import { getLocalizedPath } from "@web/i18n";
+import { AUTHOR_NAME, siteJsonLd } from "@web/lib/structured-data";
 
 import "@web/styles/site.css";
 
@@ -17,10 +19,12 @@ interface Props {
     publishedTime?: Date | string;
     modifiedTime?: Date | string;
     robots?: string;
+    tags?: string[];
   };
+  jsonLd?: OgSeoJsonLd[];
 }
 
-const { title, description, lang = "en-US", seo } = Astro.props;
+const { title, description, lang = "en-US", seo, jsonLd = [] } = Astro.props;
 const locale = resolveLocale(lang);
 const pathname = Astro.url.pathname.replace(/\/+$/g, "") || "/";
 const pageType = seo?.type ?? "website";
@@ -56,8 +60,13 @@ const article =
     ? {
         publishedTime: seo.publishedTime,
         modifiedTime: seo.modifiedTime,
+        tags: seo.tags,
       }
     : undefined;
+const siteDescription = t(
+  locale,
+  "TypeScript engineer building React and Next.js products, microfrontends, and realtime applications.",
+);
 ---
 
 <!doctype html>
@@ -75,6 +84,7 @@ const article =
       alternateLocales={alternateLocales}
       type={pageType}
       article={article}
+      jsonLd={[...siteJsonLd(siteDescription), ...jsonLd]}
       generatedImageAlt={title}
     >
       <OgImageCard
@@ -86,6 +96,13 @@ const article =
         publishedTime={seo?.publishedTime}
       />
     </OgSeo>
+    <meta name="author" content={AUTHOR_NAME} />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={t(locale, "Blog | Erick Reis")}
+      href={getCanonicalUrl(getLocalizedPath(locale, "rss.xml"))}
+    />
     <meta name="theme-color" content="#070b13" />
     <Font
       cssVariable="--font-family-sans"

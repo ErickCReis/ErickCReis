@@ -47,6 +47,8 @@ function subsetFontFamily(key, cssVariable, fallbacks) {
   };
 }
 
+const locales = ["en-US", "pt-BR"];
+
 export default defineConfig({
   srcDir: "./web",
   output: "static",
@@ -63,11 +65,16 @@ export default defineConfig({
     }),
   },
   integrations: [
-    sitemap(),
+    sitemap({
+      i18n: {
+        defaultLocale: "en-US",
+        locales: Object.fromEntries(locales.map((locale) => [locale, locale])),
+      },
+    }),
     mdx(),
     solid(),
     astroTranslate({
-      locales: ["en-US", "pt-BR"],
+      locales,
       defaultLocale: "en-US",
     }),
     astroOgSeo({
